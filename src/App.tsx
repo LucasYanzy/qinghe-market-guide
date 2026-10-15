@@ -49,6 +49,8 @@ import {
 } from "recharts";
 import { api, money, shortDate } from "./api";
 import { BasketArt, Produce } from "./Produce";
+import { officialMarketUrl } from "./marketReference";
+import ReferencePrices from "./ReferencePrices";
 import type {
   Config,
   Dashboard,
@@ -462,7 +464,7 @@ function App() {
           {config.demo && (
             <div className="demo-notice">
               <span className="demo-badge">DEMO</span>{" "}
-              当前为演示市集，商品、价格历史及自提安排为示例数据。
+              当前为演示市集，地址、商品、价格历史及自提安排均未经官网核验。
               {retailer && " 商户修改会保存到本地数据库。"}
             </div>
           )}
@@ -645,6 +647,9 @@ function App() {
                     <span className="eyebrow">MEET US AT THE MARKET</span>
                     <h3>下次见面，就在市集。</h3>
                     <p>{markets[0].address}</p>
+                    {config.demo && (
+                      <p>演示地址 · 出发前请查看 Rutgers 官方安排</p>
+                    )}
                   </div>
                   <button
                     className="button secondary"
@@ -657,7 +662,9 @@ function App() {
               )}
             </>
           )}
-          {page === "markets" && <Markets markets={markets} />}
+          {page === "markets" && (
+            <Markets markets={markets} demo={config.demo} />
+          )}
           {page === "prices" && (
             <Prices products={products} revision={revision} />
           )}
@@ -1173,7 +1180,7 @@ function CartModal({
   );
 }
 
-function Markets({ markets }: { markets: Market[] }) {
+function Markets({ markets, demo }: { markets: Market[]; demo: boolean }) {
   if (!markets.length)
     return (
       <Empty
@@ -1184,6 +1191,35 @@ function Markets({ markets }: { markets: Market[] }) {
     );
   return (
     <div className="market-page">
+      <section className="official-market-reference">
+        <div className="official-reference-icon">
+          <Store size={25} />
+        </div>
+        <div className="official-reference-copy">
+          <span className="eyebrow">
+            RUTGERS · OFF-CAMPUS LIVING & COMMUNITY INITIATIVES
+          </span>
+          <h2>Rutgers Farmers Market</h2>
+          <p>
+            市场介绍请参考 Rutgers
+            官方页面。地址、开放日期、营业时间及食品援助政策需以官方最新公告为准。
+          </p>
+          {demo && (
+            <small>
+              当前下方展示的是流程演示，尚未与官网信息核对，请勿据此安排出行。
+            </small>
+          )}
+        </div>
+        <a
+          className="button official-reference-link"
+          href={officialMarketUrl}
+          target="_blank"
+          rel="noreferrer"
+        >
+          查看 Rutgers 官方页面
+          <ExternalLink size={15} />
+        </a>
+      </section>
       {markets.map((m) => (
         <section className="market-card" key={m.id}>
           <div
@@ -1195,17 +1231,24 @@ function Markets({ markets }: { markets: Market[] }) {
             <div className="map-road road-one" />
             <div className="map-road road-two" />
             <div className="map-road road-three" />
-            <span className="map-label map-label-one">RUTGERS GARDENS</span>
-            <span className="map-label map-label-two">LOG CABIN ROAD</span>
+            <span className="map-label map-label-one">MARKET LOCATION</span>
+            <span className="map-label map-label-two">
+              {demo ? "DEMO ROUTE" : "MARKET ROUTE"}
+            </span>
             <div className="map-pin">
               <Store size={30} />
             </div>
             <div className="map-tooltip">
               <strong>在这里，与新鲜见面</strong>
-              <small>Rutgers Gardens 社区市集</small>
+              <small>
+                {m.name}
+                {demo && " · 演示"}
+              </small>
             </div>
             <span className="map-disclaimer">
-              位置示意 · 请使用导航查看实际路线
+              {demo
+                ? "演示位置示意 · 非官网核验地点"
+                : "位置示意 · 请使用导航查看实际路线"}
             </span>
           </div>
           <div className="market-info">
@@ -1215,14 +1258,16 @@ function Markets({ markets }: { markets: Market[] }) {
             <div className="market-detail">
               <MapPin size={19} />
               <div>
-                <strong>市场地址</strong>
+                <strong>{demo ? "演示地址（待官网核验）" : "市场地址"}</strong>
                 <p>{m.address}</p>
               </div>
             </div>
             <div className="market-detail">
               <Clock3 size={19} />
               <div>
-                <strong>自提时间</strong>
+                <strong>
+                  {demo ? "演示自提时间（非官方营业安排）" : "自提时间"}
+                </strong>
                 <p>{m.hours}</p>
               </div>
             </div>
@@ -1235,7 +1280,7 @@ function Markets({ markets }: { markets: Market[] }) {
                 rel="noreferrer"
               >
                 <Navigation size={17} />
-                Google 地图导航
+                {demo ? "演示路线 · Google 地图" : "Google 地图导航"}
                 <ExternalLink size={14} />
               </a>
               <a
@@ -1244,12 +1289,14 @@ function Markets({ markets }: { markets: Market[] }) {
                 target="_blank"
                 rel="noreferrer"
               >
-                Apple 地图
+                {demo ? "演示路线 · Apple 地图" : "Apple 地图"}
                 <ArrowUpRight size={16} />
               </a>
             </div>
             <p className="helper-text">
-              导航会在地图服务中打开，不需要向本站提供你的位置。
+              {demo
+                ? "演示路线仅用于体验导航功能，出行前请通过上方官方页面核实实际地址。"
+                : "导航会在地图服务中打开，不需要向本站提供你的位置。"}
             </p>
           </div>
         </section>
@@ -1276,6 +1323,39 @@ function Markets({ markets }: { markets: Market[] }) {
 }
 
 function Prices({
+  products,
+  revision,
+}: {
+  products: Product[];
+  revision: number;
+}) {
+  const [view, setView] = useState<"archive" | "forecast">("archive");
+  return (
+    <>
+      <div className="category-tabs price-view-tabs" aria-label="价格资料类型">
+        <button
+          className={view === "archive" ? "selected" : ""}
+          onClick={() => setView("archive")}
+        >
+          Externship 采价档案
+        </button>
+        <button
+          className={view === "forecast" ? "selected" : ""}
+          onClick={() => setView("forecast")}
+        >
+          演示价格趋势与预测
+        </button>
+      </div>
+      {view === "archive" ? (
+        <ReferencePrices />
+      ) : (
+        <ForecastPrices products={products} revision={revision} />
+      )}
+    </>
+  );
+}
+
+function ForecastPrices({
   products,
   revision,
 }: {
