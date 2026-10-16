@@ -5,7 +5,8 @@
 ## 本轮范围
 
 - 顾客端：当日蔬菜、搜索与分类、购物袋、预购自提、订单状态与待确认订单取消。
-- 市场页：地址展示、Google Maps / Apple Maps 导航链接。
+- 市场页：四个官方地点、区域与地址搜索、日程时效标识、驾车/步行/公交导航、地址复制。
+- 帮助中心：Market Bucks、Food Pantry 等官方资源入口、联系方式、预购和商户使用 FAQ。
 - 商户端：经营概览、商品上架与编辑、价格和库存调整、确认预购与自提。
 - 价格观察：历史记录、7 天线性趋势预测及误差说明。
 - 基础邮箱登录、顾客注册、服务端角色校验，SQLite 持久化。
@@ -14,9 +15,20 @@
 
 ## Rutgers 官方资料来源
 
-项目指定参考页面：[Rutgers Farmers Market](https://ruoffcampus.rutgers.edu/basic-needs/food-assistance/rutgers-farmers-market)。市场页已提供直达入口，并将现有地址、导航路线及自提时段明确标为演示。
+已于 **2026-10-16** 读取并核对 [Rutgers Farmers Market](https://ruoffcampus.rutgers.edu/basic-needs/food-assistance/rutgers-farmers-market) 与 [Market Bucks Program](https://ruoffcampus.rutgers.edu/basic-needs/food-assistance/market-bucks-program)。整理内容保存在 `references/rutgers-market-guide.json`，首页、市场目录与帮助中心共用这份资料。
 
-**待完成官网核验**：当前云环境访问该页面时，HTTPS 代理返回 `403 Forbidden`，尚未读取网页正文。因此本轮没有把示例地址或时段改写成所谓的官方安排，也没有假设官网支持线上预购、线上付款或特定食品援助支付方式。需要恢复该域名访问，或由项目负责人提供页面原文后，才能准确同步市场地址、开放日期、营业时间和相关政策。
+| 地点                             | 官网街道地址                                       | 官网所列安排                            |
+| -------------------------------- | -------------------------------------------------- | --------------------------------------- |
+| College Ave Student Center       | 126 College Ave.                                   | 周四 11:00–16:00，截至 2025-11-20       |
+| Busch Student Center             | 604 Bartholomew Rd Suite 152, Piscataway, NJ 08854 | 春季学期每月举行，具体时间 TBD          |
+| Cook’s Market at Rutgers Gardens | 112 Log Cabin Road                                 | 周五 11:00–15:00，截至 2025-11-21       |
+| Kilmer Square Park Market        | 178 Jones Avenue                                   | 周二、周六 09:00–13:00，截至 2025-11-22 |
+
+**这些不是已确认的 2026 年开市安排。** 页面保留年份、待确认状态、来源与核对日期，不显示“今天营业”等推断。Kilmer 地点名称与街道按官网原文记录，未独立确认二者是否一致，已提示出行前核实。导航通过地址调用 Google / Apple Maps，支持驾车、步行和公共交通；示意坐标未用于导航。
+
+帮助中心包含官方食品援助入口、Market Bucks 的页面说明、办公室联系方式与顾客/商户 FAQ。官网称 Food Pantry 使用者每两周可领取 $10 代金券，无需额外申请；当前资格、可用性及参与摊位仍需向官方确认。本站没有线上代金券核销、食品援助审核或线上支付。官方页面进一步链接的 `communityfarmersmarket.rutgers.edu` 本次仍返回 403，因此未使用该站补充当前日程。
+
+现有本地数据库中的市场记录属于独立的演示预购场景；本轮未覆盖已有商品、订单或演示地点数据。真实地点浏览使用上述官方目录，演示预购不作为实际出行或取货凭据。
 
 ### Externship 采价参考
 
