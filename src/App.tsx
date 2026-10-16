@@ -51,6 +51,8 @@ import { api, money, shortDate } from "./api";
 import { BasketArt, Produce } from "./Produce";
 import { officialMarketUrl } from "./marketReference";
 import ReferencePrices from "./ReferencePrices";
+import { PageLink, useNavigation, type Page } from "./navigation";
+import { AboutMarket, PreorderSteps } from "./VisitorGuide";
 import type {
   Config,
   Dashboard,
@@ -63,8 +65,6 @@ import type {
   User,
 } from "./types";
 
-type Page =
-  "discover" | "markets" | "prices" | "orders" | "dashboard" | "inventory";
 type Cart = Record<number, number>;
 type CheckoutDraft = { slot: string; note: string };
 const statusLabels: Record<OrderStatus, string> = {
@@ -78,6 +78,7 @@ const clientNav = [
   { id: "markets", label: "市场与导航", icon: MapPin },
   { id: "prices", label: "价格观察", icon: BarChart3 },
   { id: "orders", label: "我的预购", icon: ShoppingBag },
+  { id: "about", label: "关于青禾", icon: Leaf },
 ] as const;
 const retailerNav = [
   { id: "dashboard", label: "经营概览", icon: BarChart3 },
@@ -202,7 +203,7 @@ function Empty({
 function App() {
   const [config, setConfig] = useState<Config>();
   const [user, setUser] = useState<User | null>(null);
-  const [page, setPage] = useState<Page>("discover");
+  const { page, navigate: changePage, replacePage } = useNavigation();
   const [products, setProducts] = useState<Product[]>([]);
   const [markets, setMarkets] = useState<Market[]>([]);
   const [loading, setLoading] = useState(true);
@@ -244,14 +245,14 @@ function App() {
       setUser(u.user);
       setProducts(p);
       setMarkets(m);
-      if (u.user?.role === "retailer")
-        setPage((prev) => (prev === "discover" ? "dashboard" : prev));
+      if (u.user?.role === "retailer" && window.location.pathname === "/")
+        replacePage("dashboard");
     } catch (e) {
       setLoadError((e as Error).message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [replacePage]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -278,9 +279,8 @@ function App() {
     return () => window.removeEventListener("focus", onFocus);
   }, [refresh]);
   const navigate = (next: Page) => {
-    setPage(next);
+    changePage(next);
     setMobileNav(false);
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const onLogin = (next: User) => {
     setUser(next);
@@ -291,12 +291,14 @@ function App() {
     }
     setAuthOpen(false);
     setCartOpen(loginIntent === "cart" && !resetCart);
-    setPage(
+    navigate(
       next.role === "retailer"
-        ? "dashboard"
+        ? page === "inventory"
+          ? "inventory"
+          : "dashboard"
         : loginIntent === "orders"
           ? "orders"
-          : retailer
+          : page === "dashboard" || page === "inventory" || page === "not-found"
             ? "discover"
             : page,
     );
@@ -339,7 +341,20 @@ function App() {
   if (sort === "price-down")
     visible = [...visible].sort((a, b) => b.price_cents - a.price_cents);
   const nav = retailer ? retailerNav : clientNav;
-  const title = nav.find((n) => n.id === page)?.label ?? "逛逛市集";
+  const title = {
+    discover: "逛逛市集",
+    markets: "市场与导航",
+    prices: "价格观察",
+    orders: retailer ? "预购订单" : "我的预购",
+    about: "关于青禾",
+    dashboard: "经营概览",
+    inventory: "商品与库存",
+    "not-found": "页面未找到",
+  }[page];
+  useEffect(() => {
+    document.title = `${title} · 青禾 Rutgers 社区农夫市集`;
+    setMobileNav(false);
+  }, [title, page]);
   const closeAuth = useCallback(() => {
     setAuthOpen(false);
     if (loginIntent === "cart") setCartOpen(true);
@@ -368,7 +383,10 @@ function App() {
       </div>
     );
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${retailer ? "retailer-site" : "visitor-site"}`}>
+      <a href="#main-content" className="skip-link">
+        跳到主要内容
+      </a>
       {mobileNav && (
         <button
           className="nav-scrim"
@@ -377,13 +395,10 @@ function App() {
         />
       )}
       <aside className={`sidebar ${mobileNav ? "sidebar-open" : ""}`}>
-        <a
+        <PageLink
           className="brand"
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            navigate(retailer ? "dashboard" : "discover");
-          }}
+          page={retailer ? "dashboard" : "discover"}
+          navigate={navigate}
         >
           <span className="brand-symbol">
             <Leaf size={25} />
@@ -394,23 +409,24 @@ function App() {
             </b>
             <small>RUTGERS FARMERS MARKET</small>
           </span>
-        </a>
+        </PageLink>
         <div className="workspace-label">
           <span className="tiny-dot" />
           {retailer ? "RETAILER · 商户工作台" : "CLIENT · 顾客空间"}
         </div>
         <nav aria-label="主导航">
           {nav.map((item) => (
-            <button
+            <PageLink
               key={item.id}
               className={`nav-item ${page === item.id ? "active" : ""}`}
-              aria-current={page === item.id ? "page" : undefined}
-              onClick={() => navigate(item.id)}
+              active={page === item.id}
+              page={item.id}
+              navigate={navigate}
             >
               <item.icon size={20} />
               {item.label}
               {page === item.id && <span className="nav-active-dot" />}
-            </button>
+            </PageLink>
           ))}
         </nav>
         <div className="sidebar-note">
@@ -453,6 +469,7 @@ function App() {
               className="icon-button mobile-menu"
               onClick={() => setMobileNav(true)}
               aria-label="打开导航"
+              aria-expanded={mobileNav}
             >
               <Menu />
             </button>
@@ -473,7 +490,7 @@ function App() {
             </button>
           </div>
         </header>
-        <main>
+        <main id="main-content" tabIndex={-1}>
           <div className="page-heading">
             <div>
               <div className="eyebrow">
@@ -496,7 +513,9 @@ function App() {
                         ? "找到身边的市集，让新鲜离你更近一点。"
                         : page === "prices"
                           ? "看懂价格的变化，为每一次选择多一份参考。"
-                          : "每一份期待，都值得新鲜抵达。"}
+                          : page === "about"
+                            ? "从屏幕到餐桌，让新鲜和邻里更近一点。"
+                            : "每一份期待，都值得新鲜抵达。"}
               </p>
             </div>
             {!retailer && (
@@ -513,7 +532,7 @@ function App() {
             <div className="demo-notice">
               <span className="demo-badge">DEMO</span>{" "}
               当前为演示市集，地址、商品、价格历史及自提安排均未经官网核验。
-              {retailer && " 商户修改会保存到本地数据库。"}
+              {retailer && " 商户修改会影响当前演示商品与订单。"}
             </div>
           )}
           {page === "discover" && (
@@ -534,17 +553,20 @@ function App() {
                     <br />
                     提前预购，来市集把好味道带回家。
                   </p>
-                  <button
-                    className="button primary"
-                    onClick={() =>
-                      document
-                        .getElementById("today-produce")
-                        ?.scrollIntoView({ behavior: "smooth" })
-                    }
-                  >
-                    挑选今日蔬菜
-                    <ArrowRight size={17} />
-                  </button>
+                  <div className="hero-actions">
+                    <a className="button primary" href="#today-produce">
+                      挑选今日蔬菜
+                      <ArrowRight size={17} />
+                    </a>
+                    <PageLink
+                      className="hero-guide-link"
+                      page="about"
+                      navigate={navigate}
+                    >
+                      了解预购流程
+                      <ChevronRight size={15} />
+                    </PageLink>
+                  </div>
                   <div className="hero-footnote">
                     <Sprout size={14} />
                     和社区一起，把日子过得更鲜活。
@@ -709,6 +731,7 @@ function App() {
                   </button>
                 </section>
               )}
+              <PreorderSteps navigate={navigate} />
             </>
           )}
           {page === "markets" && (
@@ -716,6 +739,42 @@ function App() {
           )}
           {page === "prices" && (
             <Prices products={products} revision={revision} />
+          )}
+          {page === "about" && (
+            <AboutMarket navigate={navigate} demo={config.demo} />
+          )}
+          {page === "not-found" && (
+            <Empty
+              icon={<MapPin />}
+              title="这条小路还没通往市集"
+              text="链接可能已变更。回到首页，继续寻找当季的新鲜吧。"
+              action={
+                <PageLink
+                  page="discover"
+                  navigate={navigate}
+                  className="button primary"
+                >
+                  返回市集首页
+                  <ArrowRight size={16} />
+                </PageLink>
+              }
+            />
+          )}
+          {(page === "dashboard" || page === "inventory") && !retailer && (
+            <Empty
+              icon={<Store />}
+              title="这里是商户工作台"
+              text="请登录商户账号，管理商品、库存和预购订单。"
+              action={
+                <button
+                  className="button primary"
+                  onClick={() => setAuthOpen(true)}
+                >
+                  商户登录
+                  <ArrowRight size={16} />
+                </button>
+              }
+            />
           )}
           {page === "orders" && (
             <Orders
@@ -745,19 +804,62 @@ function App() {
               notify={notify}
             />
           )}
-          <footer>
-            <span>
-              <Leaf size={14} />
-              青禾 · 让新鲜，发生在身边。
-            </span>
-            <span>
-              Rutgers Community Farmers Market{" "}
-              <span className="footer-dot">·</span>{" "}
-              {config.demo ? "演示版本" : "社区市集"}
-            </span>
+          <footer className="site-footer">
+            <div className="footer-brand">
+              <span>
+                <Leaf size={20} />
+                <strong>青禾 QINGHE</strong>
+              </span>
+              <p>让新鲜，发生在身边。</p>
+              <small>
+                {config.demo
+                  ? "社区市集项目 · 演示网站"
+                  : "Rutgers Community Farmers Market"}
+              </small>
+            </div>
+            <nav aria-label="页脚导航">
+              <span>探索市集</span>
+              <PageLink page="discover" navigate={navigate}>
+                今日蔬菜
+              </PageLink>
+              <PageLink page="markets" navigate={navigate}>
+                市场与导航
+              </PageLink>
+              <PageLink page="prices" navigate={navigate}>
+                价格观察
+              </PageLink>
+            </nav>
+            <nav aria-label="访客指南">
+              <span>第一次来</span>
+              <PageLink page="about" navigate={navigate}>
+                关于青禾与常见问题
+              </PageLink>
+              <PageLink page="orders" navigate={navigate}>
+                查看我的预购
+              </PageLink>
+              <a href={officialMarketUrl} target="_blank" rel="noreferrer">
+                Rutgers 官方市场信息
+                <ExternalLink size={12} />
+              </a>
+            </nav>
           </footer>
         </main>
       </div>
+      {!retailer && (
+        <nav className="mobile-site-nav" aria-label="手机快捷导航">
+          {clientNav.slice(0, 4).map((item) => (
+            <PageLink
+              key={item.id}
+              page={item.id}
+              navigate={navigate}
+              active={page === item.id}
+            >
+              <item.icon size={20} />
+              <span>{item.label}</span>
+            </PageLink>
+          ))}
+        </nav>
+      )}
       {toast && (
         <div className="toast" role="status">
           <CheckCircle2 size={19} />

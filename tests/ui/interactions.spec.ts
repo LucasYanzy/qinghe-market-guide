@@ -140,14 +140,14 @@ test("键盘焦点留在弹窗内，输入时不跳转，关闭后回到触发�
 
 test("从我的预购登录后继续查看订单", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "我的预购", exact: true }).click();
+  await page.getByRole("link", { name: "我的预购", exact: true }).click();
   await page.getByRole("button", { name: "登录 / 注册", exact: true }).click();
   await page.getByRole("button", { name: /顾客端演示/ }).click();
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
     "我的预购",
   );
   await expect(
-    page.getByRole("button", { name: "我的预购", exact: true }),
+    page.getByRole("link", { name: "我的预购", exact: true }),
   ).toHaveAttribute("aria-current", "page");
 });
 
@@ -197,7 +197,7 @@ test("商户保存期间锁定编辑弹窗，保存结果可重新读取", async
   await page.goto("/");
   await page.getByRole("button", { name: "商户入口", exact: true }).click();
   await page.getByRole("button", { name: /商户端演示/ }).click();
-  await page.getByRole("button", { name: "商品与库存", exact: true }).click();
+  await page.getByRole("link", { name: "商品与库存", exact: true }).click();
   await page.getByRole("button", { name: "编辑", exact: true }).first().click();
   const editor = page.getByRole("dialog", { name: "编辑这份新鲜" });
   await editor.getByLabel("关于这份新鲜").fill("商户交互测试：当季采收");
@@ -241,7 +241,7 @@ test("订单取消等待时不能关闭或重复操作，完成后显示取消�
   expect(response.ok()).toBe(true);
   const order = await response.json();
   await page.goto("/");
-  await page.getByRole("button", { name: "我的预购", exact: true }).click();
+  await page.getByRole("link", { name: "我的预购", exact: true }).click();
   const card = page.locator(".order-card").filter({ hasText: order.id });
   await card.getByRole("button", { name: "取消订单", exact: true }).click();
   const cancel = page.getByRole("dialog", { name: "取消这份预购？" });
