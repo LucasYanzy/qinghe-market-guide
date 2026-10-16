@@ -1321,6 +1321,21 @@ textarea {
   font-size: 10px;
   color: #9ba58b;
 }
+.form-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.stock-warning {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 10px;
+  margin-top: 8px;
+  color: #a45c31;
+  font-size: 11px;
+}
 .quantity-control {
   display: inline-flex;
   align-items: center;

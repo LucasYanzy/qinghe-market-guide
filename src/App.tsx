@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  ExternalLink,
   Leaf,
   LoaderCircle,
   LogOut,
@@ -48,7 +49,10 @@ import { api, money, shortDate } from "./api";
 import { BasketArt, Produce } from "./Produce";
 import MarketGuide, { HelpCenter } from "./MarketGuide";
 import guide from "../references/rutgers-market-guide.json";
+import { officialMarketUrl } from "./marketReference";
 import ReferencePrices from "./ReferencePrices";
+import { PageLink, useNavigation, type Page } from "./navigation";
+import { AboutMarket, PreorderSteps } from "./VisitorGuide";
 import type {
   Config,
   Dashboard,
@@ -60,15 +64,8 @@ import type {
   User,
 } from "./types";
 
-type Page =
-  | "discover"
-  | "markets"
-  | "prices"
-  | "orders"
-  | "dashboard"
-  | "inventory"
-  | "help";
 type Cart = Record<number, number>;
+type CheckoutDraft = { slot: string; note: string };
 const statusLabels: Record<OrderStatus, string> = {
   pending: "待商户确认",
   confirmed: "待到场自提",
@@ -80,6 +77,7 @@ const clientNav = [
   { id: "markets", label: "市场与导航", icon: MapPin },
   { id: "prices", label: "价格观察", icon: BarChart3 },
   { id: "orders", label: "我的预购", icon: ShoppingBag },
+  { id: "about", label: "关于青禾", icon: Leaf },
   { id: "help", label: "帮助与食品援助", icon: Leaf },
 ] as const;
 const retailerNav = [
@@ -95,11 +93,13 @@ function Modal({
   children,
   onClose,
   wide = false,
+  busy = false,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
   wide?: boolean;
+  busy?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -107,13 +107,28 @@ function Modal({
     const original = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     ref.current?.focus();
+    return () => {
+      document.body.style.overflow = original;
+      if (previous?.isConnected) previous.focus();
+    };
+  }, []);
+  useEffect(() => {
     const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && !busy) onClose();
       if (e.key === "Tab") {
-        const focusable = ref.current?.querySelectorAll<HTMLElement>(
-          "button:not(:disabled),input,select,textarea,a[href]",
+        const focusable = Array.from(
+          ref.current?.querySelectorAll<HTMLElement>(
+            'button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href],[tabindex="0"]',
+          ) ?? [],
+        ).filter(
+          (element) =>
+            element.tabIndex >= 0 && element.getClientRects().length > 0,
         );
-        if (!focusable?.length) return;
+        if (!focusable.length) {
+          e.preventDefault();
+          ref.current?.focus();
+          return;
+        }
         const first = focusable[0],
           last = focusable[focusable.length - 1];
         if (
@@ -131,16 +146,14 @@ function Modal({
     };
     document.addEventListener("keydown", key);
     return () => {
-      document.body.style.overflow = original;
       document.removeEventListener("keydown", key);
-      previous?.focus();
     };
-  }, [onClose]);
+  }, [onClose, busy]);
   return (
     <div
       className="modal-backdrop"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget && !busy) onClose();
       }}
     >
       <div
@@ -148,6 +161,7 @@ function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        aria-busy={busy}
         tabIndex={-1}
         ref={ref}
       >
@@ -157,6 +171,7 @@ function Modal({
             className="icon-button"
             onClick={onClose}
             aria-label="关闭弹窗"
+            disabled={busy}
           >
             <X size={20} />
           </button>
@@ -189,7 +204,7 @@ function Empty({
 function App() {
   const [config, setConfig] = useState<Config>();
   const [user, setUser] = useState<User | null>(null);
-  const [page, setPage] = useState<Page>("discover");
+  const { page, navigate: changePage, replacePage } = useNavigation();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -197,6 +212,13 @@ function App() {
   const [authOpen, setAuthOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [cart, setCart] = useState<Cart>({});
+  const [checkout, setCheckout] = useState<CheckoutDraft>({
+    slot: "",
+    note: "",
+  });
+  const [loginIntent, setLoginIntent] = useState<"cart" | "orders" | null>(
+    null,
+  );
   const [mobileNav, setMobileNav] = useState(false);
   const [detail, setDetail] = useState<Product>();
   const [revision, setRevision] = useState(0);
@@ -221,14 +243,14 @@ function App() {
       setConfig(c);
       setUser(u.user);
       setProducts(p);
-      if (u.user?.role === "retailer")
-        setPage((prev) => (prev === "discover" ? "dashboard" : prev));
+      if (u.user?.role === "retailer" && window.location.pathname === "/")
+        replacePage("dashboard");
     } catch (e) {
       setLoadError((e as Error).message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [replacePage]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -255,24 +277,43 @@ function App() {
     return () => window.removeEventListener("focus", onFocus);
   }, [refresh]);
   const navigate = (next: Page) => {
-    setPage(next);
+    changePage(next);
     setMobileNav(false);
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const onLogin = (next: User) => {
     setUser(next);
-    if (next.role === "retailer" || (user && user.id !== next.id)) setCart({});
+    const resetCart = next.role === "retailer" || (user && user.id !== next.id);
+    if (resetCart) {
+      setCart({});
+      setCheckout({ slot: "", note: "" });
+    }
     setAuthOpen(false);
-    setCartOpen(false);
-    setPage(next.role === "retailer" ? "dashboard" : "discover");
+    setCartOpen(loginIntent === "cart" && !resetCart);
+    navigate(
+      next.role === "retailer"
+        ? page === "inventory"
+          ? "inventory"
+          : "dashboard"
+        : loginIntent === "orders"
+          ? "orders"
+          : page === "dashboard" || page === "inventory" || page === "not-found"
+            ? "discover"
+            : page,
+    );
+    setLoginIntent(null);
     refresh();
-    notify(`欢迎回来，${next.name}`);
+    notify(
+      loginIntent === "cart" && !resetCart
+        ? "登录成功，请确认自提信息后提交预购"
+        : `欢迎回来，${next.name}`,
+    );
   };
   const logout = async () => {
     try {
       await api("/auth/logout", { method: "POST" });
       setUser(null);
       setCart({});
+      setCheckout({ slot: "", note: "" });
       navigate("discover");
       notify("已退出登录");
     } catch (e) {
@@ -298,8 +339,26 @@ function App() {
   if (sort === "price-down")
     visible = [...visible].sort((a, b) => b.price_cents - a.price_cents);
   const nav = retailer ? retailerNav : clientNav;
-  const title = nav.find((n) => n.id === page)?.label ?? "逛逛市集";
-  const closeAuth = useCallback(() => setAuthOpen(false), []);
+  const title = {
+    discover: "逛逛市集",
+    markets: "市场与导航",
+    prices: "价格观察",
+    orders: retailer ? "预购订单" : "我的预购",
+    about: "关于青禾",
+    help: "帮助与食品援助",
+    dashboard: "经营概览",
+    inventory: "商品与库存",
+    "not-found": "页面未找到",
+  }[page];
+  useEffect(() => {
+    document.title = `${title} · 青禾 Rutgers 社区农夫市集`;
+    setMobileNav(false);
+  }, [title, page]);
+  const closeAuth = useCallback(() => {
+    setAuthOpen(false);
+    if (loginIntent === "cart") setCartOpen(true);
+    setLoginIntent(null);
+  }, [loginIntent]);
   const closeCart = useCallback(() => setCartOpen(false), []);
   const closeDetail = useCallback(() => setDetail(undefined), []);
   if (loading)
@@ -323,7 +382,10 @@ function App() {
       </div>
     );
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${retailer ? "retailer-site" : "visitor-site"}`}>
+      <a href="#main-content" className="skip-link">
+        跳到主要内容
+      </a>
       {mobileNav && (
         <button
           className="nav-scrim"
@@ -332,13 +394,10 @@ function App() {
         />
       )}
       <aside className={`sidebar ${mobileNav ? "sidebar-open" : ""}`}>
-        <a
+        <PageLink
           className="brand"
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            navigate(retailer ? "dashboard" : "discover");
-          }}
+          page={retailer ? "dashboard" : "discover"}
+          navigate={navigate}
         >
           <span className="brand-symbol">
             <Leaf size={25} />
@@ -349,22 +408,24 @@ function App() {
             </b>
             <small>RUTGERS FARMERS MARKET</small>
           </span>
-        </a>
+        </PageLink>
         <div className="workspace-label">
           <span className="tiny-dot" />
           {retailer ? "RETAILER · 商户工作台" : "CLIENT · 顾客空间"}
         </div>
         <nav aria-label="主导航">
           {nav.map((item) => (
-            <button
+            <PageLink
               key={item.id}
               className={`nav-item ${page === item.id ? "active" : ""}`}
-              onClick={() => navigate(item.id)}
+              active={page === item.id}
+              page={item.id}
+              navigate={navigate}
             >
               <item.icon size={20} />
               {item.label}
               {page === item.id && <span className="nav-active-dot" />}
-            </button>
+            </PageLink>
           ))}
         </nav>
         <div className="sidebar-note">
@@ -407,6 +468,7 @@ function App() {
               className="icon-button mobile-menu"
               onClick={() => setMobileNav(true)}
               aria-label="打开导航"
+              aria-expanded={mobileNav}
             >
               <Menu />
             </button>
@@ -427,7 +489,7 @@ function App() {
             </button>
           </div>
         </header>
-        <main>
+        <main id="main-content" tabIndex={-1}>
           <div className="page-heading">
             <div>
               <div className="eyebrow">
@@ -452,7 +514,9 @@ function App() {
                           ? "看懂价格的变化，为每一次选择多一份参考。"
                           : page === "help"
                             ? "食品援助、使用指引与常见问题，陪你安心逛市集。"
-                            : "每一份期待，都值得新鲜抵达。"}
+                            : page === "about"
+                              ? "从屏幕到餐桌，让新鲜和邻里更近一点。"
+                              : "每一份期待，都值得新鲜抵达。"}
               </p>
             </div>
             {!retailer && (
@@ -470,7 +534,7 @@ function App() {
               <span className="demo-badge">DEMO</span>{" "}
               市场目录已核对官网；商品、库存与预购为演示，官方页面的 2025
               年日程不代表当前营业安排。
-              {retailer && " 商户修改会保存到本地数据库。"}
+              {retailer && " 商户修改会影响当前演示商品与订单。"}
             </div>
           )}
           {page === "discover" && (
@@ -491,17 +555,20 @@ function App() {
                     <br />
                     提前预购，来市集把好味道带回家。
                   </p>
-                  <button
-                    className="button primary"
-                    onClick={() =>
-                      document
-                        .getElementById("today-produce")
-                        ?.scrollIntoView({ behavior: "smooth" })
-                    }
-                  >
-                    挑选今日蔬菜
-                    <ArrowRight size={17} />
-                  </button>
+                  <div className="hero-actions">
+                    <a className="button primary" href="#today-produce">
+                      挑选今日蔬菜
+                      <ArrowRight size={17} />
+                    </a>
+                    <PageLink
+                      className="hero-guide-link"
+                      page="about"
+                      navigate={navigate}
+                    >
+                      了解预购流程
+                      <ChevronRight size={15} />
+                    </PageLink>
+                  </div>
                   <div className="hero-footnote">
                     <Sprout size={14} />
                     和社区一起，把日子过得更鲜活。
@@ -563,6 +630,7 @@ function App() {
                     <button
                       key={c}
                       className={category === c ? "selected" : ""}
+                      aria-pressed={category === c}
                       onClick={() => setCategory(c)}
                     >
                       {c === "全部蔬菜" && <Sprout size={16} />} {c}
@@ -674,6 +742,7 @@ function App() {
                   </button>
                 </section>
               )}
+              <PreorderSteps navigate={navigate} />
             </>
           )}
           {page === "markets" && <MarketGuide />}
@@ -681,13 +750,52 @@ function App() {
           {page === "prices" && (
             <Prices products={products} revision={revision} />
           )}
+          {page === "about" && (
+            <AboutMarket navigate={navigate} demo={config.demo} />
+          )}
+          {page === "not-found" && (
+            <Empty
+              icon={<MapPin />}
+              title="这条小路还没通往市集"
+              text="链接可能已变更。回到首页，继续寻找当季的新鲜吧。"
+              action={
+                <PageLink
+                  page="discover"
+                  navigate={navigate}
+                  className="button primary"
+                >
+                  返回市集首页
+                  <ArrowRight size={16} />
+                </PageLink>
+              }
+            />
+          )}
+          {(page === "dashboard" || page === "inventory") && !retailer && (
+            <Empty
+              icon={<Store />}
+              title="这里是商户工作台"
+              text="请登录商户账号，管理商品、库存和预购订单。"
+              action={
+                <button
+                  className="button primary"
+                  onClick={() => setAuthOpen(true)}
+                >
+                  商户登录
+                  <ArrowRight size={16} />
+                </button>
+              }
+            />
+          )}
           {page === "orders" && (
             <Orders
               user={user}
               revision={revision}
               refresh={refresh}
               notify={notify}
-              onLogin={() => setAuthOpen(true)}
+              onLogin={() => {
+                setLoginIntent("orders");
+                setAuthOpen(true);
+              }}
               onShop={() => navigate("discover")}
             />
           )}
@@ -706,19 +814,65 @@ function App() {
               notify={notify}
             />
           )}
-          <footer>
-            <span>
-              <Leaf size={14} />
-              青禾 · 让新鲜，发生在身边。
-            </span>
-            <span>
-              Rutgers Community Farmers Market{" "}
-              <span className="footer-dot">·</span>{" "}
-              {config.demo ? "演示版本" : "社区市集"}
-            </span>
+          <footer className="site-footer">
+            <div className="footer-brand">
+              <span>
+                <Leaf size={20} />
+                <strong>青禾 QINGHE</strong>
+              </span>
+              <p>让新鲜，发生在身边。</p>
+              <small>
+                {config.demo
+                  ? "社区市集项目 · 演示网站"
+                  : "Rutgers Community Farmers Market"}
+              </small>
+            </div>
+            <nav aria-label="页脚导航">
+              <span>探索市集</span>
+              <PageLink page="discover" navigate={navigate}>
+                今日蔬菜
+              </PageLink>
+              <PageLink page="markets" navigate={navigate}>
+                市场与导航
+              </PageLink>
+              <PageLink page="prices" navigate={navigate}>
+                价格观察
+              </PageLink>
+            </nav>
+            <nav aria-label="访客指南">
+              <span>第一次来</span>
+              <PageLink page="about" navigate={navigate}>
+                关于青禾与常见问题
+              </PageLink>
+              <PageLink page="orders" navigate={navigate}>
+                查看我的预购
+              </PageLink>
+              <PageLink page="help" navigate={navigate}>
+                帮助与食品援助
+              </PageLink>
+              <a href={officialMarketUrl} target="_blank" rel="noreferrer">
+                Rutgers 官方市场信息
+                <ExternalLink size={12} />
+              </a>
+            </nav>
           </footer>
         </main>
       </div>
+      {!retailer && (
+        <nav className="mobile-site-nav" aria-label="手机快捷导航">
+          {clientNav.slice(0, 4).map((item) => (
+            <PageLink
+              key={item.id}
+              page={item.id}
+              navigate={navigate}
+              active={page === item.id}
+            >
+              <item.icon size={20} />
+              <span>{item.label}</span>
+            </PageLink>
+          ))}
+        </nav>
+      )}
       {toast && (
         <div className="toast" role="status">
           <CheckCircle2 size={19} />
@@ -729,7 +883,12 @@ function App() {
         </div>
       )}
       {authOpen && (
-        <AuthModal demo={config.demo} onClose={closeAuth} onLogin={onLogin} />
+        <AuthModal
+          demo={config.demo}
+          onClose={closeAuth}
+          onLogin={onLogin}
+          checkout={loginIntent === "cart"}
+        />
       )}
       {cartOpen && (
         <CartModal
@@ -737,14 +896,18 @@ function App() {
           products={products}
           config={config}
           user={user}
+          draft={checkout}
+          onDraftChange={setCheckout}
           onClose={closeCart}
           onLogin={() => {
             setCartOpen(false);
+            setLoginIntent("cart");
             setAuthOpen(true);
           }}
           update={setCart}
           onSuccess={(order) => {
             setCart({});
+            setCheckout({ slot: "", note: "" });
             setCartOpen(false);
             refresh();
             navigate("orders");
@@ -862,10 +1025,12 @@ function AuthModal({
   demo,
   onClose,
   onLogin,
+  checkout = false,
 }: {
   demo: boolean;
   onClose: () => void;
   onLogin: (user: User) => void;
+  checkout?: boolean;
 }) {
   const [register, setRegister] = useState(false);
   const [email, setEmail] = useState("");
@@ -875,6 +1040,7 @@ function AuthModal({
   const [error, setError] = useState("");
   const submit = async (e?: FormEvent, role?: Role) => {
     e?.preventDefault();
+    if (busy) return;
     setError("");
     setBusy(true);
     try {
@@ -896,8 +1062,13 @@ function AuthModal({
     <Modal
       title={register ? "加入青禾社区" : "你好，欢迎来到青禾"}
       onClose={onClose}
+      busy={busy}
     >
-      <p className="modal-intro">一个账号，连接附近的好食物与好邻里。</p>
+      <p className="modal-intro">
+        {checkout
+          ? "购物袋、自提时段和备注已保留。登录顾客账号后继续确认，不会自动下单。"
+          : "一个账号，连接附近的好食物与好邻里。"}
+      </p>
       {demo && (
         <div className="demo-login">
           <span className="eyebrow">体验完整的双端流程</span>
@@ -930,58 +1101,61 @@ function AuthModal({
         <span>或使用邮箱{register ? "注册" : "登录"}</span>
       </div>
       <form onSubmit={submit} className="form-stack">
-        {register && (
+        <fieldset className="form-fields form-stack" disabled={busy}>
+          {register && (
+            <label>
+              称呼
+              <input
+                required
+                maxLength={40}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoComplete="name"
+                placeholder="我们该怎么称呼你"
+              />
+            </label>
+          )}
           <label>
-            称呼
+            邮箱地址
             <input
               required
-              maxLength={40}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoComplete="name"
-              placeholder="我们该怎么称呼你"
+              type="email"
+              maxLength={254}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              placeholder="you@example.com"
             />
           </label>
-        )}
-        <label>
-          邮箱地址
-          <input
-            required
-            type="email"
-            maxLength={254}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
-            placeholder="you@example.com"
-          />
-        </label>
-        <label>
-          密码
-          <input
-            required
-            type="password"
-            minLength={register ? 10 : 1}
-            maxLength={128}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete={register ? "new-password" : "current-password"}
-            placeholder={register ? "至少 10 个字符" : "输入你的密码"}
-          />
-        </label>
-        {error && (
-          <p className="form-error" role="alert">
-            {error}
-          </p>
-        )}
-        <button className="button primary full-width" disabled={busy}>
-          {busy ? <LoaderCircle size={17} className="spin" /> : null}
-          {register ? "创建顾客账号" : "登录"}
-          <ArrowRight size={16} />
-        </button>
+          <label>
+            密码
+            <input
+              required
+              type="password"
+              minLength={register ? 10 : 1}
+              maxLength={128}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete={register ? "new-password" : "current-password"}
+              placeholder={register ? "至少 10 个字符" : "输入你的密码"}
+            />
+          </label>
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
+          <button className="button primary full-width" disabled={busy}>
+            {busy ? <LoaderCircle size={17} className="spin" /> : null}
+            {busy ? "正在连接账号…" : register ? "创建顾客账号" : "登录"}
+            <ArrowRight size={16} />
+          </button>
+        </fieldset>
       </form>
       <p className="auth-toggle">
         {register ? "已有账号？" : "第一次来？"}
         <button
+          disabled={busy}
           onClick={() => {
             setRegister(!register);
             setError("");
@@ -1003,6 +1177,8 @@ function CartModal({
   onLogin,
   update,
   onSuccess,
+  draft,
+  onDraftChange,
 }: {
   cart: Cart;
   products: Product[];
@@ -1012,12 +1188,17 @@ function CartModal({
   onLogin: () => void;
   update: (cart: Cart) => void;
   onSuccess: (order: Order) => void;
+  draft: CheckoutDraft;
+  onDraftChange: (draft: CheckoutDraft) => void;
 }) {
-  const [slot, setSlot] = useState(config.pickupSlots[0]);
-  const [note, setNote] = useState("");
+  const slot = config.pickupSlots.includes(draft.slot)
+    ? draft.slot
+    : (config.pickupSlots[0] ?? "");
+  const { note } = draft;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const entries = Object.entries(cart).map(([id, quantity]) => ({
+    id: Number(id),
     product: products.find((p) => p.id === Number(id)),
     quantity,
   }));
@@ -1037,6 +1218,7 @@ function CartModal({
   };
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (busy || invalid || !slot) return;
     if (!user) return onLogin();
     setBusy(true);
     setError("");
@@ -1060,7 +1242,7 @@ function CartModal({
     }
   };
   return (
-    <Modal title="我的新鲜购物袋" onClose={onClose}>
+    <Modal title="我的新鲜购物袋" onClose={onClose} busy={busy}>
       {!entries.length ? (
         <Empty
           title="购物袋在等一份新鲜"
@@ -1074,119 +1256,148 @@ function CartModal({
         />
       ) : (
         <form onSubmit={submit}>
-          <div className="cart-list">
-            {entries.map(({ product: p, quantity }, i) => (
-              <div className="cart-item" key={p?.id ?? i}>
-                {p ? (
-                  <>
-                    <div className={`cart-art art-bg-${p.art}`}>
-                      <Produce kind={p.art} />
-                    </div>
-                    <div className="cart-item-info">
-                      <strong>{p.name}</strong>
-                      <small>
-                        {money(p.price_cents)} / {p.unit}
-                      </small>
-                      <div className="quantity-control">
+          <fieldset className="form-fields" disabled={busy}>
+            <div className="cart-list">
+              {entries.map(({ id, product: p, quantity }) => (
+                <div className="cart-item" key={id}>
+                  {p ? (
+                    <>
+                      <div className={`cart-art art-bg-${p.art}`}>
+                        <Produce kind={p.art} />
+                      </div>
+                      <div className="cart-item-info">
+                        <strong>{p.name}</strong>
+                        <small>
+                          {money(p.price_cents)} / {p.unit}
+                        </small>
+                        <div className="quantity-control">
+                          <button
+                            type="button"
+                            aria-label={`减少${p.name}`}
+                            onClick={() => change(p.id, quantity - 1)}
+                          >
+                            <Minus size={13} />
+                          </button>
+                          <span>{quantity}</span>
+                          <button
+                            type="button"
+                            aria-label={`增加${p.name}`}
+                            disabled={quantity >= p.stock}
+                            onClick={() => change(p.id, quantity + 1)}
+                          >
+                            <Plus size={13} />
+                          </button>
+                        </div>
+                        {quantity > p.stock && (
+                          <div className="stock-warning" role="status">
+                            <span>
+                              当前仅剩 {p.stock} {p.unit}
+                            </span>
+                            <button
+                              type="button"
+                              className="text-button"
+                              onClick={() => change(p.id, p.stock)}
+                            >
+                              {p.stock > 0 ? "调整至可购数量" : "移除售罄商品"}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <div className="cart-line-total">
+                        <strong>{money(p.price_cents * quantity)}</strong>
                         <button
                           type="button"
-                          aria-label={`减少${p.name}`}
-                          onClick={() => change(p.id, quantity - 1)}
+                          aria-label={`移除${p.name}`}
+                          onClick={() => change(p.id, 0)}
                         >
-                          <Minus size={13} />
-                        </button>
-                        <span>{quantity}</span>
-                        <button
-                          type="button"
-                          aria-label={`增加${p.name}`}
-                          disabled={quantity >= p.stock}
-                          onClick={() => change(p.id, quantity + 1)}
-                        >
-                          <Plus size={13} />
+                          <X size={15} />
                         </button>
                       </div>
-                    </div>
-                    <div className="cart-line-total">
-                      <strong>{money(p.price_cents * quantity)}</strong>
-                      <button
-                        type="button"
-                        aria-label={`移除${p.name}`}
-                        onClick={() => change(p.id, 0)}
-                      >
-                        <X size={15} />
+                    </>
+                  ) : (
+                    <>
+                      <p>商品已下架，请移除后继续预购。</p>
+                      <button type="button" onClick={() => change(id, 0)}>
+                        移除
                       </button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <p>商品已下架</p>
-                    <button
-                      type="button"
-                      onClick={() => change(Number(Object.keys(cart)[i]), 0)}
-                    >
-                      移除
-                    </button>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="pickup-box">
-            <div>
-              <Store size={17} />
-              <strong>市集自提 · 到场付款</strong>
+                    </>
+                  )}
+                </div>
+              ))}
             </div>
-            <p>{config.today} · 美国东部时间</p>
-            <label>
-              选择自提时段
-              <select value={slot} onChange={(e) => setSlot(e.target.value)}>
-                {config.pickupSlots.map((s) => (
-                  <option key={s}>{s}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              给农场的小纸条 <span>（选填）</span>
-              <textarea
-                maxLength={300}
-                rows={2}
-                placeholder="有什么需要我们提前知道的吗？"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-              />
-            </label>
-          </div>
-          <div className="cart-total">
-            <span>
-              预计合计 <small>USD</small>
-            </span>
-            <strong>{money(total)}</strong>
-          </div>
-          <p className="helper-text">
-            预购会为你保留库存；订单确认后请按时自提。此版本不收取线上款项。价格以提交订单时的服务端报价为准。
-          </p>
-          {invalid && (
-            <p className="form-error">
-              部分商品库存发生变化，请调整数量后提交。
+            <div className="pickup-box">
+              <div>
+                <Store size={17} />
+                <strong>市集自提 · 到场付款</strong>
+              </div>
+              <p>{config.today} · 美国东部时间</p>
+              <label>
+                选择自提时段
+                <select
+                  value={slot}
+                  onChange={(e) =>
+                    onDraftChange({ ...draft, slot: e.target.value })
+                  }
+                >
+                  {config.pickupSlots.map((s) => (
+                    <option key={s}>{s}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                给农场的小纸条 <span>（选填）</span>
+                <textarea
+                  maxLength={300}
+                  rows={2}
+                  placeholder="有什么需要我们提前知道的吗？"
+                  value={note}
+                  onChange={(e) =>
+                    onDraftChange({ ...draft, note: e.target.value })
+                  }
+                />
+              </label>
+            </div>
+            <div className="cart-total">
+              <span>
+                预计合计 <small>USD</small>
+              </span>
+              <strong>{money(total)}</strong>
+            </div>
+            <p className="helper-text">
+              预购会为你保留库存；订单确认后请按时自提。此版本不收取线上款项。价格以提交订单时的服务端报价为准。
             </p>
-          )}
-          {error && (
-            <p className="form-error" role="alert">
-              {error}
-            </p>
-          )}
-          <button
-            className="button primary full-width"
-            disabled={busy || invalid || user?.role === "retailer"}
-          >
-            {busy ? (
-              <LoaderCircle size={17} className="spin" />
-            ) : (
-              <ShoppingBag size={17} />
-            )}{" "}
-            {user ? "确认预购" : "登录后预购"}
-            <ArrowRight size={16} />
-          </button>
+            {invalid && (
+              <p className="form-error" role="alert">
+                商品或库存已变化，请按上方提示调整购物袋后提交。
+              </p>
+            )}
+            {error && (
+              <p className="form-error" role="alert">
+                {error}
+              </p>
+            )}
+            {!slot && (
+              <p className="form-error" role="alert">
+                当前暂无可用自提时段，请稍后再来。
+              </p>
+            )}
+            <button
+              className="button primary full-width"
+              disabled={busy || invalid || !slot || user?.role === "retailer"}
+            >
+              {busy ? (
+                <LoaderCircle size={17} className="spin" />
+              ) : (
+                <ShoppingBag size={17} />
+              )}{" "}
+              {busy
+                ? "正在提交预购，请稍候…"
+                : user
+                  ? "确认预购"
+                  : "登录后预购"}
+              <ArrowRight size={16} />
+            </button>
+          </fieldset>
         </form>
       )}
     </Modal>
@@ -1577,6 +1788,7 @@ function Orders({
   }, [user, revision]);
   const closeCancel = useCallback(() => setCancelOrder(undefined), []);
   const update = async (order: Order, status: OrderStatus) => {
+    if (busy) return;
     setBusy(order.id);
     try {
       await api(`/orders/${order.id}/status`, {
@@ -1717,7 +1929,7 @@ function Orders({
                     (o.status === "confirmed" && user.role === "retailer")) && (
                     <button
                       className="button subtle"
-                      disabled={busy === o.id}
+                      disabled={!!busy}
                       onClick={() => setCancelOrder(o)}
                     >
                       取消订单
@@ -1726,21 +1938,29 @@ function Orders({
                   {user.role === "retailer" && o.status === "pending" && (
                     <button
                       className="button primary"
-                      disabled={busy === o.id}
+                      disabled={!!busy}
                       onClick={() => void update(o, "confirmed")}
                     >
-                      <Check size={16} />
-                      确认预购
+                      {busy === o.id ? (
+                        <LoaderCircle size={16} className="spin" />
+                      ) : (
+                        <Check size={16} />
+                      )}
+                      {busy === o.id ? "正在确认…" : "确认预购"}
                     </button>
                   )}
                   {user.role === "retailer" && o.status === "confirmed" && (
                     <button
                       className="button primary"
-                      disabled={busy === o.id}
+                      disabled={!!busy}
                       onClick={() => void update(o, "completed")}
                     >
-                      <CheckCircle2 size={16} />
-                      确认已自提并收款
+                      {busy === o.id ? (
+                        <LoaderCircle size={16} className="spin" />
+                      ) : (
+                        <CheckCircle2 size={16} />
+                      )}
+                      {busy === o.id ? "正在更新…" : "确认已自提并收款"}
                     </button>
                   )}
                 </div>
@@ -1750,13 +1970,17 @@ function Orders({
         </div>
       )}
       {cancelOrder && (
-        <Modal title="取消这份预购？" onClose={closeCancel}>
+        <Modal title="取消这份预购？" onClose={closeCancel} busy={!!busy}>
           <p className="modal-intro">
             订单 {cancelOrder.id}{" "}
             取消后，预留库存会自动归还。已取消订单无法恢复。
           </p>
           <div className="modal-actions">
-            <button className="button secondary" onClick={closeCancel}>
+            <button
+              className="button secondary"
+              onClick={closeCancel}
+              disabled={!!busy}
+            >
               保留订单
             </button>
             <button
@@ -1764,7 +1988,7 @@ function Orders({
               disabled={!!busy}
               onClick={() => void update(cancelOrder, "cancelled")}
             >
-              确认取消
+              {busy ? "正在取消…" : "确认取消"}
             </button>
           </div>
         </Modal>
@@ -2140,6 +2364,7 @@ function ProductEditor({
   const [error, setError] = useState("");
   const save = async (e: FormEvent) => {
     e.preventDefault();
+    if (busy) return;
     setBusy(true);
     setError("");
     try {
@@ -2166,139 +2391,145 @@ function ProductEditor({
     }
   };
   return (
-    <Modal title={p ? "编辑这份新鲜" : "上架一份新鲜"} onClose={onClose}>
+    <Modal
+      title={p ? "编辑这份新鲜" : "上架一份新鲜"}
+      onClose={onClose}
+      busy={busy}
+    >
       <form onSubmit={save} className="form-stack">
-        <label>
-          商品名称
-          <input
-            required
-            maxLength={50}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="例如：刚采收的田园番茄"
-          />
-        </label>
-        <div className="form-row">
+        <fieldset className="form-fields form-stack" disabled={busy}>
           <label>
-            蔬菜分类
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-            >
-              {["叶菜类", "根茎类", "果实类"].map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            商品插画
-            <select value={art} onChange={(e) => setArt(e.target.value)}>
-              {Object.entries({
-                tomato: "番茄",
-                broccoli: "西兰花",
-                carrot: "胡萝卜",
-                lettuce: "生菜",
-                pumpkin: "南瓜",
-                cucumber: "黄瓜",
-                potato: "土豆",
-                onion: "洋葱",
-              }).map(([k, v]) => (
-                <option value={k} key={k}>
-                  {v}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div className="form-row">
-          <label>
-            售价（USD）
+            商品名称
             <input
               required
-              type="number"
-              min="0.01"
-              max="1000"
-              step="0.01"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
+              maxLength={50}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="例如：刚采收的田园番茄"
             />
           </label>
+          <div className="form-row">
+            <label>
+              蔬菜分类
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              >
+                {["叶菜类", "根茎类", "果实类"].map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              商品插画
+              <select value={art} onChange={(e) => setArt(e.target.value)}>
+                {Object.entries({
+                  tomato: "番茄",
+                  broccoli: "西兰花",
+                  carrot: "胡萝卜",
+                  lettuce: "生菜",
+                  pumpkin: "南瓜",
+                  cucumber: "黄瓜",
+                  potato: "土豆",
+                  onion: "洋葱",
+                }).map(([k, v]) => (
+                  <option value={k} key={k}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="form-row">
+            <label>
+              售价（USD）
+              <input
+                required
+                type="number"
+                min="0.01"
+                max="1000"
+                step="0.01"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+              />
+            </label>
+            <label>
+              计价单位
+              <select value={unit} onChange={(e) => setUnit(e.target.value)}>
+                {["磅", "颗", "把", "个", "袋"].map((u) => (
+                  <option key={u}>{u}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="form-row">
+            <label>
+              可预购库存
+              <input
+                required
+                type="number"
+                min="0"
+                max="10000"
+                step="1"
+                value={stock}
+                onChange={(e) => setStock(Number(e.target.value))}
+              />
+            </label>
+            <label>
+              售卖日期（美国东部）
+              <input
+                required
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
+            </label>
+          </div>
           <label>
-            计价单位
-            <select value={unit} onChange={(e) => setUnit(e.target.value)}>
-              {["磅", "颗", "把", "个", "袋"].map((u) => (
-                <option key={u}>{u}</option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div className="form-row">
-          <label>
-            可预购库存
-            <input
-              required
-              type="number"
-              min="0"
-              max="10000"
-              step="1"
-              value={stock}
-              onChange={(e) => setStock(Number(e.target.value))}
+            关于这份新鲜
+            <textarea
+              maxLength={500}
+              rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="介绍产地、口感或推荐做法…"
             />
           </label>
-          <label>
-            售卖日期（美国东部）
-            <input
-              required
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
-          </label>
-        </div>
-        <label>
-          关于这份新鲜
-          <textarea
-            maxLength={500}
-            rows={3}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="介绍产地、口感或推荐做法…"
-          />
-        </label>
-        <div className="form-checkboxes">
-          <label>
-            <input
-              type="checkbox"
-              checked={organic}
-              onChange={(e) => setOrganic(e.target.checked)}
-            />
-            有机种植
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              checked={active}
-              onChange={(e) => setActive(e.target.checked)}
-            />
-            上架展示
-          </label>
-        </div>
-        <p className="helper-text">
-          售卖日期为今天且已上架的商品，才会出现在顾客端。今日调价会更新今日历史价格记录。
-        </p>
-        {error && (
-          <p className="form-error" role="alert">
-            {error}
+          <div className="form-checkboxes">
+            <label>
+              <input
+                type="checkbox"
+                checked={organic}
+                onChange={(e) => setOrganic(e.target.checked)}
+              />
+              有机种植
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={active}
+                onChange={(e) => setActive(e.target.checked)}
+              />
+              上架展示
+            </label>
+          </div>
+          <p className="helper-text">
+            售卖日期为今天且已上架的商品，才会出现在顾客端。今日调价会更新今日历史价格记录。
           </p>
-        )}
-        <button className="button primary full-width" disabled={busy}>
-          {busy ? (
-            <LoaderCircle size={16} className="spin" />
-          ) : (
-            <Check size={16} />
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
           )}
-          保存商品
-        </button>
+          <button className="button primary full-width" disabled={busy}>
+            {busy ? (
+              <LoaderCircle size={16} className="spin" />
+            ) : (
+              <Check size={16} />
+            )}
+            {busy ? "正在保存…" : "保存商品"}
+          </button>
+        </fieldset>
       </form>
     </Modal>
   );
