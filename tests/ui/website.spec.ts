@@ -5,6 +5,7 @@ test("网站页面支持直接访问、刷新和页面标题", async ({ page }) 
     ["/markets", "市场与导航"],
     ["/prices", "价格观察"],
     ["/about", "关于青禾"],
+    ["/help", "帮助与食品援助"],
     ["/orders", "我的预购"],
   ]) {
     await page.goto(path);

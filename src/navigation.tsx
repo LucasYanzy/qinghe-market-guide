@@ -6,6 +6,7 @@ export const pagePaths = {
   prices: "/prices",
   orders: "/orders",
   about: "/about",
+  help: "/help",
   dashboard: "/retailer",
   inventory: "/retailer/inventory",
 } as const;

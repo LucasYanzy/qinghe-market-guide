@@ -177,7 +177,7 @@ export function AboutMarket({
           </a>
           {demo && (
             <p className="helper-text">
-              当前为演示网站，示例地址和自提时段不能作为实际出行安排。
+              商品预购和自提时段仍为演示；真实市场目录中的历史日程不能作为当前出行安排。
             </p>
           )}
         </aside>

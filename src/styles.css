@@ -1660,6 +1660,262 @@ textarea {
   border-color: #eddae0;
   white-space: normal;
 }
+.guide-toolbar,
+.guide-mode {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 20px 0;
+}
+.guide-mode {
+  font-size: 11px;
+  color: #8e9c7c;
+  margin: 15px 0;
+}
+.guide-mode select {
+  border: 1px solid var(--border);
+  background: #fff;
+  padding: 9px 13px;
+  border-radius: 7px;
+  color: #657f54;
+}
+.official-location-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.official-location-card h2 {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.7;
+  margin-top: 10px;
+  min-height: 60px;
+}
+.location-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.location-symbol {
+  width: 45px;
+  height: 45px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: #eef3e6;
+  color: #7c9762;
+}
+.official-location-card .market-detail {
+  margin: 18px 0;
+}
+.official-location-card .market-detail p {
+  overflow-wrap: anywhere;
+}
+.location-note {
+  font-size: 10px;
+  color: #a39a7d;
+  background: #faf7ee;
+  padding: 13px;
+  border-radius: 7px;
+  line-height: 1.9;
+  min-height: 70px;
+  margin: 18px 0;
+}
+.official-location-card .navigation-buttons {
+  align-items: center;
+}
+.offerings-panel {
+  margin-top: 24px;
+  display: flex;
+  gap: 25px;
+  flex-wrap: wrap;
+}
+.offerings-panel > div {
+  flex: 1 1 250px;
+}
+.offerings-panel h2 {
+  font-size: 18px;
+  margin: 12px 0;
+}
+.offerings-panel p {
+  font-size: 11px;
+  color: #97a586;
+  line-height: 1.9;
+}
+.offering-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  gap: 9px;
+}
+.offering-tags span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  background: #f2f6eb;
+  color: #81966d;
+  padding: 10px 12px;
+  border-radius: 6px;
+}
+.help-center {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.support-hero {
+  background: #edf2e3;
+  padding: 30px;
+}
+.support-hero h2 {
+  font-size: 27px;
+  font-weight: 500;
+  margin: 15px 0;
+}
+.support-hero p,
+.support-copy {
+  font-size: 12px;
+  color: #8a9b78;
+  line-height: 2;
+}
+.help-center .panel-heading h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 18px;
+  line-height: 1.7;
+}
+.support-caution {
+  padding: 15px;
+  background: #faf6ea;
+  border-radius: 7px;
+  color: #aa9870;
+  font-size: 11px;
+  line-height: 1.9;
+  margin: 18px 0 10px;
+}
+.resource-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.resource-card {
+  transition: border-color 0.2s;
+}
+.resource-card:hover {
+  border-color: #9caf85;
+}
+.resource-card h3 {
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 9px;
+  color: #5f7b4f;
+}
+.resource-card p {
+  font-size: 11px;
+  color: #97a687;
+  line-height: 1.9;
+  margin-top: 12px;
+}
+.faq-panel details {
+  border-top: 1px solid #e8edde;
+  padding: 18px 0;
+}
+.faq-panel details:last-child {
+  padding-bottom: 0;
+}
+.faq-panel summary {
+  font-size: 12px;
+  cursor: pointer;
+  color: #6b8259;
+  line-height: 1.8;
+}
+.faq-panel details p {
+  font-size: 11px;
+  color: #94a384;
+  line-height: 2.1;
+  padding: 14px 12px 0;
+}
+.contact-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.contact-panel h3 {
+  font-size: 14px;
+  font-weight: 500;
+}
+.contact-panel p {
+  font-size: 10px;
+  color: #9cab8c;
+  line-height: 1.9;
+  margin-top: 7px;
+}
+.contact-panel > div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.contact-panel a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #6e895a;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 900px) {
+  .official-location-grid {
+    grid-template-columns: 1fr;
+  }
+  .official-location-card h2 {
+    min-height: 0;
+  }
+  .location-note {
+    min-height: 0;
+  }
+  .resource-grid {
+    grid-template-columns: 1fr;
+  }
+  .help-center .panel-heading {
+    flex-wrap: wrap;
+  }
+  .guide-toolbar .search-field {
+    width: 100%;
+  }
+  .support-hero h2 {
+    font-size: 23px;
+  }
+}
+@media (max-width: 420px) {
+  .location-card-top {
+    align-items: flex-start;
+  }
+  .location-card-top .status-badge {
+    font-size: 7px;
+    white-space: normal;
+    max-width: 145px;
+  }
+  .guide-toolbar .category-tabs button {
+    font-size: 8px;
+    padding: 10px;
+  }
+  .official-location-card .navigation-buttons .button {
+    font-size: 9px;
+    padding: 10px;
+  }
+  .official-location-card h2 {
+    font-size: 17px;
+  }
+}
 .market-info h2 {
   font-size: 22px;
   line-height: 1.7;

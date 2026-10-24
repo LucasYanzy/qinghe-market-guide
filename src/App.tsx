@@ -15,7 +15,6 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  Clock3,
   ExternalLink,
   Leaf,
   LoaderCircle,
@@ -23,7 +22,6 @@ import {
   MapPin,
   Menu,
   Minus,
-  Navigation,
   Package,
   Plus,
   Search,
@@ -49,6 +47,8 @@ import {
 } from "recharts";
 import { api, money, shortDate } from "./api";
 import { BasketArt, Produce } from "./Produce";
+import MarketGuide, { HelpCenter } from "./MarketGuide";
+import guide from "../references/rutgers-market-guide.json";
 import { officialMarketUrl } from "./marketReference";
 import ReferencePrices from "./ReferencePrices";
 import { PageLink, useNavigation, type Page } from "./navigation";
@@ -56,7 +56,6 @@ import { AboutMarket, PreorderSteps } from "./VisitorGuide";
 import type {
   Config,
   Dashboard,
-  Market,
   Order,
   OrderStatus,
   PriceData,
@@ -79,12 +78,14 @@ const clientNav = [
   { id: "prices", label: "价格观察", icon: BarChart3 },
   { id: "orders", label: "我的预购", icon: ShoppingBag },
   { id: "about", label: "关于青禾", icon: Leaf },
+  { id: "help", label: "帮助与食品援助", icon: Leaf },
 ] as const;
 const retailerNav = [
   { id: "dashboard", label: "经营概览", icon: BarChart3 },
   { id: "inventory", label: "商品与库存", icon: Sprout },
   { id: "orders", label: "预购订单", icon: ShoppingBag },
   { id: "prices", label: "价格观察", icon: TrendingUp },
+  { id: "help", label: "帮助与食品援助", icon: Leaf },
 ] as const;
 
 function Modal({
@@ -205,7 +206,6 @@ function App() {
   const [user, setUser] = useState<User | null>(null);
   const { page, navigate: changePage, replacePage } = useNavigation();
   const [products, setProducts] = useState<Product[]>([]);
-  const [markets, setMarkets] = useState<Market[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [toast, setToast] = useState("");
@@ -235,16 +235,14 @@ function App() {
     setLoadError("");
     setLoading(true);
     try {
-      const [c, u, p, m] = await Promise.all([
+      const [c, u, p] = await Promise.all([
         api<Config>("/config"),
         api<{ user: User | null }>("/auth/me"),
         api<Product[]>("/products"),
-        api<Market[]>("/markets"),
       ]);
       setConfig(c);
       setUser(u.user);
       setProducts(p);
-      setMarkets(m);
       if (u.user?.role === "retailer" && window.location.pathname === "/")
         replacePage("dashboard");
     } catch (e) {
@@ -347,6 +345,7 @@ function App() {
     prices: "价格观察",
     orders: retailer ? "预购订单" : "我的预购",
     about: "关于青禾",
+    help: "帮助与食品援助",
     dashboard: "经营概览",
     inventory: "商品与库存",
     "not-found": "页面未找到",
@@ -513,9 +512,11 @@ function App() {
                         ? "找到身边的市集，让新鲜离你更近一点。"
                         : page === "prices"
                           ? "看懂价格的变化，为每一次选择多一份参考。"
-                          : page === "about"
-                            ? "从屏幕到餐桌，让新鲜和邻里更近一点。"
-                            : "每一份期待，都值得新鲜抵达。"}
+                          : page === "help"
+                            ? "食品援助、使用指引与常见问题，陪你安心逛市集。"
+                            : page === "about"
+                              ? "从屏幕到餐桌，让新鲜和邻里更近一点。"
+                              : "每一份期待，都值得新鲜抵达。"}
               </p>
             </div>
             {!retailer && (
@@ -531,7 +532,8 @@ function App() {
           {config.demo && (
             <div className="demo-notice">
               <span className="demo-badge">DEMO</span>{" "}
-              当前为演示市集，地址、商品、价格历史及自提安排均未经官网核验。
+              市场目录已核对官网；商品、库存与预购为演示，官方页面的 2025
+              年日程不代表当前营业安排。
               {retailer && " 商户修改会影响当前演示商品与订单。"}
             </div>
           )}
@@ -693,23 +695,30 @@ function App() {
               ) : (
                 <Empty
                   icon={<Search />}
-                  title="还没找到这份新鲜"
-                  text="试试其他分类或关键词，也可以查看暂时售罄的商品。"
+                  title={
+                    products.length ? "还没找到这份新鲜" : "今日暂未上架商品"
+                  }
+                  text={
+                    products.length
+                      ? "试试其他分类或关键词，也可以查看暂时售罄的商品。"
+                      : "稍后再来看看；也可以先查看官方市场目录、历史采价与食品援助资源。"
+                  }
                   action={
                     <button
                       className="button secondary"
                       onClick={() => {
+                        if (!products.length) return navigate("markets");
                         setSearch("");
                         setCategory("全部蔬菜");
                         setInStock(false);
                       }}
                     >
-                      清除筛选
+                      {products.length ? "清除筛选" : "查看市场目录"}
                     </button>
                   }
                 />
               )}
-              {markets[0] && (
+              {guide.locations[0] && (
                 <section className="market-strip">
                   <div className="market-strip-icon">
                     <Store size={30} />
@@ -717,9 +726,11 @@ function App() {
                   <div>
                     <span className="eyebrow">MEET US AT THE MARKET</span>
                     <h3>下次见面，就在市集。</h3>
-                    <p>{markets[0].address}</p>
+                    <p>
+                      {guide.locations[0].name} · {guide.locations[0].address}
+                    </p>
                     {config.demo && (
-                      <p>演示地址 · 出发前请查看 Rutgers 官方安排</p>
+                      <p>官方地址参考 · 当季营业安排请先向官方确认</p>
                     )}
                   </div>
                   <button
@@ -734,9 +745,8 @@ function App() {
               <PreorderSteps navigate={navigate} />
             </>
           )}
-          {page === "markets" && (
-            <Markets markets={markets} demo={config.demo} />
-          )}
+          {page === "markets" && <MarketGuide />}
+          {page === "help" && <HelpCenter />}
           {page === "prices" && (
             <Prices products={products} revision={revision} />
           )}
@@ -836,6 +846,9 @@ function App() {
               </PageLink>
               <PageLink page="orders" navigate={navigate}>
                 查看我的预购
+              </PageLink>
+              <PageLink page="help" navigate={navigate}>
+                帮助与食品援助
               </PageLink>
               <a href={officialMarketUrl} target="_blank" rel="noreferrer">
                 Rutgers 官方市场信息
@@ -1388,148 +1401,6 @@ function CartModal({
         </form>
       )}
     </Modal>
-  );
-}
-
-function Markets({ markets, demo }: { markets: Market[]; demo: boolean }) {
-  if (!markets.length)
-    return (
-      <Empty
-        icon={<MapPin />}
-        title="市场信息正在准备中"
-        text="市场配置完成后，将在这里显示地址和导航入口。"
-      />
-    );
-  return (
-    <div className="market-page">
-      <section className="official-market-reference">
-        <div className="official-reference-icon">
-          <Store size={25} />
-        </div>
-        <div className="official-reference-copy">
-          <span className="eyebrow">
-            RUTGERS · OFF-CAMPUS LIVING & COMMUNITY INITIATIVES
-          </span>
-          <h2>Rutgers Farmers Market</h2>
-          <p>
-            市场介绍请参考 Rutgers
-            官方页面。地址、开放日期、营业时间及食品援助政策需以官方最新公告为准。
-          </p>
-          {demo && (
-            <small>
-              当前下方展示的是流程演示，尚未与官网信息核对，请勿据此安排出行。
-            </small>
-          )}
-        </div>
-        <a
-          className="button official-reference-link"
-          href={officialMarketUrl}
-          target="_blank"
-          rel="noreferrer"
-        >
-          查看 Rutgers 官方页面
-          <ExternalLink size={15} />
-        </a>
-      </section>
-      {markets.map((m) => (
-        <section className="market-card" key={m.id}>
-          <div
-            className="illustrated-map"
-            aria-label="市场位置示意图，非实际地图"
-          >
-            <div className="map-park park-one" />
-            <div className="map-park park-two" />
-            <div className="map-road road-one" />
-            <div className="map-road road-two" />
-            <div className="map-road road-three" />
-            <span className="map-label map-label-one">MARKET LOCATION</span>
-            <span className="map-label map-label-two">
-              {demo ? "DEMO ROUTE" : "MARKET ROUTE"}
-            </span>
-            <div className="map-pin">
-              <Store size={30} />
-            </div>
-            <div className="map-tooltip">
-              <strong>在这里，与新鲜见面</strong>
-              <small>
-                {m.name}
-                {demo && " · 演示"}
-              </small>
-            </div>
-            <span className="map-disclaimer">
-              {demo
-                ? "演示位置示意 · 非官网核验地点"
-                : "位置示意 · 请使用导航查看实际路线"}
-            </span>
-          </div>
-          <div className="market-info">
-            <span className="eyebrow">YOUR NEIGHBORHOOD MARKET</span>
-            <h2>{m.name}</h2>
-            <p className="market-subtitle">{m.subtitle}</p>
-            <div className="market-detail">
-              <MapPin size={19} />
-              <div>
-                <strong>{demo ? "演示地址（待官网核验）" : "市场地址"}</strong>
-                <p>{m.address}</p>
-              </div>
-            </div>
-            <div className="market-detail">
-              <Clock3 size={19} />
-              <div>
-                <strong>
-                  {demo ? "演示自提时间（非官方营业安排）" : "自提时间"}
-                </strong>
-                <p>{m.hours}</p>
-              </div>
-            </div>
-            <p className="market-story">{m.description}</p>
-            <div className="navigation-buttons">
-              <a
-                className="button primary"
-                href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(m.address)}&travelmode=driving`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <Navigation size={17} />
-                {demo ? "演示路线 · Google 地图" : "Google 地图导航"}
-                <ExternalLink size={14} />
-              </a>
-              <a
-                className="button secondary"
-                href={`https://maps.apple.com/?daddr=${encodeURIComponent(m.address)}&dirflg=d`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {demo ? "演示路线 · Apple 地图" : "Apple 地图"}
-                <ArrowUpRight size={16} />
-              </a>
-            </div>
-            <p className="helper-text">
-              {demo
-                ? "演示路线仅用于体验导航功能，出行前请通过上方官方页面核实实际地址。"
-                : "导航会在地图服务中打开，不需要向本站提供你的位置。"}
-            </p>
-          </div>
-        </section>
-      ))}
-      <div className="visit-tips">
-        <div>
-          <ShoppingBag />
-          <h3>先选好，再出发</h3>
-          <p>线上预购喜欢的蔬菜，查看订单确认状态。</p>
-        </div>
-        <div>
-          <Clock3 />
-          <h3>带上你的期待</h3>
-          <p>在预约时段到场，向商户出示订单编号。</p>
-        </div>
-        <div>
-          <Leaf />
-          <h3>给地球一点心意</h3>
-          <p>带上可重复使用的购物袋，让新鲜更可持续。</p>
-        </div>
-      </div>
-    </div>
   );
 }
 
