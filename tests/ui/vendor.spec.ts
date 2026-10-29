@@ -30,6 +30,30 @@ async function createProduct(
   return response.json();
 }
 
+async function reserveProduct(
+  browser: import("@playwright/test").Browser,
+  baseURL: string | undefined,
+  productId: number,
+) {
+  const customer = await browser.newContext({ baseURL });
+  try {
+    await customer.request.post("/api/auth/login", {
+      data: { email: "client@qinghe.demo", password: "MarketDemo2026!" },
+    });
+    const config = await (await customer.request.get("/api/config")).json();
+    const response = await customer.request.post("/api/orders", {
+      data: {
+        items: [{ productId, quantity: 1 }],
+        pickupSlot: config.pickupSlots[0],
+      },
+    });
+    expect(response.status()).toBe(201);
+    return response.json();
+  } finally {
+    await customer.close();
+  }
+}
+
 test("经营待办直达筛选后的库存，刷新保留筛选", async ({ page }) => {
   await signIn(page);
   const product = await createProduct(page, { available_date: "2020-01-01" });
@@ -51,6 +75,146 @@ test("经营待办直达筛选后的库存，刷新保留筛选", async ({ page 
       .getByRole("group", { name: "库存状态筛选" })
       .getByRole("button", { name: /非今日售卖/ }),
   ).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("搜索库存商品")).toHaveValue(product.name);
+  await page
+    .getByRole("combobox", { name: "排序", exact: true })
+    .selectOption("stock");
+  await page.reload();
+  await expect(
+    page.getByRole("combobox", { name: "排序", exact: true }),
+  ).toHaveValue("stock");
+  await page
+    .getByRole("navigation", { name: "主导航" })
+    .getByRole("link", { name: "商品与库存", exact: true })
+    .click();
+  await expect(page.getByLabel("搜索库存商品")).toHaveValue("");
+  await page.goBack();
+  await expect(page.getByLabel("搜索库存商品")).toHaveValue(product.name);
+});
+
+test("图表日期和自提安排直达对应订单筛选", async ({ page }) => {
+  await signIn(page);
+  const config = await (await page.request.get("/api/config")).json();
+  const chart = page.getByRole("region", { name: "近七天预购金额" });
+  await expect(chart.getByRole("button")).toHaveCount(7);
+  await chart.getByRole("button").last().click();
+  await expect(page.getByLabel("自提日期", { exact: true })).toHaveValue(
+    config.today,
+  );
+  await page.reload();
+  await expect(page.getByLabel("自提日期", { exact: true })).toHaveValue(
+    config.today,
+  );
+  await page.goBack();
+  await page
+    .getByRole("region", { name: "今日自提安排" })
+    .getByRole("button")
+    .first()
+    .click();
+  await expect(
+    page.getByRole("combobox", { name: "自提时段", exact: true }),
+  ).toHaveValue(config.pickupSlots[0]);
+  await expect(
+    page
+      .getByRole("group", { name: "订单状态筛选" })
+      .getByRole("button", { name: /^待履约/ }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Switch to English" }).click();
+  await expect(
+    page.getByRole("combobox", { name: "Order sorting" }),
+  ).toHaveValue("priority");
+  await page
+    .getByRole("button", { name: "Clear filters", exact: true })
+    .first()
+    .click();
+  await expect(page.getByLabel("Pickup date", { exact: true })).toHaveValue("");
+  await expect(
+    page.getByRole("combobox", { name: "Pickup time", exact: true }),
+  ).toHaveValue("");
+});
+
+test("快捷补货遇到预购扣减时重新核对库存", async ({
+  page,
+  browser,
+  baseURL,
+}) => {
+  await signIn(page);
+  const product = await createProduct(page, { stock: 10 });
+  await page.goto(
+    `/retailer/inventory?search=${encodeURIComponent(product.name)}`,
+  );
+  await page.getByRole("button", { name: `调整 ${product.name} 库存` }).click();
+  const modal = page.getByRole("dialog", { name: "调整可预购库存" });
+  await expect(modal.getByRole("button", { name: "确认调整" })).toBeDisabled();
+  await modal.getByRole("button", { name: "+10 把", exact: true }).click();
+  await expect(modal.getByRole("status")).toContainText("+10 把");
+  await reserveProduct(browser, baseURL, product.id);
+  await modal.getByRole("button", { name: "确认调整" }).click();
+  await expect(modal.getByRole("alert")).toContainText("库存已变化");
+  await modal.getByRole("button", { name: "读取最新库存" }).click();
+  await expect(modal.getByLabel("调整后的可预购数量")).toHaveValue("9");
+  await modal.getByRole("button", { name: "+5 把", exact: true }).click();
+  await modal.getByRole("button", { name: "确认调整" }).click();
+  await expect(modal).not.toBeVisible();
+  await expect(
+    page.getByRole("row").filter({ hasText: product.name }),
+  ).toContainText("14 把");
+});
+
+test("编辑冲突读取失败可重试，保留商品草稿", async ({
+  page,
+  browser,
+  baseURL,
+}) => {
+  await signIn(page);
+  const product = await createProduct(page);
+  await page.goto(`/retailer/inventory?product=${product.id}`);
+  const modal = page.getByRole("dialog", { name: "编辑这份新鲜" });
+  const updatedName = `${product.name} 已修改`;
+  await modal.getByLabel("商品名称", { exact: true }).fill(updatedName);
+  await modal.getByLabel("售价（USD）").fill("5.75");
+  await reserveProduct(browser, baseURL, product.id);
+  await modal.getByRole("button", { name: "保存商品" }).click();
+  await expect(modal.getByRole("alert")).toContainText("库存已变化");
+  await page.route("**/api/retailer/products", (route) =>
+    route.fulfill({ status: 503, json: { error: "保存失败，请重试" } }),
+  );
+  await modal.getByRole("button", { name: "读取最新库存" }).click();
+  await expect(modal.getByRole("alert")).toHaveText("保存失败，请重试");
+  await page.unroute("**/api/retailer/products");
+  await modal.getByRole("button", { name: "读取最新库存" }).click();
+  await expect(modal.getByLabel("可预购库存", { exact: true })).toHaveValue(
+    "3",
+  );
+  await expect(modal.getByLabel("商品名称", { exact: true })).toHaveValue(
+    updatedName,
+  );
+  await expect(modal.getByLabel("售价（USD）")).toHaveValue("5.75");
+  await modal.getByRole("button", { name: "保存商品" }).click();
+  await expect(modal).not.toBeVisible();
+  await page.getByLabel("搜索库存商品").fill(updatedName);
+  await expect(
+    page.getByRole("row").filter({ hasText: updatedName }),
+  ).toContainText("3 把");
+});
+
+test("确认订单离开待办队列后可从反馈定位", async ({
+  page,
+  browser,
+  baseURL,
+}) => {
+  await signIn(page);
+  const product = await createProduct(page);
+  const order = await reserveProduct(browser, baseURL, product.id);
+  await page.goto(`/orders?status=pending&search=${order.id}`);
+  await page.getByRole("button", { name: "确认预购", exact: true }).click();
+  await expect(page.locator(".vendor-order")).toHaveCount(0);
+  await page.getByRole("button", { name: "查看此订单", exact: true }).click();
+  await expect(page.locator(".vendor-order .status-badge")).toHaveText(
+    "待自提",
+  );
+  await expect(page.getByLabel("搜索预购订单")).toHaveValue(order.id);
+  await expect(page).toHaveURL(/status=confirmed/);
 });
 
 test("编辑商品有预览、未保存保护和失败重试，保存后顾客端同步", async ({
@@ -120,7 +284,9 @@ test("上下架只改变展示状态并保留库存，英文编辑提交有效�
   await expect(page).toHaveTitle(/Products & inventory/);
   await row.getByRole("button", { name: "Edit", exact: true }).click();
   const editor = page.getByRole("dialog", { name: "Edit product" });
-  await editor.getByRole("combobox", { name: "Category", exact: true }).selectOption("根茎类");
+  await editor
+    .getByRole("combobox", { name: "Category", exact: true })
+    .selectOption("根茎类");
   await editor.getByRole("button", { name: "Save product" }).click();
   await expect(editor).not.toBeVisible();
   stored = await (await page.request.get("/api/retailer/products")).json();
@@ -210,6 +376,17 @@ for (const width of [320, 390]) {
         ),
       ).toBe(true);
     }
+    await page.getByRole("button", { name: "Switch to English" }).click();
+    for (const path of ["/retailer", "/retailer/inventory", "/orders"]) {
+      await page.goto(path);
+      await expect(page.locator(".loading-panel")).toHaveCount(0);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth,
+        ),
+      ).toBe(true);
+    }
+    await page.getByRole("button", { name: "切换为中文" }).click();
     await page.goto("/retailer/inventory?new=1");
     await expect(page.getByRole("dialog")).toBeVisible();
     await page.getByLabel("商品名称", { exact: true }).fill("手机上架");
