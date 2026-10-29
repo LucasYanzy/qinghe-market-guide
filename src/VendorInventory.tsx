@@ -32,6 +32,8 @@ import {
   type InventoryFilter,
 } from "./vendorSupport";
 import type { Product } from "./types";
+import { InventoryBulkActions } from "./VendorBulkActions";
+import { VendorDataFeedback, VendorLoading } from "./VendorDataFeedback";
 
 const inventoryFilters: [InventoryFilter, string][] = [
   ["all", "全部商品"],
@@ -83,12 +85,12 @@ export function Inventory({
   notify: (message: string) => void;
 }) {
   const { t } = useLanguage();
-  const {
-    data: products = [],
-    setData,
-    error,
-    loading,
-  } = useVendorData<Product[]>("/retailer/products", revision);
+  const { data, setData, error, loading, updatedAt } = useVendorData<Product[]>(
+    "/retailer/products",
+    revision,
+  );
+  const products = data ?? [];
+  const unavailable = loading || !!error;
   const [editing, setEditing] = useState<Product | null>();
   const [filters, updateFilters] = useVendorFilters(inventoryDefaults);
   const filter = inventoryFilters.some(([key]) => key === filters.status)
@@ -107,6 +109,8 @@ export function Inventory({
   const [busy, setBusy] = useState<number>();
   const [actionError, setActionError] = useState("");
   const [visibilityProduct, setVisibilityProduct] = useState<Product>();
+  const [selected, setSelected] = useState<number[]>([]);
+  const [batchBusy, setBatchBusy] = useState(false);
   useEffect(() => {
     if (loading || error) return;
     const query = new URLSearchParams(window.location.search);
@@ -132,7 +136,7 @@ export function Inventory({
   const changeFilter = (status: InventoryFilter) =>
     updateFilters({ status, page: "1" });
   const toggle = async (p: Product) => {
-    if (busy !== undefined) return;
+    if (busy !== undefined || batchBusy || unavailable) return;
     setBusy(p.id);
     setActionError("");
     try {
@@ -180,14 +184,34 @@ export function Inventory({
   const totalPages = Math.max(1, Math.ceil(shown.length / 8));
   const currentPage = Math.min(page, totalPages);
   const paginated = shown.slice((currentPage - 1) * 8, currentPage * 8);
+  useEffect(
+    () => setSelected([]),
+    [filter, search, category, sort, currentPage],
+  );
   const reset = () => updateFilters(inventoryDefaults);
+  if (!data)
+    return error ? (
+      <VendorError error={error} refresh={refresh} />
+    ) : (
+      <VendorLoading kind="inventory" />
+    );
   return (
     <div className="vendor-inventory">
+      <VendorDataFeedback
+        loading={loading}
+        error={error}
+        updatedAt={updatedAt}
+        refresh={refresh}
+      />
       <div className="vendor-inventory-summary">
         <div>
           <p>{t("核对日期、库存和价格，让顾客看到今天可以买到的收获。")}</p>
         </div>
-        <button className="button primary" onClick={() => setEditing(null)}>
+        <button
+          className="button primary"
+          disabled={unavailable}
+          onClick={() => setEditing(null)}
+        >
           <Plus size={17} />
           {t("上架新商品")}
         </button>
@@ -317,17 +341,26 @@ export function Inventory({
           ]}
           onReset={reset}
         />
+        <InventoryBulkActions
+          products={paginated}
+          selected={selected}
+          onSelection={setSelected}
+          busy={batchBusy}
+          onBusy={setBatchBusy}
+          disabled={unavailable || busy !== undefined}
+          onSaved={(saved) => {
+            const updates = new Map(saved.map((p) => [p.id, p]));
+            setData((current) => current?.map((p) => updates.get(p.id) ?? p));
+            refresh();
+            notify(
+              t("已更新 {count} 款商品的展示状态", { count: saved.length }),
+            );
+          }}
+        />
         {actionError && !visibilityProduct && (
           <VendorError error={actionError} refresh={refresh} />
         )}
-        {error ? (
-          <VendorError error={error} refresh={refresh} />
-        ) : loading && !products.length ? (
-          <div className="loading-panel">
-            <LoaderCircle className="spin" />
-            {t("正在读取库存…")}
-          </div>
-        ) : !shown.length ? (
+        {!shown.length ? (
           <Empty
             icon={<Sprout />}
             title={products.length ? "没有符合条件的商品" : "这里还没有商品"}
@@ -339,6 +372,7 @@ export function Inventory({
             action={
               <button
                 className="button secondary"
+                disabled={!products.length && unavailable}
                 onClick={products.length ? reset : () => setEditing(null)}
               >
                 {t(products.length ? "清除筛选" : "上架新商品")}
@@ -360,8 +394,31 @@ export function Inventory({
               </thead>
               <tbody>
                 {paginated.map((p) => (
-                  <tr key={p.id}>
+                  <tr
+                    key={p.id}
+                    className={
+                      selected.includes(p.id)
+                        ? "vendor-row-selected"
+                        : undefined
+                    }
+                  >
                     <td className="vendor-product-cell">
+                      <input
+                        className="vendor-row-checkbox"
+                        type="checkbox"
+                        aria-label={t("选择 {name}", { name: t(p.name) })}
+                        checked={selected.includes(p.id)}
+                        disabled={
+                          batchBusy || unavailable || busy !== undefined
+                        }
+                        onChange={(e) =>
+                          setSelected((current) =>
+                            e.target.checked
+                              ? [...current, p.id]
+                              : current.filter((id) => id !== p.id),
+                          )
+                        }
+                      />
                       <div className={`mini-art art-bg-${p.art}`}>
                         <Produce kind={p.art} />
                       </div>
@@ -387,7 +444,9 @@ export function Inventory({
                         className={`vendor-stock-control ${p.stock < 10 ? "vendor-stock-low" : "vendor-stock-normal"}`}
                         aria-label={t("调整 {name} 库存", { name: t(p.name) })}
                         onClick={() => setAdjusting(p)}
-                        disabled={busy !== undefined || loading}
+                        disabled={
+                          busy !== undefined || batchBusy || unavailable
+                        }
                       >
                         <strong>{p.stock}</strong> <span>{t(p.unit)}</span>
                         <Plus size={12} />
@@ -420,7 +479,9 @@ export function Inventory({
                       <button
                         className="button secondary"
                         onClick={() => setEditing(p)}
-                        disabled={busy !== undefined || loading}
+                        disabled={
+                          busy !== undefined || batchBusy || unavailable
+                        }
                       >
                         {t("编辑")}
                       </button>
@@ -431,7 +492,9 @@ export function Inventory({
                           { name: t(p.name) },
                         )}
                         title={t(p.active ? "下架商品" : "恢复上架")}
-                        disabled={busy !== undefined || loading}
+                        disabled={
+                          busy !== undefined || batchBusy || unavailable
+                        }
                         onClick={() =>
                           p.active
                             ? (setActionError(""), setVisibilityProduct(p))
@@ -494,6 +557,7 @@ export function Inventory({
       {editing !== undefined && (
         <ProductEditor
           product={editing}
+          unavailable={unavailable}
           today={today}
           onClose={close}
           onSaved={(saved) => {
@@ -511,6 +575,7 @@ export function Inventory({
       {adjusting && (
         <StockAdjuster
           product={adjusting}
+          unavailable={unavailable}
           onClose={() => setAdjusting(undefined)}
           onSaved={(saved) => {
             setData((current) =>
@@ -550,7 +615,7 @@ export function Inventory({
             <button
               className="button danger"
               onClick={() => void toggle(visibilityProduct)}
-              disabled={busy !== undefined}
+              disabled={busy !== undefined || unavailable}
             >
               {t(busy !== undefined ? "正在更新…" : "确认下架")}
             </button>
@@ -563,11 +628,13 @@ export function Inventory({
 
 function ProductEditor({
   product: p,
+  unavailable,
   today,
   onClose,
   onSaved,
 }: {
   product: Product | null;
+  unavailable: boolean;
   today: string;
   onClose: () => void;
   onSaved: (p: Product) => void;
@@ -604,7 +671,7 @@ function ProductEditor({
   ) => setDraft((d) => ({ ...d, [key]: value }));
   const save = async (event: FormEvent) => {
     event.preventDefault();
-    if (locked || stockConflict) return;
+    if (locked || stockConflict || unavailable) return;
     if (!draft.name.trim()) {
       setError("请输入商品名称。");
       return;
@@ -901,7 +968,7 @@ function ProductEditor({
             </button>
             <button
               className="button primary"
-              disabled={locked || stockConflict}
+              disabled={locked || stockConflict || unavailable}
             >
               {busy ? (
                 <LoaderCircle className="spin" size={16} />
@@ -919,10 +986,12 @@ function ProductEditor({
 
 function StockAdjuster({
   product,
+  unavailable,
   onClose,
   onSaved,
 }: {
   product: Product;
+  unavailable: boolean;
   onClose: () => void;
   onSaved: (product: Product) => void;
 }) {
@@ -958,7 +1027,7 @@ function StockAdjuster({
   };
   const save = async (event: FormEvent) => {
     event.preventDefault();
-    if (busy || conflict || !valid || difference === 0) return;
+    if (busy || unavailable || conflict || !valid || difference === 0) return;
     setBusy(true);
     setError("");
     try {
@@ -1088,7 +1157,9 @@ function StockAdjuster({
           </button>
           <button
             className="button primary"
-            disabled={busy || conflict || !valid || difference === 0}
+            disabled={
+              busy || unavailable || conflict || !valid || difference === 0
+            }
           >
             {busy ? (
               <LoaderCircle className="spin" size={15} />

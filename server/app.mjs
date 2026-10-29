@@ -287,6 +287,44 @@ export function createApp(
   );
   // Change visibility alone so a listing action cannot overwrite live stock or price.
   app.patch(
+    "/api/retailer/products/visibility",
+    requireUser,
+    role("retailer"),
+    (req, res) => {
+      const { ids, active } = z
+        .object({
+          ids: z
+            .array(z.number().int().positive())
+            .min(1)
+            .max(100)
+            .refine((ids) => new Set(ids).size === ids.length),
+          active: z.boolean(),
+        })
+        .parse(req.body);
+      db.exec("BEGIN IMMEDIATE");
+      try {
+        const get = db.prepare(
+          "SELECT * FROM products WHERE id=? AND retailer_id=?",
+        );
+        if (ids.some((id) => !get.get(id, req.user.id)))
+          throw new HttpError(
+            404,
+            "部分商品不存在或不属于当前商户，请刷新后重选。",
+          );
+        const update = db.prepare(
+          "UPDATE products SET active=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND retailer_id=?",
+        );
+        for (const id of ids) update.run(Number(active), id, req.user.id);
+        const products = ids.map((id) => get.get(id, req.user.id));
+        db.exec("COMMIT");
+        res.json(products);
+      } catch (error) {
+        db.exec("ROLLBACK");
+        throw error;
+      }
+    },
+  );
+  app.patch(
     "/api/retailer/products/:id/visibility",
     requireUser,
     role("retailer"),

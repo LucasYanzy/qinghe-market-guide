@@ -638,3 +638,89 @@ test("dashboard analytics include only this vendor's orders", async () => {
   assert.equal(today.completedCents, after.revenueCents);
   assert.equal(today.reservedCents, after.reservedCents);
 });
+
+test("bulk visibility validates the entire selection and preserves live stock and price history", async () => {
+  const products = (
+    await request("/retailer/products", { cookie: retailer })
+  ).data.slice(0, 2);
+  const other = db.prepare("SELECT id FROM products WHERE farm='Other'").get();
+  const path = "/retailer/products/visibility";
+  const body = { ids: products.map((p) => p.id), active: false };
+  assert.equal((await request(path, { method: "PATCH", body })).status, 401);
+  assert.equal(
+    (await request(path, { method: "PATCH", cookie: client, body })).status,
+    403,
+  );
+  for (const ids of [[], [products[0].id, products[0].id], [0], [1.5]]) {
+    assert.equal(
+      (
+        await request(path, {
+          method: "PATCH",
+          cookie: retailer,
+          body: { ...body, ids },
+        })
+      ).status,
+      400,
+    );
+  }
+  assert.equal(
+    (
+      await request(path, {
+        method: "PATCH",
+        cookie: retailer,
+        body: { ids: [products[0].id, other.id], active: false },
+      })
+    ).status,
+    404,
+  );
+  assert.equal(
+    db.prepare("SELECT active FROM products WHERE id=?").get(products[0].id)
+      .active,
+    products[0].active,
+  );
+  const placed = await request("/orders", {
+    method: "POST",
+    cookie: client,
+    body: {
+      items: [{ productId: products[0].id, quantity: 1 }],
+      pickupSlot: "10:00–12:00",
+    },
+  });
+  assert.equal(placed.status, 201);
+  const before = products.map((p) =>
+    db.prepare("SELECT * FROM products WHERE id=?").get(p.id),
+  );
+  const history = db
+    .prepare("SELECT * FROM price_history ORDER BY product_id,date")
+    .all();
+  const result = await request(path, {
+    method: "PATCH",
+    cookie: retailer,
+    body: { ...body, stock: 999, price_cents: 1 },
+  });
+  assert.equal(result.status, 200);
+  for (const [index, product] of result.data.entries()) {
+    assert.equal(product.active, 0);
+    for (const key of ["stock", "price_cents", "available_date"])
+      assert.equal(product[key], before[index][key]);
+  }
+  assert.deepEqual(
+    db.prepare("SELECT * FROM price_history ORDER BY product_id,date").all(),
+    history,
+  );
+  assert.equal(
+    db.prepare("SELECT status FROM orders WHERE id=?").get(placed.data.id)
+      .status,
+    "pending",
+  );
+  assert.equal(
+    (
+      await request(path, {
+        method: "PATCH",
+        cookie: retailer,
+        body: { ...body, active: true },
+      })
+    ).status,
+    200,
+  );
+});

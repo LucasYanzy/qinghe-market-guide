@@ -1,4 +1,53 @@
 export const vendorEnglish: Record<string, string> = {
+  "正在更新，当前保留已读取的内容。":
+    "Refreshing; showing the previously loaded data.",
+  已读取最新数据: "Data is up to date",
+  "显示上次读取的数据，请刷新后再修改商品或订单。":
+    "Showing previously loaded data. Refresh before changing products or orders.",
+  "最近读取 {time} ET": "Last loaded {time} ET",
+  "订单已取消，预留库存已归还。":
+    "Order cancelled; reserved stock has been returned.",
+  履约步骤: "Fulfillment steps",
+  备货与待自提: "Prepare & await pickup",
+  自提收款: "Pickup & payment",
+  备货清单: "Preparation list",
+  订单显示方式: "Order display mode",
+  订单视图: "Orders",
+  查看往日未履约: "Past pickups still open",
+  "按时段，把每一份新鲜准备好": "Prepare each pickup, one time slot at a time",
+  "仅汇总当前筛选中的待自提订单。待确认订单请先确认，已完成与取消订单不计入。":
+    "Includes ready-for-pickup orders matching your filters. Confirm pending orders first; completed and cancelled orders are excluded.",
+  暂无可备货的订单: "No orders ready to prepare",
+  "切换筛选，或先在订单视图确认预购。":
+    "Adjust your filters or confirm preorders in the order view first.",
+  返回订单视图: "Back to orders",
+  "{count} 笔待自提": "{count} ready for pickup",
+  待备商品: "Products to prepare",
+  备货前留意顾客备注: "Check customer notes before packing",
+  "数量来自预购快照，称重商品现场核对。":
+    "Quantities follow preorder records. Verify weighed goods in person.",
+  查看时段订单: "View orders in this slot",
+  选择本页商品: "Select this page",
+  "已选 {count} 款": "{count} selected",
+  批量上架: "List selected",
+  批量下架: "Unlist selected",
+  取消选择: "Clear selection",
+  "选择商品后，可统一调整展示状态。":
+    "Select products to update their listing status together.",
+  "批量上架这些商品？": "List these products?",
+  "批量下架这些商品？": "Unlist these products?",
+  "上架后，仅售卖日期为今天的商品会展示给顾客。库存、价格和售卖日期保持当前值。":
+    "Only products with today's sale date will appear in the market. Current stock, prices and sale dates are preserved.",
+  "下架后，顾客无法再预购这些商品。已有订单继续履约，库存和价格保持当前值。":
+    "Customers will no longer be able to preorder these products. Existing orders continue; current stock and prices are preserved.",
+  返回选择: "Back to selection",
+  确认批量上架: "Confirm listing",
+  确认批量下架: "Confirm unlisting",
+  "选择 {name}": "Select {name}",
+  "已更新 {count} 款商品的展示状态":
+    "Listing status updated for {count} products",
+  "部分商品不存在或不属于当前商户，请刷新后重选。":
+    "Some products are missing or not yours. Refresh and select again.",
   近七天暂无预购记录: "No preorders in the past seven days",
   近七天预购金额: "Preorder amounts over the past seven days",
   每一天的收获: "Your week at a glance",
