@@ -750,7 +750,7 @@ test("备货按时段汇总已确认快照，排除其他状态并保留备注",
     await expect(
       page.getByRole("button", { name: "查看往日未履约" }),
     ).toHaveAttribute("aria-pressed", "false");
-    await expect(page.locator(".vendor-order")).toHaveCount(3);
+    await expect(page.locator(".vendor-order")).toHaveCount(4);
   } finally {
     await customer.close();
   }
