@@ -37,7 +37,7 @@ export function InventoryBulkActions({
     setError("");
   };
   const save = async () => {
-    if (busy || confirm === undefined || !chosen.length) return;
+    if (busy || disabled || confirm === undefined || !chosen.length) return;
     onBusy(true);
     setError("");
     try {
@@ -146,7 +146,7 @@ export function InventoryBulkActions({
             </button>
             <button
               className={`button ${confirm ? "primary" : "danger"}`}
-              disabled={busy}
+              disabled={busy || disabled}
               onClick={() => void save()}
             >
               {busy && <LoaderCircle size={15} className="spin" />}

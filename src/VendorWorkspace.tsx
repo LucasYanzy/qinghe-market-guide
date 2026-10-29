@@ -22,6 +22,8 @@ import { useLanguage } from "./i18n";
 import { Produce } from "./Produce";
 import { Empty, Modal } from "./ui";
 import { VendorAnalytics } from "./VendorAnalytics";
+import { VendorOrderProgress, VendorPreparation } from "./VendorPreparation";
+import { VendorDataFeedback, VendorLoading } from "./VendorDataFeedback";
 import {
   openVendorPage,
   orderLabels,
@@ -143,7 +145,7 @@ export function RetailDashboard({
   today: string;
 }) {
   const { t, language } = useLanguage();
-  const { data, error, loading } = useVendorData<Dashboard>(
+  const { data, error, loading, updatedAt } = useVendorData<Dashboard>(
     "/retailer/dashboard",
     revision,
   );
@@ -153,16 +155,20 @@ export function RetailDashboard({
     weekday: "long",
     timeZone: "UTC",
   }).format(new Date(`${today}T12:00:00Z`));
-  if (error) return <VendorError error={error} refresh={refresh} />;
   if (!data)
-    return (
-      <div className="loading-panel">
-        <LoaderCircle className="spin" />
-        {t("正在汇总经营数据…")}
-      </div>
+    return error ? (
+      <VendorError error={error} refresh={refresh} />
+    ) : (
+      <VendorLoading kind="dashboard" />
     );
   return (
     <div className="vendor-dashboard">
+      <VendorDataFeedback
+        loading={loading}
+        error={error}
+        updatedAt={updatedAt}
+        refresh={refresh}
+      />
       <section className="vendor-welcome-strip">
         <div>
           <span className="vendor-kicker">
@@ -408,6 +414,8 @@ const orderDefaults = {
   date: "",
   slot: "",
   sort: "priority",
+  view: "cards",
+  overdue: "",
 };
 
 export function VendorOrders({
@@ -424,21 +432,20 @@ export function VendorOrders({
   notify: (message: string) => void;
 }) {
   const { t, language } = useLanguage();
-  const {
-    data: orders = [],
-    setData,
-    error,
-    loading,
-  } = useVendorData<Order[]>("/orders", revision);
+  const { data, setData, error, loading, updatedAt } = useVendorData<Order[]>(
+    "/orders",
+    revision,
+  );
+  const orders = data ?? [];
   const [filters, updateFilters] = useVendorFilters(orderDefaults);
   const status = ["all", "open", ...Object.keys(orderLabels)].includes(
     filters.status,
   )
     ? filters.status
     : "all";
-  const { search, date, slot, sort } = filters;
+  const { search, date, slot, sort, view, overdue } = filters;
   const setSearch = (search: string) => updateFilters({ search });
-  const setDate = (date: string) => updateFilters({ date });
+  const setDate = (date: string) => updateFilters({ date, overdue: "" });
   const setSlot = (slot: string) => updateFilters({ slot });
   const [lastAction, setLastAction] = useState<{
     id: string;
@@ -456,7 +463,7 @@ export function VendorOrders({
   }, []);
   const changeStatus = (status: string) => updateFilters({ status });
   const update = async (order: Order, next: OrderStatus) => {
-    if (busy) return;
+    if (busy || loading || error) return;
     setBusy(order.id);
     setActionError("");
     try {
@@ -488,6 +495,9 @@ export function VendorOrders({
     (o) =>
       (!date || o.pickup_date === date) &&
       (!slot || o.pickup_slot === slot) &&
+      (overdue !== "1" ||
+        (o.pickup_date < today &&
+          ["pending", "confirmed"].includes(o.status))) &&
       (!query ||
         [
           o.id,
@@ -526,8 +536,20 @@ export function VendorOrders({
     );
   });
   const reset = () => updateFilters(orderDefaults);
+  if (!data)
+    return error ? (
+      <VendorError error={error} refresh={refresh} />
+    ) : (
+      <VendorLoading kind="orders" />
+    );
   return (
     <div className="vendor-orders">
+      <VendorDataFeedback
+        loading={loading}
+        error={error}
+        updatedAt={updatedAt}
+        refresh={refresh}
+      />
       <div className="vendor-order-guide">
         <span className="vendor-task-icon">
           <Package size={23} />
@@ -592,6 +614,43 @@ export function VendorOrders({
           </select>
         </label>
       </div>
+      <div className="vendor-order-mode-bar">
+        <div
+          className="vendor-view-switch"
+          role="group"
+          aria-label={t("订单显示方式")}
+        >
+          <button
+            aria-pressed={view !== "prep"}
+            onClick={() => updateFilters({ view: "cards" })}
+          >
+            <ShoppingBag size={15} />
+            {t("订单视图")}
+          </button>
+          <button
+            aria-pressed={view === "prep"}
+            onClick={() => updateFilters({ view: "prep" })}
+          >
+            <Package size={15} />
+            {t("备货清单")}
+          </button>
+        </div>
+        <button
+          className="text-button vendor-overdue-toggle"
+          aria-pressed={overdue === "1"}
+          onClick={() =>
+            updateFilters({
+              overdue: overdue === "1" ? "" : "1",
+              date: "",
+              slot: "",
+              status: "open",
+            })
+          }
+        >
+          <Clock3 size={14} />
+          {t("查看往日未履约")}
+        </button>
+      </div>
       <div className="vendor-tabs" role="group" aria-label={t("订单状态筛选")}>
         {[
           ["all", "全部订单"],
@@ -630,6 +689,14 @@ export function VendorOrders({
             : []),
           ...(date ? [{ label: date, remove: () => setDate("") }] : []),
           ...(slot ? [{ label: slot, remove: () => setSlot("") }] : []),
+          ...(overdue === "1"
+            ? [
+                {
+                  label: t("往日未履约"),
+                  remove: () => updateFilters({ overdue: "" }),
+                },
+              ]
+            : []),
           ...(status !== "all"
             ? [
                 {
@@ -689,13 +756,15 @@ export function VendorOrders({
       {actionError && !confirm && (
         <VendorError error={actionError} refresh={refresh} />
       )}
-      {error ? (
-        <VendorError error={error} refresh={refresh} />
-      ) : loading && !orders.length ? (
-        <div className="loading-panel">
-          <LoaderCircle className="spin" />
-          {t("正在读取预购订单…")}
-        </div>
+      {view === "prep" ? (
+        <VendorPreparation
+          orders={visible}
+          today={today}
+          onBack={() => updateFilters({ view: "cards" })}
+          onOpen={(date, slot) =>
+            updateFilters({ date, slot, status: "confirmed", view: "cards" })
+          }
+        />
       ) : !visible.length ? (
         <Empty
           icon={<ShoppingBag />}
@@ -740,6 +809,7 @@ export function VendorOrders({
                   {t(orderLabels[o.status])}
                 </span>
               </div>
+              <VendorOrderProgress status={o.status} />
               <div className="vendor-pickup-info">
                 <span className="vendor-order-avatar">
                   {o.client_name.slice(0, 1)}
@@ -785,7 +855,7 @@ export function VendorOrders({
                 <div className="vendor-order-actions">
                   <button
                     className="button subtle"
-                    disabled={!!busy || loading}
+                    disabled={!!busy || loading || !!error}
                     onClick={() => {
                       setActionError("");
                       setConfirm({ order: o, status: "cancelled" });
@@ -795,7 +865,7 @@ export function VendorOrders({
                   </button>
                   <button
                     className="button primary"
-                    disabled={!!busy || loading}
+                    disabled={!!busy || loading || !!error}
                     onClick={() =>
                       o.status === "pending"
                         ? void update(o, "confirmed")
@@ -858,7 +928,7 @@ export function VendorOrders({
             </button>
             <button
               className={`button ${confirm.status === "completed" ? "primary" : "danger"}`}
-              disabled={!!busy}
+              disabled={!!busy || loading || !!error}
               onClick={() => void update(confirm.order, confirm.status)}
             >
               {t(
