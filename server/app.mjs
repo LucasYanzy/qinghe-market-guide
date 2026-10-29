@@ -196,15 +196,13 @@ export function createApp(
         "INSERT INTO users (email,name,password_hash,role) VALUES (?,?,?,'client')",
       )
       .run(input.email, input.name, hashPassword(input.password));
-    res
-      .status(201)
-      .json({
-        user: session(res, {
-          id: Number(result.lastInsertRowid),
-          ...input,
-          role: "client",
-        }),
-      });
+    res.status(201).json({
+      user: session(res, {
+        id: Number(result.lastInsertRowid),
+        ...input,
+        role: "client",
+      }),
+    });
   });
   app.post("/api/auth/logout", (req, res) => {
     const token = req.headers.cookie
@@ -285,6 +283,25 @@ export function createApp(
         .prepare("SELECT * FROM products WHERE retailer_id=? ORDER BY id")
         .all(req.user.id),
     ),
+  );
+  // Change visibility alone so a listing action cannot overwrite live stock or price.
+  app.patch(
+    "/api/retailer/products/:id/visibility",
+    requireUser,
+    role("retailer"),
+    (req, res) => {
+      const { active } = z.object({ active: z.boolean() }).parse(req.body);
+      const result = db
+        .prepare(
+          "UPDATE products SET active=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND retailer_id=?",
+        )
+        .run(Number(active), req.params.id, req.user.id);
+      if (!result.changes)
+        throw new HttpError(404, "商品不存在或不属于当前商户。");
+      res.json(
+        db.prepare("SELECT * FROM products WHERE id=?").get(req.params.id),
+      );
+    },
   );
   app.post(
     "/api/retailer/products",
@@ -390,7 +407,18 @@ export function createApp(
         activeProducts: products.filter(
           (p) => p.active && p.available_date === marketDay(),
         ).length,
-        lowStock: products.filter((p) => p.active && p.stock < 10),
+        waitingPickup: orders.filter((o) => o.status === "confirmed").length,
+        outOfStock: products.filter(
+          (p) => p.active && p.available_date === marketDay() && p.stock === 0,
+        ).length,
+        offDateProducts: products.filter(
+          (p) => p.active && p.available_date !== marketDay(),
+        ).length,
+        lowStock: products
+          .filter(
+            (p) => p.active && p.available_date === marketDay() && p.stock < 10,
+          )
+          .sort((a, b) => a.stock - b.stock || a.id - b.id),
         recentOrders: orders.slice(0, 5),
       });
     },
@@ -406,15 +434,13 @@ export function createApp(
   }
   app.use((error, _req, res, _next) => {
     if (error instanceof z.ZodError)
-      return res
-        .status(400)
-        .json({
-          error: "提交的信息不完整或格式不正确。",
-          fields: error.issues.map((i) => ({
-            path: i.path.join("."),
-            message: i.message,
-          })),
-        });
+      return res.status(400).json({
+        error: "提交的信息不完整或格式不正确。",
+        fields: error.issues.map((i) => ({
+          path: i.path.join("."),
+          message: i.message,
+        })),
+      });
     if (error.type === "entity.parse.failed")
       return res.status(400).json({ error: "请求内容必须为有效 JSON。" });
     if (error.status)
