@@ -449,3 +449,81 @@ test("库存多选批量下架失败可重试，筛选变化清除选择", async
     active: 0,
   });
 });
+
+test("备货按时段汇总已确认快照，排除其他状态并保留备注", async ({
+  page,
+  browser,
+  baseURL,
+}) => {
+  await signIn(page);
+  const product = await createProduct(page, { stock: 30 });
+  const customer = await browser.newContext({ baseURL });
+  try {
+    await customer.request.post("/api/auth/login", {
+      data: { email: "client@qinghe.demo", password: "MarketDemo2026!" },
+    });
+    const config = await (await page.request.get("/api/config")).json();
+    const make = async (quantity: number, status: string) => {
+      const response = await customer.request.post("/api/orders", {
+        data: {
+          items: [{ productId: product.id, quantity }],
+          pickupSlot: config.pickupSlots[0],
+          note: "分装好，谢谢",
+        },
+      });
+      expect(response.status()).toBe(201);
+      const order = await response.json();
+      if (status !== "pending") {
+        expect(
+          (
+            await page.request.patch(`/api/orders/${order.id}/status`, {
+              data: {
+                status: status === "cancelled" ? "cancelled" : "confirmed",
+              },
+            })
+          ).ok(),
+        ).toBe(true);
+        if (status === "completed")
+          expect(
+            (
+              await page.request.patch(`/api/orders/${order.id}/status`, {
+                data: { status: "completed" },
+              })
+            ).ok(),
+          ).toBe(true);
+      }
+      return order;
+    };
+    await make(2, "confirmed");
+    await make(3, "confirmed");
+    await make(4, "pending");
+    await make(6, "cancelled");
+    await make(7, "completed");
+    await page.goto(`/orders?search=${encodeURIComponent(product.name)}`);
+    await page
+      .getByRole("group", { name: "订单显示方式" })
+      .getByRole("button", { name: "备货清单", exact: true })
+      .click();
+    const board = page.getByRole("region", { name: "备货清单" });
+    await expect(board.locator(".vendor-prep-items")).toContainText("5把");
+    await expect(board).toContainText("2 笔待自提");
+    await expect(board).toContainText("分装好，谢谢");
+    await page.reload();
+    await expect(board).toBeVisible();
+    await page.getByRole("button", { name: "查看时段订单" }).click();
+    await expect(page.locator(".vendor-order")).toHaveCount(2);
+    await expect(page.getByLabel("自提日期", { exact: true })).toHaveValue(
+      config.today,
+    );
+    await expect(
+      page.locator(".vendor-order-progress [aria-current=step]"),
+    ).toHaveText(["2备货与待自提", "2备货与待自提"]);
+    await page.getByRole("button", { name: "查看往日未履约" }).click();
+    await expect(page.locator(".vendor-order")).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "查看往日未履约" }),
+    ).toHaveAttribute("aria-pressed", "true");
+  } finally {
+    await customer.close();
+  }
+});

@@ -1,4 +1,26 @@
 export const vendorEnglish: Record<string, string> = {
+  "订单已取消，预留库存已归还。":
+    "Order cancelled; reserved stock has been returned.",
+  履约步骤: "Fulfillment steps",
+  备货与待自提: "Prepare & await pickup",
+  自提收款: "Pickup & payment",
+  备货清单: "Preparation list",
+  订单显示方式: "Order display mode",
+  订单视图: "Orders",
+  查看往日未履约: "Past pickups still open",
+  "按时段，把每一份新鲜准备好": "Prepare each pickup, one time slot at a time",
+  "仅汇总当前筛选中的待自提订单。待确认订单请先确认，已完成与取消订单不计入。":
+    "Includes ready-for-pickup orders matching your filters. Confirm pending orders first; completed and cancelled orders are excluded.",
+  暂无可备货的订单: "No orders ready to prepare",
+  "切换筛选，或先在订单视图确认预购。":
+    "Adjust your filters or confirm preorders in the order view first.",
+  返回订单视图: "Back to orders",
+  "{count} 笔待自提": "{count} ready for pickup",
+  待备商品: "Products to prepare",
+  备货前留意顾客备注: "Check customer notes before packing",
+  "数量来自预购快照，称重商品现场核对。":
+    "Quantities follow preorder records. Verify weighed goods in person.",
+  查看时段订单: "View orders in this slot",
   选择本页商品: "Select this page",
   "已选 {count} 款": "{count} selected",
   批量上架: "List selected",

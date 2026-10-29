@@ -22,6 +22,7 @@ import { useLanguage } from "./i18n";
 import { Produce } from "./Produce";
 import { Empty, Modal } from "./ui";
 import { VendorAnalytics } from "./VendorAnalytics";
+import { VendorOrderProgress, VendorPreparation } from "./VendorPreparation";
 import {
   openVendorPage,
   orderLabels,
@@ -408,6 +409,8 @@ const orderDefaults = {
   date: "",
   slot: "",
   sort: "priority",
+  view: "cards",
+  overdue: "",
 };
 
 export function VendorOrders({
@@ -436,7 +439,7 @@ export function VendorOrders({
   )
     ? filters.status
     : "all";
-  const { search, date, slot, sort } = filters;
+  const { search, date, slot, sort, view, overdue } = filters;
   const setSearch = (search: string) => updateFilters({ search });
   const setDate = (date: string) => updateFilters({ date });
   const setSlot = (slot: string) => updateFilters({ slot });
@@ -488,6 +491,9 @@ export function VendorOrders({
     (o) =>
       (!date || o.pickup_date === date) &&
       (!slot || o.pickup_slot === slot) &&
+      (overdue !== "1" ||
+        (o.pickup_date < today &&
+          ["pending", "confirmed"].includes(o.status))) &&
       (!query ||
         [
           o.id,
@@ -592,6 +598,43 @@ export function VendorOrders({
           </select>
         </label>
       </div>
+      <div className="vendor-order-mode-bar">
+        <div
+          className="vendor-view-switch"
+          role="group"
+          aria-label={t("订单显示方式")}
+        >
+          <button
+            aria-pressed={view !== "prep"}
+            onClick={() => updateFilters({ view: "cards" })}
+          >
+            <ShoppingBag size={15} />
+            {t("订单视图")}
+          </button>
+          <button
+            aria-pressed={view === "prep"}
+            onClick={() => updateFilters({ view: "prep" })}
+          >
+            <Package size={15} />
+            {t("备货清单")}
+          </button>
+        </div>
+        <button
+          className="text-button vendor-overdue-toggle"
+          aria-pressed={overdue === "1"}
+          onClick={() =>
+            updateFilters({
+              overdue: overdue === "1" ? "" : "1",
+              date: "",
+              slot: "",
+              status: "open",
+            })
+          }
+        >
+          <Clock3 size={14} />
+          {t("查看往日未履约")}
+        </button>
+      </div>
       <div className="vendor-tabs" role="group" aria-label={t("订单状态筛选")}>
         {[
           ["all", "全部订单"],
@@ -630,6 +673,14 @@ export function VendorOrders({
             : []),
           ...(date ? [{ label: date, remove: () => setDate("") }] : []),
           ...(slot ? [{ label: slot, remove: () => setSlot("") }] : []),
+          ...(overdue === "1"
+            ? [
+                {
+                  label: t("往日未履约"),
+                  remove: () => updateFilters({ overdue: "" }),
+                },
+              ]
+            : []),
           ...(status !== "all"
             ? [
                 {
@@ -696,6 +747,15 @@ export function VendorOrders({
           <LoaderCircle className="spin" />
           {t("正在读取预购订单…")}
         </div>
+      ) : view === "prep" ? (
+        <VendorPreparation
+          orders={visible}
+          today={today}
+          onBack={() => updateFilters({ view: "cards" })}
+          onOpen={(date, slot) =>
+            updateFilters({ date, slot, status: "confirmed", view: "cards" })
+          }
+        />
       ) : !visible.length ? (
         <Empty
           icon={<ShoppingBag />}
@@ -740,6 +800,7 @@ export function VendorOrders({
                   {t(orderLabels[o.status])}
                 </span>
               </div>
+              <VendorOrderProgress status={o.status} />
               <div className="vendor-pickup-info">
                 <span className="vendor-order-avatar">
                   {o.client_name.slice(0, 1)}
