@@ -1,3 +1,4 @@
+import { LanguageSwitcher, useLanguage } from "./i18n";
 import {
   useCallback,
   useEffect,
@@ -101,6 +102,7 @@ function Modal({
   wide?: boolean;
   busy?: boolean;
 }) {
+  const { t } = useLanguage();
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
@@ -160,17 +162,17 @@ function Modal({
         className={`modal ${wide ? "modal-wide" : ""}`}
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        aria-label={t(title)}
         aria-busy={busy}
         tabIndex={-1}
         ref={ref}
       >
         <div className="modal-title">
-          <h2>{title}</h2>
+          <h2>{t(title)}</h2>
           <button
             className="icon-button"
             onClick={onClose}
-            aria-label="关闭弹窗"
+            aria-label={t("关闭弹窗")}
             disabled={busy}
           >
             <X size={20} />
@@ -192,16 +194,18 @@ function Empty({
   text: string;
   action?: ReactNode;
 }) {
+  const { t } = useLanguage();
   return (
     <div className="empty-state">
       <div className="empty-icon">{icon}</div>
-      <h3>{title}</h3>
-      <p>{text}</p>
+      <h3>{t(title)}</h3>
+      <p>{t(text)}</p>
       {action}
     </div>
   );
 }
 function App() {
+  const { t } = useLanguage();
   const [config, setConfig] = useState<Config>();
   const [user, setUser] = useState<User | null>(null);
   const { page, navigate: changePage, replacePage } = useNavigation();
@@ -365,32 +369,28 @@ function App() {
     return (
       <div className="boot-screen">
         <Leaf size={44} />
-        <h2>青禾 QINGHE</h2>
+        <h2>{t("青禾 QINGHE")}</h2>
         <LoaderCircle className="spin" />
-        <p>正在准备今日的新鲜…</p>
+        <p>{t("正在准备今日的新鲜…")}</p>
       </div>
     );
   if (loadError || !config)
     return (
       <div className="boot-screen">
         <Sprout size={44} />
-        <h2>暂时无法连接市集</h2>
-        <p>{loadError}</p>
-        <button className="button primary" onClick={() => void load()}>
-          重新连接
-        </button>
+        <h2>{t("暂时无法连接市集")}</h2>
+        <p>{t(loadError)}</p>
+        <button className="button primary" onClick={() => void load()}>{t("重新连接")}</button>
       </div>
     );
   return (
     <div className={`app-shell ${retailer ? "retailer-site" : "visitor-site"}`}>
-      <a href="#main-content" className="skip-link">
-        跳到主要内容
-      </a>
+      <a href="#main-content" className="skip-link">{t("跳到主要内容")}</a>
       {mobileNav && (
         <button
           className="nav-scrim"
           onClick={() => setMobileNav(false)}
-          aria-label="关闭导航"
+          aria-label={t("关闭导航")}
         />
       )}
       <aside className={`sidebar ${mobileNav ? "sidebar-open" : ""}`}>
@@ -403,17 +403,16 @@ function App() {
             <Leaf size={25} />
           </span>
           <span>
-            <b>
-              青禾<span className="brand-english">QINGHE</span>
+            <b>{t("青禾")}<span className="brand-english">QINGHE</span>
             </b>
             <small>RUTGERS FARMERS MARKET</small>
           </span>
         </PageLink>
         <div className="workspace-label">
           <span className="tiny-dot" />
-          {retailer ? "RETAILER · 商户工作台" : "CLIENT · 顾客空间"}
+          {t(retailer ? "RETAILER · 商户工作台" : "CLIENT · 顾客空间")}
         </div>
-        <nav aria-label="主导航">
+        <nav aria-label={t("主导航")}>
           {nav.map((item) => (
             <PageLink
               key={item.id}
@@ -432,29 +431,25 @@ function App() {
           <span className="note-leaf">
             <Sprout size={28} />
           </span>
-          <h4>好食物，连接好邻里。</h4>
-          <p>
-            支持在地农场
-            <br />
-            让每一口新鲜都有来处。
-          </p>
+          <h4>{t("好食物，连接好邻里。")}</h4>
+          <p>{t("支持在地农场")}<br />{t("让每一口新鲜都有来处。")}</p>
           <span>LOCAL FOOD. LOCAL GOOD.</span>
         </div>
         <div className="sidebar-bottom">
-          <div className="avatar">{user ? user.name.slice(0, 1) : "青"}</div>
+          <div className="avatar">{t(user ? user.name.slice(0, 1) : "青")}</div>
           <div>
-            <strong>{user?.name ?? "欢迎来到青禾"}</strong>
+            <strong>{t(user?.name ?? "欢迎来到青禾")}</strong>
             <small>
-              {user
+              {t(user
                 ? retailer
                   ? "农场商户"
                   : "社区新鲜探索者"
-                : "登录，开启新鲜日常"}
+                : "登录，开启新鲜日常")}
             </small>
           </div>
           <button
             className="icon-button"
-            aria-label={user ? "退出登录" : "登录"}
+            aria-label={t(user ? "退出登录" : "登录")}
             onClick={() => (user ? void logout() : setAuthOpen(true))}
           >
             {user ? <LogOut size={17} /> : <ChevronRight size={18} />}
@@ -467,24 +462,25 @@ function App() {
             <button
               className="icon-button mobile-menu"
               onClick={() => setMobileNav(true)}
-              aria-label="打开导航"
+              aria-label={t("打开导航")}
               aria-expanded={mobileNav}
             >
               <Menu />
             </button>
-            <span>社区农夫市集</span>
+            <span>{t("社区农夫市集")}</span>
             <ChevronRight size={14} />
-            <strong>{title}</strong>
+            <strong>{t(title)}</strong>
           </div>
           <div className="topbar-actions">
+            <LanguageSwitcher />
             <span className="today-label">
               <span className="tiny-dot" />
-              {config.today.replaceAll("-", ".")}{" "}
+              {t(config.today.replaceAll("-", "."))}{t(" ")}
               <span className="timezone-label">ET</span>
             </span>
             <button className="role-switch" onClick={() => setAuthOpen(true)}>
               <Users size={16} />
-              {retailer ? "切换到顾客端" : "商户入口"}
+              {t(retailer ? "切换到顾客端" : "商户入口")}
               <ArrowUpRight size={14} />
             </button>
           </div>
@@ -493,16 +489,16 @@ function App() {
           <div className="page-heading">
             <div>
               <div className="eyebrow">
-                {retailer
+                {t(retailer
                   ? "GROW YOUR LOCAL BUSINESS"
-                  : "A LITTLE FRESHNESS, EVERY DAY"}
+                  : "A LITTLE FRESHNESS, EVERY DAY")}
               </div>
               <h1>
-                {page === "discover" ? "今天，也要好好吃饭。" : title}
+                {t(page === "discover" ? "今天，也要好好吃饭。" : title)}
                 <span className="heading-dot">.</span>
               </h1>
               <p>
-                {page === "discover"
+                {t(page === "discover"
                   ? "从附近的农场，到你的餐桌。发现这一季刚刚好的新鲜。"
                   : page === "dashboard"
                     ? "照顾好每一份收获，让新鲜被更多人看见。"
@@ -516,7 +512,7 @@ function App() {
                             ? "食品援助、使用指引与常见问题，陪你安心逛市集。"
                             : page === "about"
                               ? "从屏幕到餐桌，让新鲜和邻里更近一点。"
-                              : "每一份期待，都值得新鲜抵达。"}
+                              : "每一份期待，都值得新鲜抵达。")}
               </p>
             </div>
             {!retailer && (
@@ -524,17 +520,13 @@ function App() {
                 className="button cart-button"
                 onClick={() => setCartOpen(true)}
               >
-                <ShoppingBag size={18} />
-                购物袋<span className="count-pill">{cartCount}</span>
+                <ShoppingBag size={18} />{t("购物袋")}<span className="count-pill">{cartCount}</span>
               </button>
             )}
           </div>
           {config.demo && (
             <div className="demo-notice">
-              <span className="demo-badge">DEMO</span>{" "}
-              市场目录已核对官网；商品、库存与预购为演示，官方页面的 2025
-              年日程不代表当前营业安排。
-              {retailer && " 商户修改会影响当前演示商品与订单。"}
+              <span className="demo-badge">DEMO</span>{t(" ")}{t("市场目录已核对官网；商品、库存与预购为演示，官方页面的 2025 年日程不代表当前营业安排。")}{t(retailer && " 商户修改会影响当前演示商品与订单。")}
             </div>
           )}
           {page === "discover" && (
@@ -542,37 +534,22 @@ function App() {
               <section className="hero">
                 <div className="hero-copy">
                   <div className="hero-kicker">
-                    <span />
-                    在地生长 · 当季新鲜
-                  </div>
-                  <h2>
-                    把田野的新鲜，
-                    <br />
-                    带回你的餐桌<span>。</span>
+                    <span />{t("在地生长 · 当季新鲜")}</div>
+                  <h2>{t("把田野的新鲜，")}<br />{t("带回你的餐桌")}<span>。</span>
                   </h2>
-                  <p>
-                    一份当季蔬菜，一点简单的幸福。
-                    <br />
-                    提前预购，来市集把好味道带回家。
-                  </p>
+                  <p>{t("一份当季蔬菜，一点简单的幸福。")}<br />{t("提前预购，来市集把好味道带回家。")}</p>
                   <div className="hero-actions">
-                    <a className="button primary" href="#today-produce">
-                      挑选今日蔬菜
-                      <ArrowRight size={17} />
+                    <a className="button primary" href="#today-produce">{t("挑选今日蔬菜")}<ArrowRight size={17} />
                     </a>
                     <PageLink
                       className="hero-guide-link"
                       page="about"
                       navigate={navigate}
-                    >
-                      了解预购流程
-                      <ChevronRight size={15} />
+                    >{t("了解预购流程")}<ChevronRight size={15} />
                     </PageLink>
                   </div>
                   <div className="hero-footnote">
-                    <Sprout size={14} />
-                    和社区一起，把日子过得更鲜活。
-                  </div>
+                    <Sprout size={14} />{t("和社区一起，把日子过得更鲜活。")}</div>
                 </div>
                 <BasketArt />
               </section>
@@ -582,8 +559,8 @@ function App() {
                     <Leaf size={22} />
                   </span>
                   <div>
-                    <strong>当季采收</strong>
-                    <small>看得见的新鲜与来处</small>
+                    <strong>{t("当季采收")}</strong>
+                    <small>{t("看得见的新鲜与来处")}</small>
                   </div>
                 </div>
                 <div>
@@ -591,8 +568,8 @@ function App() {
                     <ShoppingBag size={22} />
                   </span>
                   <div>
-                    <strong>线上预购</strong>
-                    <small>选好新鲜，到场轻松取</small>
+                    <strong>{t("线上预购")}</strong>
+                    <small>{t("选好新鲜，到场轻松取")}</small>
                   </div>
                 </div>
                 <div>
@@ -600,31 +577,27 @@ function App() {
                     <TrendingUp size={22} />
                   </span>
                   <div>
-                    <strong>价格透明</strong>
-                    <small>历史走势，心中有数</small>
+                    <strong>{t("价格透明")}</strong>
+                    <small>{t("历史走势，心中有数")}</small>
                   </div>
                 </div>
               </div>
               <div className="section-heading" id="today-produce">
                 <div>
                   <span className="eyebrow">FRESH FROM THE FARM</span>
-                  <h2>
-                    今日新鲜上架{" "}
+                  <h2>{t("今日新鲜上架")}{t(" ")}
                     <span className="subtle-count">
-                      {products.length} 款当季好物
-                    </span>
+                      {products.length}{t(" 款当季好物")}</span>
                   </h2>
                 </div>
                 <span className="harvest-tag">
-                  <span className="tiny-dot" />
-                  今日可预购
-                </span>
+                  <span className="tiny-dot" />{t("今日可预购")}</span>
               </div>
               <div className="product-toolbar">
                 <div
                   className="category-tabs"
                   role="group"
-                  aria-label="蔬菜分类"
+                  aria-label={t("蔬菜分类")}
                 >
                   {["全部蔬菜", "叶菜类", "根茎类", "果实类"].map((c) => (
                     <button
@@ -633,7 +606,7 @@ function App() {
                       aria-pressed={category === c}
                       onClick={() => setCategory(c)}
                     >
-                      {c === "全部蔬菜" && <Sprout size={16} />} {c}
+                      {c === "全部蔬菜" && <Sprout size={16} />} {t(c)}
                     </button>
                   ))}
                 </div>
@@ -641,14 +614,14 @@ function App() {
                   <label className="search-field">
                     <Search size={17} />
                     <input
-                      aria-label="搜索蔬菜或农场"
-                      placeholder="找找你喜欢的蔬菜…"
+                      aria-label={t("搜索蔬菜或农场")}
+                      placeholder={t("找找你喜欢的蔬菜…")}
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                     />
                     {search && (
                       <button
-                        aria-label="清除搜索"
+                        aria-label={t("清除搜索")}
                         onClick={() => setSearch("")}
                       >
                         <X size={14} />
@@ -658,27 +631,25 @@ function App() {
                   <label className="sort-select">
                     <SlidersHorizontal size={15} />
                     <select
-                      aria-label="商品排序"
+                      aria-label={t("商品排序")}
                       value={sort}
                       onChange={(e) => setSort(e.target.value)}
                     >
-                      <option value="recommended">推荐排序</option>
-                      <option value="price-up">价格从低到高</option>
-                      <option value="price-down">价格从高到低</option>
+                      <option value="recommended">{t("推荐排序")}</option>
+                      <option value="price-up">{t("价格从低到高")}</option>
+                      <option value="price-down">{t("价格从高到低")}</option>
                     </select>
                   </label>
                 </div>
               </div>
               <div className="results-meta">
-                <span>发现 {visible.length} 款新鲜好物</span>
+                <span>{t("发现 ")}{visible.length}{t(" 款新鲜好物")}</span>
                 <label>
                   <input
                     type="checkbox"
                     checked={inStock}
                     onChange={(e) => setInStock(e.target.checked)}
-                  />{" "}
-                  仅看有库存
-                </label>
+                  />{t(" ")}{t("仅看有库存")}</label>
               </div>
               {visible.length ? (
                 <div className="product-grid">
@@ -696,12 +667,12 @@ function App() {
                 <Empty
                   icon={<Search />}
                   title={
-                    products.length ? "还没找到这份新鲜" : "今日暂未上架商品"
+                    t(products.length ? "还没找到这份新鲜" : "今日暂未上架商品")
                   }
                   text={
-                    products.length
+                    t(products.length
                       ? "试试其他分类或关键词，也可以查看暂时售罄的商品。"
-                      : "稍后再来看看；也可以先查看官方市场目录、历史采价与食品援助资源。"
+                      : "稍后再来看看；也可以先查看官方市场目录、历史采价与食品援助资源。")
                   }
                   action={
                     <button
@@ -713,7 +684,7 @@ function App() {
                         setInStock(false);
                       }}
                     >
-                      {products.length ? "清除筛选" : "查看市场目录"}
+                      {t(products.length ? "清除筛选" : "查看市场目录")}
                     </button>
                   }
                 />
@@ -725,20 +696,18 @@ function App() {
                   </div>
                   <div>
                     <span className="eyebrow">MEET US AT THE MARKET</span>
-                    <h3>下次见面，就在市集。</h3>
+                    <h3>{t("下次见面，就在市集。")}</h3>
                     <p>
-                      {guide.locations[0].name} · {guide.locations[0].address}
+                      {t(guide.locations[0].name)} · {t(guide.locations[0].address)}
                     </p>
                     {config.demo && (
-                      <p>官方地址参考 · 当季营业安排请先向官方确认</p>
+                      <p>{t("官方地址参考 · 当季营业安排请先向官方确认")}</p>
                     )}
                   </div>
                   <button
                     className="button secondary"
                     onClick={() => navigate("markets")}
-                  >
-                    查看市场与导航
-                    <ArrowUpRight size={17} />
+                  >{t("查看市场与导航")}<ArrowUpRight size={17} />
                   </button>
                 </section>
               )}
@@ -756,16 +725,14 @@ function App() {
           {page === "not-found" && (
             <Empty
               icon={<MapPin />}
-              title="这条小路还没通往市集"
-              text="链接可能已变更。回到首页，继续寻找当季的新鲜吧。"
+              title={t("这条小路还没通往市集")}
+              text={t("链接可能已变更。回到首页，继续寻找当季的新鲜吧。")}
               action={
                 <PageLink
                   page="discover"
                   navigate={navigate}
                   className="button primary"
-                >
-                  返回市集首页
-                  <ArrowRight size={16} />
+                >{t("返回市集首页")}<ArrowRight size={16} />
                 </PageLink>
               }
             />
@@ -773,15 +740,13 @@ function App() {
           {(page === "dashboard" || page === "inventory") && !retailer && (
             <Empty
               icon={<Store />}
-              title="这里是商户工作台"
-              text="请登录商户账号，管理商品、库存和预购订单。"
+              title={t("这里是商户工作台")}
+              text={t("请登录商户账号，管理商品、库存和预购订单。")}
               action={
                 <button
                   className="button primary"
                   onClick={() => setAuthOpen(true)}
-                >
-                  商户登录
-                  <ArrowRight size={16} />
+                >{t("商户登录")}<ArrowRight size={16} />
                 </button>
               }
             />
@@ -818,48 +783,34 @@ function App() {
             <div className="footer-brand">
               <span>
                 <Leaf size={20} />
-                <strong>青禾 QINGHE</strong>
+                <strong>{t("青禾 QINGHE")}</strong>
               </span>
-              <p>让新鲜，发生在身边。</p>
+              <p>{t("让新鲜，发生在身边。")}</p>
               <small>
-                {config.demo
+                {t(config.demo
                   ? "社区市集项目 · 演示网站"
-                  : "Rutgers Community Farmers Market"}
+                  : "Rutgers Community Farmers Market")}
               </small>
             </div>
-            <nav aria-label="页脚导航">
-              <span>探索市集</span>
-              <PageLink page="discover" navigate={navigate}>
-                今日蔬菜
-              </PageLink>
-              <PageLink page="markets" navigate={navigate}>
-                市场与导航
-              </PageLink>
-              <PageLink page="prices" navigate={navigate}>
-                价格观察
-              </PageLink>
+            <nav aria-label={t("页脚导航")}>
+              <span>{t("探索市集")}</span>
+              <PageLink page="discover" navigate={navigate}>{t("今日蔬菜")}</PageLink>
+              <PageLink page="markets" navigate={navigate}>{t("市场与导航")}</PageLink>
+              <PageLink page="prices" navigate={navigate}>{t("价格观察")}</PageLink>
             </nav>
-            <nav aria-label="访客指南">
-              <span>第一次来</span>
-              <PageLink page="about" navigate={navigate}>
-                关于青禾与常见问题
-              </PageLink>
-              <PageLink page="orders" navigate={navigate}>
-                查看我的预购
-              </PageLink>
-              <PageLink page="help" navigate={navigate}>
-                帮助与食品援助
-              </PageLink>
-              <a href={officialMarketUrl} target="_blank" rel="noreferrer">
-                Rutgers 官方市场信息
-                <ExternalLink size={12} />
+            <nav aria-label={t("访客指南")}>
+              <span>{t("第一次来")}</span>
+              <PageLink page="about" navigate={navigate}>{t("关于青禾与常见问题")}</PageLink>
+              <PageLink page="orders" navigate={navigate}>{t("查看我的预购")}</PageLink>
+              <PageLink page="help" navigate={navigate}>{t("帮助与食品援助")}</PageLink>
+              <a href={officialMarketUrl} target="_blank" rel="noreferrer">{t("Rutgers 官方市场信息")}<ExternalLink size={12} />
               </a>
             </nav>
           </footer>
         </main>
       </div>
       {!retailer && (
-        <nav className="mobile-site-nav" aria-label="手机快捷导航">
+        <nav className="mobile-site-nav" aria-label={t("手机快捷导航")}>
           {clientNav.slice(0, 4).map((item) => (
             <PageLink
               key={item.id}
@@ -868,7 +819,7 @@ function App() {
               active={page === item.id}
             >
               <item.icon size={20} />
-              <span>{item.label}</span>
+              <span>{t(item.label)}</span>
             </PageLink>
           ))}
         </nav>
@@ -876,8 +827,8 @@ function App() {
       {toast && (
         <div className="toast" role="status">
           <CheckCircle2 size={19} />
-          {toast}
-          <button aria-label="关闭提示" onClick={() => setToast("")}>
+          {t(toast)}
+          <button aria-label={t("关闭提示")} onClick={() => setToast("")}>
             <X size={16} />
           </button>
         </div>
@@ -916,39 +867,34 @@ function App() {
         />
       )}
       {detail && (
-        <Modal title="这份新鲜的故事" onClose={closeDetail}>
+        <Modal title={t("这份新鲜的故事")} onClose={closeDetail}>
           <div className={`detail-art art-bg-${detail.art}`}>
             <Produce kind={detail.art} />
             {detail.organic === 1 && (
               <span className="organic-badge">
-                <Leaf size={12} />
-                有机种植 · 演示
-              </span>
+                <Leaf size={12} />{t("有机种植 · 演示")}</span>
             )}
           </div>
           <div className="detail-copy">
-            <span className="eyebrow">{detail.farm}</span>
-            <h2>{detail.name}</h2>
-            <p>{detail.description}</p>
+            <span className="eyebrow">{t(detail.farm)}</span>
+            <h2>{t(detail.name)}</h2>
+            <p>{t(detail.description)}</p>
             <div className="detail-meta">
               <strong>
-                {money(detail.price_cents)}
-                <small> / {detail.unit}</small>
+                {t(money(detail.price_cents))}
+                <small> / {t(detail.unit)}</small>
               </strong>
-              <span>
-                今日剩余 {detail.stock} {detail.unit}
+              <span>{t("今日剩余 ")}{detail.stock} {t(detail.unit)}
               </span>
             </div>
-            <p className="helper-text">
-              称重类商品按标示单位预订；如需现场称重，最终金额请与商户确认。
-            </p>
+            <p className="helper-text">{t("称重类商品按标示单位预订；如需现场称重，最终金额请与商户确认。")}</p>
             <button
               className="button primary full-width"
               disabled={!detail.stock || retailer}
               onClick={() => add(detail)}
             >
               <ShoppingBag size={17} />
-              {detail.stock ? "加入购物袋" : "今日已售罄"}
+              {t(detail.stock ? "加入购物袋" : "今日已售罄")}
             </button>
           </div>
         </Modal>
@@ -968,49 +914,46 @@ function ProductCard({
   onAdd: () => void;
   onView: () => void;
 }) {
+  const { t } = useLanguage();
   return (
     <article className="product-card">
       <button
         className={`product-image art-bg-${p.art}`}
         onClick={onView}
-        aria-label={`查看${p.name}`}
+        aria-label={t("查看{0}", {0: t(p.name)})}
       >
         <Produce kind={p.art} />
         {p.organic === 1 && (
           <span className="organic-badge">
-            <Leaf size={11} />
-            有机种植
-          </span>
+            <Leaf size={11} />{t("有机种植")}</span>
         )}
-        {p.stock === 0 && <span className="sold-out">今日售罄</span>}
-        <span className="view-product">
-          了解这份新鲜
-          <ArrowUpRight size={14} />
+        {p.stock === 0 && <span className="sold-out">{t("今日售罄")}</span>}
+        <span className="view-product">{t("了解这份新鲜")}<ArrowUpRight size={14} />
         </span>
       </button>
       <div className="product-copy">
         <div className="farm-label">
           <span className="tiny-dot" />
-          {p.farm}
+          {t(p.farm)}
         </div>
         <button className="product-name" onClick={onView}>
-          {p.name}
+          {t(p.name)}
         </button>
         <div className="product-description">
-          {p.description.split("。")[0]}
+          {t(p.description.split("。")[0])}
         </div>
         <div className="product-bottom">
           <div>
-            <strong>{money(p.price_cents)}</strong>
-            <small> / {p.unit}</small>
+            <strong>{t(money(p.price_cents))}</strong>
+            <small> / {t(p.unit)}</small>
             <span className={`stock-label ${p.stock < 10 ? "low" : ""}`}>
-              {p.stock > 0 ? `剩余 ${p.stock} ${p.unit}` : "等待下一次采收"}
+              {t(p.stock > 0 ? `剩余 ${p.stock} ${p.unit}` : "等待下一次采收")}
             </span>
           </div>
           <button
             className={`add-button ${quantity ? "has-quantity" : ""}`}
             disabled={!p.stock || quantity >= p.stock}
-            aria-label={`将${p.name}加入购物袋`}
+            aria-label={t("将{0}加入购物袋", {0: t(p.name)})}
             onClick={onAdd}
           >
             {quantity ? <span>{quantity}</span> : <Plus size={20} />}
@@ -1032,6 +975,7 @@ function AuthModal({
   onLogin: (user: User) => void;
   checkout?: boolean;
 }) {
+  const { t } = useLanguage();
   const [register, setRegister] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -1060,18 +1004,18 @@ function AuthModal({
   };
   return (
     <Modal
-      title={register ? "加入青禾社区" : "你好，欢迎来到青禾"}
+      title={t(register ? "加入青禾社区" : "你好，欢迎来到青禾")}
       onClose={onClose}
       busy={busy}
     >
       <p className="modal-intro">
-        {checkout
+        {t(checkout
           ? "购物袋、自提时段和备注已保留。登录顾客账号后继续确认，不会自动下单。"
-          : "一个账号，连接附近的好食物与好邻里。"}
+          : "一个账号，连接附近的好食物与好邻里。")}
       </p>
       {demo && (
         <div className="demo-login">
-          <span className="eyebrow">体验完整的双端流程</span>
+          <span className="eyebrow">{t("体验完整的双端流程")}</span>
           <div>
             <button
               className="demo-account"
@@ -1079,8 +1023,8 @@ function AuthModal({
               onClick={() => void submit(undefined, "client")}
             >
               <ShoppingBag size={22} />
-              <strong>顾客端演示</strong>
-              <small>逛市集 · 预购自提</small>
+              <strong>{t("顾客端演示")}</strong>
+              <small>{t("逛市集 · 预购自提")}</small>
               <ArrowRight size={16} />
             </button>
             <button
@@ -1089,35 +1033,31 @@ function AuthModal({
               onClick={() => void submit(undefined, "retailer")}
             >
               <Store size={22} />
-              <strong>商户端演示</strong>
-              <small>管商品 · 处理订单</small>
+              <strong>{t("商户端演示")}</strong>
+              <small>{t("管商品 · 处理订单")}</small>
               <ArrowRight size={16} />
             </button>
           </div>
-          <p>演示账号仅供体验，请勿填写真实个人信息。</p>
+          <p>{t("演示账号仅供体验，请勿填写真实个人信息。")}</p>
         </div>
       )}
       <div className="divider">
-        <span>或使用邮箱{register ? "注册" : "登录"}</span>
+        <span>{t("或使用邮箱")}{t(register ? "注册" : "登录")}</span>
       </div>
       <form onSubmit={submit} className="form-stack">
         <fieldset className="form-fields form-stack" disabled={busy}>
           {register && (
-            <label>
-              称呼
-              <input
+            <label>{t("称呼")}<input
                 required
                 maxLength={40}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 autoComplete="name"
-                placeholder="我们该怎么称呼你"
+                placeholder={t("我们该怎么称呼你")}
               />
             </label>
           )}
-          <label>
-            邮箱地址
-            <input
+          <label>{t("邮箱地址")}<input
               required
               type="email"
               maxLength={254}
@@ -1127,9 +1067,7 @@ function AuthModal({
               placeholder="you@example.com"
             />
           </label>
-          <label>
-            密码
-            <input
+          <label>{t("密码")}<input
               required
               type="password"
               minLength={register ? 10 : 1}
@@ -1137,23 +1075,23 @@ function AuthModal({
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete={register ? "new-password" : "current-password"}
-              placeholder={register ? "至少 10 个字符" : "输入你的密码"}
+              placeholder={t(register ? "至少 10 个字符" : "输入你的密码")}
             />
           </label>
           {error && (
             <p className="form-error" role="alert">
-              {error}
+              {t(error)}
             </p>
           )}
           <button className="button primary full-width" disabled={busy}>
             {busy ? <LoaderCircle size={17} className="spin" /> : null}
-            {busy ? "正在连接账号…" : register ? "创建顾客账号" : "登录"}
+            {t(busy ? "正在连接账号…" : register ? "创建顾客账号" : "登录")}
             <ArrowRight size={16} />
           </button>
         </fieldset>
       </form>
       <p className="auth-toggle">
-        {register ? "已有账号？" : "第一次来？"}
+        {t(register ? "已有账号？" : "第一次来？")}
         <button
           disabled={busy}
           onClick={() => {
@@ -1161,7 +1099,7 @@ function AuthModal({
             setError("");
           }}
         >
-          {register ? "前往登录" : "注册顾客账号"}
+          {t(register ? "前往登录" : "注册顾客账号")}
         </button>
       </p>
     </Modal>
@@ -1191,6 +1129,7 @@ function CartModal({
   draft: CheckoutDraft;
   onDraftChange: (draft: CheckoutDraft) => void;
 }) {
+  const { t } = useLanguage();
   const slot = config.pickupSlots.includes(draft.slot)
     ? draft.slot
     : (config.pickupSlots[0] ?? "");
@@ -1242,15 +1181,13 @@ function CartModal({
     }
   };
   return (
-    <Modal title="我的新鲜购物袋" onClose={onClose} busy={busy}>
+    <Modal title={t("我的新鲜购物袋")} onClose={onClose} busy={busy}>
       {!entries.length ? (
         <Empty
-          title="购物袋在等一份新鲜"
-          text="挑选喜欢的蔬菜，提前预购，到市集轻松取。"
+          title={t("购物袋在等一份新鲜")}
+          text={t("挑选喜欢的蔬菜，提前预购，到市集轻松取。")}
           action={
-            <button className="button primary" onClick={onClose}>
-              继续逛逛
-              <ArrowRight size={16} />
+            <button className="button primary" onClick={onClose}>{t("继续逛逛")}<ArrowRight size={16} />
             </button>
           }
         />
@@ -1266,14 +1203,14 @@ function CartModal({
                         <Produce kind={p.art} />
                       </div>
                       <div className="cart-item-info">
-                        <strong>{p.name}</strong>
+                        <strong>{t(p.name)}</strong>
                         <small>
-                          {money(p.price_cents)} / {p.unit}
+                          {t(money(p.price_cents))} / {t(p.unit)}
                         </small>
                         <div className="quantity-control">
                           <button
                             type="button"
-                            aria-label={`减少${p.name}`}
+                            aria-label={t("减少{0}", {0: t(p.name)})}
                             onClick={() => change(p.id, quantity - 1)}
                           >
                             <Minus size={13} />
@@ -1281,7 +1218,7 @@ function CartModal({
                           <span>{quantity}</span>
                           <button
                             type="button"
-                            aria-label={`增加${p.name}`}
+                            aria-label={t("增加{0}", {0: t(p.name)})}
                             disabled={quantity >= p.stock}
                             onClick={() => change(p.id, quantity + 1)}
                           >
@@ -1290,24 +1227,23 @@ function CartModal({
                         </div>
                         {quantity > p.stock && (
                           <div className="stock-warning" role="status">
-                            <span>
-                              当前仅剩 {p.stock} {p.unit}
+                            <span>{t("当前仅剩 ")}{p.stock} {t(p.unit)}
                             </span>
                             <button
                               type="button"
                               className="text-button"
                               onClick={() => change(p.id, p.stock)}
                             >
-                              {p.stock > 0 ? "调整至可购数量" : "移除售罄商品"}
+                              {t(p.stock > 0 ? "调整至可购数量" : "移除售罄商品")}
                             </button>
                           </div>
                         )}
                       </div>
                       <div className="cart-line-total">
-                        <strong>{money(p.price_cents * quantity)}</strong>
+                        <strong>{t(money(p.price_cents * quantity))}</strong>
                         <button
                           type="button"
-                          aria-label={`移除${p.name}`}
+                          aria-label={t("移除{0}", {0: t(p.name)})}
                           onClick={() => change(p.id, 0)}
                         >
                           <X size={15} />
@@ -1316,10 +1252,8 @@ function CartModal({
                     </>
                   ) : (
                     <>
-                      <p>商品已下架，请移除后继续预购。</p>
-                      <button type="button" onClick={() => change(id, 0)}>
-                        移除
-                      </button>
+                      <p>{t("商品已下架，请移除后继续预购。")}</p>
+                      <button type="button" onClick={() => change(id, 0)}>{t("移除")}</button>
                     </>
                   )}
                 </div>
@@ -1328,28 +1262,25 @@ function CartModal({
             <div className="pickup-box">
               <div>
                 <Store size={17} />
-                <strong>市集自提 · 到场付款</strong>
+                <strong>{t("市集自提 · 到场付款")}</strong>
               </div>
-              <p>{config.today} · 美国东部时间</p>
-              <label>
-                选择自提时段
-                <select
+              <p>{t(config.today)}{t(" · 美国东部时间")}</p>
+              <label>{t("选择自提时段")}<select
                   value={slot}
                   onChange={(e) =>
                     onDraftChange({ ...draft, slot: e.target.value })
                   }
                 >
                   {config.pickupSlots.map((s) => (
-                    <option key={s}>{s}</option>
+                    <option value={s} key={s}>{t(s)}</option>
                   ))}
                 </select>
               </label>
-              <label>
-                给农场的小纸条 <span>（选填）</span>
+              <label>{t("给农场的小纸条 ")}<span>{t("（选填）")}</span>
                 <textarea
                   maxLength={300}
                   rows={2}
-                  placeholder="有什么需要我们提前知道的吗？"
+                  placeholder={t("有什么需要我们提前知道的吗？")}
                   value={note}
                   onChange={(e) =>
                     onDraftChange({ ...draft, note: e.target.value })
@@ -1358,28 +1289,21 @@ function CartModal({
               </label>
             </div>
             <div className="cart-total">
-              <span>
-                预计合计 <small>USD</small>
+              <span>{t("预计合计 ")}<small>USD</small>
               </span>
-              <strong>{money(total)}</strong>
+              <strong>{t(money(total))}</strong>
             </div>
-            <p className="helper-text">
-              预购会为你保留库存；订单确认后请按时自提。此版本不收取线上款项。价格以提交订单时的服务端报价为准。
-            </p>
+            <p className="helper-text">{t("预购会为你保留库存；订单确认后请按时自提。此版本不收取线上款项。价格以提交订单时的服务端报价为准。")}</p>
             {invalid && (
-              <p className="form-error" role="alert">
-                商品或库存已变化，请按上方提示调整购物袋后提交。
-              </p>
+              <p className="form-error" role="alert">{t("商品或库存已变化，请按上方提示调整购物袋后提交。")}</p>
             )}
             {error && (
               <p className="form-error" role="alert">
-                {error}
+                {t(error)}
               </p>
             )}
             {!slot && (
-              <p className="form-error" role="alert">
-                当前暂无可用自提时段，请稍后再来。
-              </p>
+              <p className="form-error" role="alert">{t("当前暂无可用自提时段，请稍后再来。")}</p>
             )}
             <button
               className="button primary full-width"
@@ -1389,12 +1313,12 @@ function CartModal({
                 <LoaderCircle size={17} className="spin" />
               ) : (
                 <ShoppingBag size={17} />
-              )}{" "}
-              {busy
+              )}{t(" ")}
+              {t(busy
                 ? "正在提交预购，请稍候…"
                 : user
                   ? "确认预购"
-                  : "登录后预购"}
+                  : "登录后预购")}
               <ArrowRight size={16} />
             </button>
           </fieldset>
@@ -1411,22 +1335,19 @@ function Prices({
   products: Product[];
   revision: number;
 }) {
+  const { t } = useLanguage();
   const [view, setView] = useState<"archive" | "forecast">("archive");
   return (
     <>
-      <div className="category-tabs price-view-tabs" aria-label="价格资料类型">
+      <div className="category-tabs price-view-tabs" aria-label={t("价格资料类型")}>
         <button
           className={view === "archive" ? "selected" : ""}
           onClick={() => setView("archive")}
-        >
-          Externship 采价档案
-        </button>
+        >{t("Externship 采价档案")}</button>
         <button
           className={view === "forecast" ? "selected" : ""}
           onClick={() => setView("forecast")}
-        >
-          演示价格趋势与预测
-        </button>
+        >{t("演示价格趋势与预测")}</button>
       </div>
       {view === "archive" ? (
         <ReferencePrices />
@@ -1444,6 +1365,7 @@ function ForecastPrices({
   products: Product[];
   revision: number;
 }) {
+  const { t } = useLanguage();
   const [selected, setSelected] = useState(products[0]?.id ?? 0);
   const [data, setData] = useState<PriceData>();
   const [error, setError] = useState("");
@@ -1471,8 +1393,8 @@ function ForecastPrices({
     return (
       <Empty
         icon={<BarChart3 />}
-        title="还没有可观察的价格"
-        text="商品上架后，可以查看已记录的历史价格与预测。"
+        title={t("还没有可观察的价格")}
+        text={t("商品上架后，可以查看已记录的历史价格与预测。")}
       />
     );
   const first = data?.history[0]?.price_cents ?? 0;
@@ -1503,73 +1425,67 @@ function ForecastPrices({
     <>
       <div className="price-toolbar">
         <div className="price-selector">
-          <span>选择观察蔬菜</span>
+          <span>{t("选择观察蔬菜")}</span>
           <select
-            aria-label="选择观察蔬菜"
+            aria-label={t("选择观察蔬菜")}
             value={selected}
             onChange={(e) => setSelected(Number(e.target.value))}
           >
             {products.map((p) => (
               <option value={p.id} key={p.id}>
-                {p.name} · 每{p.unit}
+                {t(p.name)}{t(" · 每")}{t(p.unit)}
               </option>
             ))}
           </select>
           <ChevronDown size={16} />
         </div>
-        <span className="helper-text">
-          价格单位：美元（USD） / 商品标示单位
-        </span>
+        <span className="helper-text">{t("价格单位：美元（USD） / 商品标示单位")}</span>
       </div>
       {error ? (
         <div className="error-panel" role="alert">
-          {error}
+          {t(error)}
           <button
             className="text-button"
             onClick={() => setSelected(products[0].id)}
-          >
-            查看首个商品
-          </button>
+          >{t("查看首个商品")}</button>
         </div>
       ) : busy ? (
         <div className="loading-panel">
-          <LoaderCircle className="spin" />
-          正在分析价格记录…
-        </div>
+          <LoaderCircle className="spin" />{t("正在分析价格记录…")}</div>
       ) : (
         data && (
           <>
             <div className="stat-grid price-stat-grid">
               <Stat
-                label="当前售价"
+                label={t("当前售价")}
                 value={money(data.product.price_cents)}
-                note={`每${data.product.unit} · 最新记录 ${shortDate(data.history.at(-1)?.date ?? "")}`}
+                note={t("每{0} · 最新记录 {1}", {0: t(data.product.unit), 1: t(shortDate(data.history.at(-1)?.date ?? ""))})}
                 icon={<Wallet />}
               />
               <Stat
-                label="历史期间变化"
+                label={t("历史期间变化")}
                 value={`${change > 0 ? "+" : ""}${change.toFixed(1)}%`}
-                note={`对比 ${shortDate(data.history[0]?.date ?? "")} 首条记录`}
+                note={t("对比 {0} 首条记录", {0: t(shortDate(data.history[0]?.date ?? ""))})}
                 icon={change > 0 ? <ArrowUpRight /> : <ArrowDownRight />}
               />
               <Stat
-                label="7 天后预测"
+                label={t("7 天后预测")}
                 value={
                   data.forecast.points.length
                     ? money(data.forecast.points.at(-1)!.price_cents)
                     : "数据不足"
                 }
-                note="模型估算，不代表实际成交价"
+                note={t("模型估算，不代表实际成交价")}
                 icon={<TrendingUp />}
               />
               <Stat
-                label="回测平均绝对误差"
+                label={t("回测平均绝对误差")}
                 value={
                   data.forecast.maeCents !== null
                     ? money(data.forecast.maeCents)
                     : "—"
                 }
-                note={`${data.forecast.sampleSize} 条历史记录 · 滚动单步回测`}
+                note={t("{0} 条历史记录 · 滚动单步回测", {0: data.forecast.sampleSize})}
                 icon={<BarChart3 />}
               />
             </div>
@@ -1577,17 +1493,13 @@ function ForecastPrices({
               <div className="panel-heading">
                 <div>
                   <span className="eyebrow">A CLEARER VIEW OF FRESHNESS</span>
-                  <h2>{data.product.name} · 价格走势</h2>
+                  <h2>{t(data.product.name)}{t(" · 价格走势")}</h2>
                 </div>
                 <div className="chart-legend">
                   <span>
-                    <i />
-                    历史价格
-                  </span>
+                    <i />{t("历史价格")}</span>
                   <span>
-                    <i className="predicted" />
-                    趋势预测
-                  </span>
+                    <i className="predicted" />{t("趋势预测")}</span>
                 </div>
               </div>
               <div className="chart-container">
@@ -1643,10 +1555,10 @@ function ForecastPrices({
                           ? `${money(Number(value[0]) * 100)} – ${money(Number(value[1]) * 100)}`
                           : money(Number(value) * 100),
                         name === "actual"
-                          ? "历史价格"
+                          ? t("历史价格")
                           : name === "range"
-                            ? "估计区间"
-                            : "趋势预测",
+                            ? t("估计区间")
+                            : t("趋势预测"),
                       ]}
                       contentStyle={{
                         borderRadius: 12,
@@ -1682,39 +1594,37 @@ function ForecastPrices({
               <div className="forecast-note">
                 <TrendingUp size={19} />
                 <div>
-                  <strong>{data.forecast.method}</strong>
+                  <strong>{t(data.forecast.method)}</strong>
                   <p>
-                    {data.forecast.message}{" "}
-                    演示模式下的历史记录为生成的示例数据。
-                  </p>
+                    {t(data.forecast.message)}{t(" ")}{t("演示模式下的历史记录为生成的示例数据。")}</p>
                 </div>
               </div>
             </section>
             <section className="panel forecast-table">
               <div className="panel-heading">
-                <h3>未来 7 天参考价格</h3>
-                <span className="muted">含模型估计区间</span>
+                <h3>{t("未来 7 天参考价格")}</h3>
+                <span className="muted">{t("含模型估计区间")}</span>
               </div>
               {data.forecast.points.length ? (
                 <div className="table-scroll">
                   <table>
                     <thead>
                       <tr>
-                        <th>日期</th>
-                        <th>参考价格 / {data.product.unit}</th>
-                        <th>估计区间</th>
-                        <th>相对当前售价</th>
+                        <th>{t("日期")}</th>
+                        <th>{t("参考价格 / ")}{t(data.product.unit)}</th>
+                        <th>{t("估计区间")}</th>
+                        <th>{t("相对当前售价")}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {data.forecast.points.map((p) => (
                         <tr key={p.date}>
-                          <td>{p.date}</td>
+                          <td>{t(p.date)}</td>
                           <td>
-                            <strong>{money(p.price_cents)}</strong>
+                            <strong>{t(money(p.price_cents))}</strong>
                           </td>
                           <td>
-                            {money(p.low_cents)} – {money(p.high_cents)}
+                            {t(money(p.low_cents))} – {t(money(p.high_cents))}
                           </td>
                           <td>
                             <span
@@ -1724,8 +1634,8 @@ function ForecastPrices({
                                   : "trend-up"
                               }
                             >
-                              {p.price_cents > latest ? "+" : ""}
-                              {money(p.price_cents - latest)}
+                              {t(p.price_cents > latest ? "+" : "")}
+                              {t(money(p.price_cents - latest))}
                             </span>
                           </td>
                         </tr>
@@ -1734,9 +1644,7 @@ function ForecastPrices({
                   </table>
                 </div>
               ) : (
-                <p className="helper-text">
-                  积累至少 7 天的价格记录后显示预测结果。
-                </p>
+                <p className="helper-text">{t("积累至少 7 天的价格记录后显示预测结果。")}</p>
               )}
             </section>
           </>
@@ -1761,6 +1669,7 @@ function Orders({
   onLogin: () => void;
   onShop: () => void;
 }) {
+  const { t } = useLanguage();
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
@@ -1813,12 +1722,10 @@ function Orders({
   if (!user)
     return (
       <Empty
-        title="登录，查看你的新鲜预购"
-        text="订单、取货时段和状态，会在这里为你妥善记录。"
+        title={t("登录，查看你的新鲜预购")}
+        text={t("订单、取货时段和状态，会在这里为你妥善记录。")}
         action={
-          <button className="button primary" onClick={onLogin}>
-            登录 / 注册
-            <ArrowRight size={16} />
+          <button className="button primary" onClick={onLogin}>{t("登录 / 注册")}<ArrowRight size={16} />
           </button>
         }
       />
@@ -1830,8 +1737,7 @@ function Orders({
         <button
           className={filter === "all" ? "selected" : ""}
           onClick={() => setFilter("all")}
-        >
-          全部订单 <span>{orders.length}</span>
+        >{t("全部订单 ")}<span>{orders.length}</span>
         </button>
         {Object.entries(statusLabels).map(([key, label]) => (
           <button
@@ -1839,35 +1745,29 @@ function Orders({
             className={filter === key ? "selected" : ""}
             onClick={() => setFilter(key)}
           >
-            {label} <span>{orders.filter((o) => o.status === key).length}</span>
+            {t(label)} <span>{orders.filter((o) => o.status === key).length}</span>
           </button>
         ))}
       </div>
       {loading ? (
         <div className="loading-panel">
-          <LoaderCircle className="spin" />
-          正在读取预购订单…
-        </div>
+          <LoaderCircle className="spin" />{t("正在读取预购订单…")}</div>
       ) : error ? (
         <div className="error-panel" role="alert">
-          {error}
-          <button className="text-button" onClick={refresh}>
-            重新加载
-          </button>
+          {t(error)}
+          <button className="text-button" onClick={refresh}>{t("重新加载")}</button>
         </div>
       ) : !visible.length ? (
         <Empty
-          title={filter === "all" ? "还没有新鲜预购" : "这个状态下还没有订单"}
+          title={t(filter === "all" ? "还没有新鲜预购" : "这个状态下还没有订单")}
           text={
-            user.role === "client"
+            t(user.role === "client"
               ? "去看看今日的蔬菜，为下一餐挑一点新鲜。"
-              : "顾客提交预购后，你可以在这里确认订单并安排自提。"
+              : "顾客提交预购后，你可以在这里确认订单并安排自提。")
           }
           action={
             user.role === "client" ? (
-              <button className="button primary" onClick={onShop}>
-                逛逛今日市集
-                <ArrowRight size={16} />
+              <button className="button primary" onClick={onShop}>{t("逛逛今日市集")}<ArrowRight size={16} />
               </button>
             ) : undefined
           }
@@ -1878,32 +1778,32 @@ function Orders({
             <article className="panel order-card" key={o.id}>
               <div className="order-card-top">
                 <div>
-                  <strong>{o.id}</strong>
+                  <strong>{t(o.id)}</strong>
                   <span>
-                    {o.created_at
+                    {t(o.created_at
                       .replace(" ", "T")
                       .slice(0, 16)
-                      .replace("T", " ")}{" "}
+                      .replace("T", " "))}{t(" ")}
                     UTC
                   </span>
                 </div>
                 <span className={`status-badge status-${o.status}`}>
                   <span />
-                  {statusLabels[o.status]}
+                  {t(statusLabels[o.status])}
                 </span>
               </div>
               <div className="order-items">
                 {o.items.map((item) => (
                   <div key={item.product_id}>
                     <span>
-                      {item.name}
+                      {t(item.name)}
                       <small>
-                        {money(item.price_cents)} / {item.unit}
+                        {t(money(item.price_cents))} / {t(item.unit)}
                       </small>
                     </span>
                     <span>
                       × {item.quantity}
-                      <strong>{money(item.price_cents * item.quantity)}</strong>
+                      <strong>{t(money(item.price_cents * item.quantity))}</strong>
                     </span>
                   </div>
                 ))}
@@ -1911,18 +1811,16 @@ function Orders({
               <div className="order-pickup">
                 <MapPin size={16} />
                 <span>
-                  {o.pickup_date} · {o.pickup_slot} ET
+                  {t(o.pickup_date)} · {t(o.pickup_slot)} ET
                 </span>
                 <span className="order-client">
                   <Users size={15} />
                   {o.client_name}
                 </span>
               </div>
-              {o.note && <p className="order-note">备注：{o.note}</p>}
+              {o.note && <p className="order-note">{t("备注：")}{o.note}</p>}
               <div className="order-card-bottom">
-                <span>
-                  到场付款 · 共 {o.items.reduce((a, i) => a + i.quantity, 0)} 件
-                  <strong>{money(o.total_cents)}</strong>
+                <span>{t("到场付款 · 共 ")}{o.items.reduce((a, i) => a + i.quantity, 0)}{t(" 件")}<strong>{t(money(o.total_cents))}</strong>
                 </span>
                 <div>
                   {(o.status === "pending" ||
@@ -1931,9 +1829,7 @@ function Orders({
                       className="button subtle"
                       disabled={!!busy}
                       onClick={() => setCancelOrder(o)}
-                    >
-                      取消订单
-                    </button>
+                    >{t("取消订单")}</button>
                   )}
                   {user.role === "retailer" && o.status === "pending" && (
                     <button
@@ -1946,7 +1842,7 @@ function Orders({
                       ) : (
                         <Check size={16} />
                       )}
-                      {busy === o.id ? "正在确认…" : "确认预购"}
+                      {t(busy === o.id ? "正在确认…" : "确认预购")}
                     </button>
                   )}
                   {user.role === "retailer" && o.status === "confirmed" && (
@@ -1960,7 +1856,7 @@ function Orders({
                       ) : (
                         <CheckCircle2 size={16} />
                       )}
-                      {busy === o.id ? "正在更新…" : "确认已自提并收款"}
+                      {t(busy === o.id ? "正在更新…" : "确认已自提并收款")}
                     </button>
                   )}
                 </div>
@@ -1970,25 +1866,20 @@ function Orders({
         </div>
       )}
       {cancelOrder && (
-        <Modal title="取消这份预购？" onClose={closeCancel} busy={!!busy}>
-          <p className="modal-intro">
-            订单 {cancelOrder.id}{" "}
-            取消后，预留库存会自动归还。已取消订单无法恢复。
-          </p>
+        <Modal title={t("取消这份预购？")} onClose={closeCancel} busy={!!busy}>
+          <p className="modal-intro">{t("订单 ")}{t(cancelOrder.id)}{t(" ")}{t("取消后，预留库存会自动归还。已取消订单无法恢复。")}</p>
           <div className="modal-actions">
             <button
               className="button secondary"
               onClick={closeCancel}
               disabled={!!busy}
-            >
-              保留订单
-            </button>
+            >{t("保留订单")}</button>
             <button
               className="button danger"
               disabled={!!busy}
               onClick={() => void update(cancelOrder, "cancelled")}
             >
-              {busy ? "正在取消…" : "确认取消"}
+              {t(busy ? "正在取消…" : "确认取消")}
             </button>
           </div>
         </Modal>
@@ -2008,14 +1899,15 @@ function Stat({
   note: string;
   icon: ReactNode;
 }) {
+  const { t } = useLanguage();
   return (
     <div className="stat-card">
       <div className="stat-label">
-        {label}
+        {t(label)}
         <span>{icon}</span>
       </div>
-      <strong className="stat-value">{value}</strong>
-      <p>{note}</p>
+      <strong className="stat-value">{t(value)}</strong>
+      <p>{t(note)}</p>
     </div>
   );
 }
@@ -2028,6 +1920,7 @@ function RetailDashboard({
   navigate: (p: Page) => void;
   notify: (s: string) => void;
 }) {
+  const { t } = useLanguage();
   const [data, setData] = useState<Dashboard>();
   const [error, setError] = useState("");
   useEffect(() => {
@@ -2046,70 +1939,60 @@ function RetailDashboard({
   if (error)
     return (
       <div className="error-panel" role="alert">
-        {error}
+        {t(error)}
       </div>
     );
   if (!data)
     return (
       <div className="loading-panel">
-        <LoaderCircle className="spin" />
-        正在汇总经营数据…
-      </div>
+        <LoaderCircle className="spin" />{t("正在汇总经营数据…")}</div>
     );
   return (
     <>
       <section className="retailer-welcome">
         <div>
           <span className="eyebrow">GOOD FOOD STARTS WITH YOU</span>
-          <h2>
-            每一份用心，
-            <br />
-            都有一张餐桌在等待。
-          </h2>
-          <p>今天也一起，让社区的餐桌更丰富一点。</p>
+          <h2>{t("每一份用心，")}<br />{t("都有一张餐桌在等待。")}</h2>
+          <p>{t("今天也一起，让社区的餐桌更丰富一点。")}</p>
           <button
             className="button primary"
             onClick={() => navigate("inventory")}
-          >
-            管理今日商品
-            <ArrowRight size={17} />
+          >{t("管理今日商品")}<ArrowRight size={17} />
           </button>
         </div>
         <BasketArt />
       </section>
       <div className="stat-grid">
         <Stat
-          label="今日预购订单"
+          label={t("今日预购订单")}
           value={String(data.todayOrders)}
-          note={`${data.pending} 笔订单等待确认（含往日）`}
+          note={t("{0} 笔订单等待确认（含往日）", {0: data.pending})}
           icon={<ShoppingBag />}
         />
         <Stat
-          label="今日已完成金额"
+          label={t("今日已完成金额")}
           value={money(data.revenueCents)}
-          note="仅统计已自提并收款的订单"
+          note={t("仅统计已自提并收款的订单")}
           icon={<Wallet />}
         />
         <Stat
-          label="今日待履约金额"
+          label={t("今日待履约金额")}
           value={money(data.reservedCents)}
-          note="待确认与待自提订单合计"
+          note={t("待确认与待自提订单合计")}
           icon={<Truck />}
         />
         <Stat
-          label="今日在售商品"
+          label={t("今日在售商品")}
           value={String(data.activeProducts)}
-          note={`${data.lowStock.length} 款商品库存低于 10`}
+          note={t("{0} 款商品库存低于 10", {0: data.lowStock.length})}
           icon={<Package />}
         />
       </div>
       <div className="dashboard-columns">
         <section className="panel">
           <div className="panel-heading">
-            <h3>最近的预购</h3>
-            <button className="text-button" onClick={() => navigate("orders")}>
-              查看全部
-              <ArrowRight size={15} />
+            <h3>{t("最近的预购")}</h3>
+            <button className="text-button" onClick={() => navigate("orders")}>{t("查看全部")}<ArrowRight size={15} />
             </button>
           </div>
           {data.recentOrders.length ? (
@@ -2122,12 +2005,11 @@ function RetailDashboard({
                   <span>
                     <strong>{o.client_name}</strong>
                     <small>
-                      {o.id} · {o.items.length} 款商品
-                    </small>
+                      {t(o.id)} · {o.items.length}{t(" 款商品")}</small>
                   </span>
                   <span>
-                    <strong>{money(o.total_cents)}</strong>
-                    <small>{statusLabels[o.status]}</small>
+                    <strong>{t(money(o.total_cents))}</strong>
+                    <small>{t(statusLabels[o.status])}</small>
                   </span>
                   <ChevronRight size={16} />
                 </button>
@@ -2135,14 +2017,14 @@ function RetailDashboard({
             </div>
           ) : (
             <Empty
-              title="新鲜订单，很快相见"
-              text="你的商品已展示给社区顾客，收到预购后会出现在这里。"
+              title={t("新鲜订单，很快相见")}
+              text={t("你的商品已展示给社区顾客，收到预购后会出现在这里。")}
             />
           )}
         </section>
         <section className="panel">
           <div className="panel-heading">
-            <h3>库存小提醒</h3>
+            <h3>{t("库存小提醒")}</h3>
             <span className="eyebrow">STOCK WATCH</span>
           </div>
           {data.lowStock.length ? (
@@ -2154,9 +2036,8 @@ function RetailDashboard({
               >
                 <Produce kind={p.art} />
                 <span>
-                  <strong>{p.name}</strong>
-                  <small>
-                    剩余 {p.stock} {p.unit}
+                  <strong>{t(p.name)}</strong>
+                  <small>{t("剩余 ")}{p.stock} {t(p.unit)}
                   </small>
                 </span>
                 <ArrowUpRight size={16} />
@@ -2165,8 +2046,8 @@ function RetailDashboard({
           ) : (
             <div className="stock-all-good">
               <CheckCircle2 size={34} />
-              <h3>库存状态良好</h3>
-              <p>暂无低库存商品，记得及时核对现场销售。</p>
+              <h3>{t("库存状态良好")}</h3>
+              <p>{t("暂无低库存商品，记得及时核对现场销售。")}</p>
             </div>
           )}
           <button
@@ -2175,9 +2056,7 @@ function RetailDashboard({
               notify("在商品与库存中可以调整每款商品的数量");
               navigate("inventory");
             }}
-          >
-            检查商品与库存
-            <ArrowRight size={16} />
+          >{t("检查商品与库存")}<ArrowRight size={16} />
           </button>
         </section>
       </div>
@@ -2196,6 +2075,7 @@ function Inventory({
   refresh: () => void;
   notify: (s: string) => void;
 }) {
+  const { t } = useLanguage();
   const [products, setProducts] = useState<Product[]>([]);
   const [editing, setEditing] = useState<Product | null>();
   const [loading, setLoading] = useState(true);
@@ -2226,45 +2106,41 @@ function Inventory({
         <label className="search-field">
           <Search size={17} />
           <input
-            placeholder="搜索商品名称…"
-            aria-label="搜索库存商品"
+            placeholder={t("搜索商品名称…")}
+            aria-label={t("搜索库存商品")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </label>
         <button className="button primary" onClick={() => setEditing(null)}>
-          <Plus size={17} />
-          上架新商品
-        </button>
+          <Plus size={17} />{t("上架新商品")}</button>
       </div>
       <div className="panel inventory-panel">
         {loading ? (
           <div className="loading-panel">
-            <LoaderCircle className="spin" />
-            正在读取库存…
-          </div>
+            <LoaderCircle className="spin" />{t("正在读取库存…")}</div>
         ) : error ? (
           <div className="error-panel" role="alert">
-            {error}
+            {t(error)}
           </div>
         ) : !shown.length ? (
           <Empty
             icon={<Sprout />}
-            title="这里还没有商品"
-            text="上架一份新鲜，让社区的顾客看见它。"
+            title={t("这里还没有商品")}
+            text={t("上架一份新鲜，让社区的顾客看见它。")}
           />
         ) : (
           <div className="table-scroll">
             <table>
               <thead>
                 <tr>
-                  <th>商品信息</th>
-                  <th>分类</th>
-                  <th>单价</th>
-                  <th>可预购库存</th>
-                  <th>售卖日期</th>
-                  <th>状态</th>
-                  <th>操作</th>
+                  <th>{t("商品信息")}</th>
+                  <th>{t("分类")}</th>
+                  <th>{t("单价")}</th>
+                  <th>{t("可预购库存")}</th>
+                  <th>{t("售卖日期")}</th>
+                  <th>{t("状态")}</th>
+                  <th>{t("操作")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -2276,42 +2152,40 @@ function Inventory({
                           <Produce kind={p.art} />
                         </div>
                         <div>
-                          <strong>{p.name}</strong>
-                          <small>{p.organic ? "有机种植" : "当季新鲜"}</small>
+                          <strong>{t(p.name)}</strong>
+                          <small>{t(p.organic ? "有机种植" : "当季新鲜")}</small>
                         </div>
                       </div>
                     </td>
-                    <td>{p.category}</td>
+                    <td>{t(p.category)}</td>
                     <td>
-                      <strong>{money(p.price_cents)}</strong>
-                      <small> / {p.unit}</small>
+                      <strong>{t(money(p.price_cents))}</strong>
+                      <small> / {t(p.unit)}</small>
                     </td>
                     <td>
                       <span
                         className={p.stock < 10 ? "stock-low" : "stock-normal"}
                       >
-                        {p.stock} {p.unit}
+                        {p.stock} {t(p.unit)}
                       </span>
                     </td>
-                    <td>{p.available_date}</td>
+                    <td>{t(p.available_date)}</td>
                     <td>
                       <span
                         className={`status-badge ${p.active && p.available_date === today ? "status-confirmed" : "status-cancelled"}`}
                       >
-                        {!p.active
+                        {t(!p.active
                           ? "已下架"
                           : p.available_date === today
                             ? "今日在售"
-                            : "非今日售卖"}
+                            : "非今日售卖")}
                       </span>
                     </td>
                     <td>
                       <button
                         className="text-button"
                         onClick={() => setEditing(p)}
-                      >
-                        编辑
-                        <ArrowUpRight size={14} />
+                      >{t("编辑")}<ArrowUpRight size={14} />
                       </button>
                     </td>
                   </tr>
@@ -2321,9 +2195,7 @@ function Inventory({
           </div>
         )}
       </div>
-      <p className="helper-text inventory-help">
-        库存为当前可预购数量；提交预购时自动扣减，取消订单时自动归还。价格与库存以数据库记录为准。
-      </p>
+      <p className="helper-text inventory-help">{t("库存为当前可预购数量；提交预购时自动扣减，取消订单时自动归还。价格与库存以数据库记录为准。")}</p>
       {editing !== undefined && (
         <ProductEditor
           product={editing}
@@ -2350,6 +2222,7 @@ function ProductEditor({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useLanguage();
   const [name, setName] = useState(p?.name ?? "");
   const [category, setCategory] = useState(p?.category ?? "叶菜类");
   const [art, setArt] = useState(p?.art ?? "lettuce");
@@ -2392,37 +2265,31 @@ function ProductEditor({
   };
   return (
     <Modal
-      title={p ? "编辑这份新鲜" : "上架一份新鲜"}
+      title={t(p ? "编辑这份新鲜" : "上架一份新鲜")}
       onClose={onClose}
       busy={busy}
     >
       <form onSubmit={save} className="form-stack">
         <fieldset className="form-fields form-stack" disabled={busy}>
-          <label>
-            商品名称
-            <input
+          <label>{t("商品名称")}<input
               required
               maxLength={50}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="例如：刚采收的田园番茄"
+              placeholder={t("例如：刚采收的田园番茄")}
             />
           </label>
           <div className="form-row">
-            <label>
-              蔬菜分类
-              <select
+            <label>{t("蔬菜分类")}<select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
               >
                 {["叶菜类", "根茎类", "果实类"].map((c) => (
-                  <option key={c}>{c}</option>
+                  <option value={c} key={c}>{t(c)}</option>
                 ))}
               </select>
             </label>
-            <label>
-              商品插画
-              <select value={art} onChange={(e) => setArt(e.target.value)}>
+            <label>{t("商品插画")}<select value={art} onChange={(e) => setArt(e.target.value)}>
                 {Object.entries({
                   tomato: "番茄",
                   broccoli: "西兰花",
@@ -2434,16 +2301,14 @@ function ProductEditor({
                   onion: "洋葱",
                 }).map(([k, v]) => (
                   <option value={k} key={k}>
-                    {v}
+                    {t(v)}
                   </option>
                 ))}
               </select>
             </label>
           </div>
           <div className="form-row">
-            <label>
-              售价（USD）
-              <input
+            <label>{t("售价（USD）")}<input
                 required
                 type="number"
                 min="0.01"
@@ -2453,19 +2318,15 @@ function ProductEditor({
                 onChange={(e) => setPrice(e.target.value)}
               />
             </label>
-            <label>
-              计价单位
-              <select value={unit} onChange={(e) => setUnit(e.target.value)}>
+            <label>{t("计价单位")}<select value={unit} onChange={(e) => setUnit(e.target.value)}>
                 {["磅", "颗", "把", "个", "袋"].map((u) => (
-                  <option key={u}>{u}</option>
+                  <option value={u} key={u}>{t(u)}</option>
                 ))}
               </select>
             </label>
           </div>
           <div className="form-row">
-            <label>
-              可预购库存
-              <input
+            <label>{t("可预购库存")}<input
                 required
                 type="number"
                 min="0"
@@ -2475,9 +2336,7 @@ function ProductEditor({
                 onChange={(e) => setStock(Number(e.target.value))}
               />
             </label>
-            <label>
-              售卖日期（美国东部）
-              <input
+            <label>{t("售卖日期（美国东部）")}<input
                 required
                 type="date"
                 value={date}
@@ -2485,14 +2344,12 @@ function ProductEditor({
               />
             </label>
           </div>
-          <label>
-            关于这份新鲜
-            <textarea
+          <label>{t("关于这份新鲜")}<textarea
               maxLength={500}
               rows={3}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="介绍产地、口感或推荐做法…"
+              placeholder={t("介绍产地、口感或推荐做法…")}
             />
           </label>
           <div className="form-checkboxes">
@@ -2501,24 +2358,18 @@ function ProductEditor({
                 type="checkbox"
                 checked={organic}
                 onChange={(e) => setOrganic(e.target.checked)}
-              />
-              有机种植
-            </label>
+              />{t("有机种植")}</label>
             <label>
               <input
                 type="checkbox"
                 checked={active}
                 onChange={(e) => setActive(e.target.checked)}
-              />
-              上架展示
-            </label>
+              />{t("上架展示")}</label>
           </div>
-          <p className="helper-text">
-            售卖日期为今天且已上架的商品，才会出现在顾客端。今日调价会更新今日历史价格记录。
-          </p>
+          <p className="helper-text">{t("售卖日期为今天且已上架的商品，才会出现在顾客端。今日调价会更新今日历史价格记录。")}</p>
           {error && (
             <p className="form-error" role="alert">
-              {error}
+              {t(error)}
             </p>
           )}
           <button className="button primary full-width" disabled={busy}>
@@ -2527,7 +2378,7 @@ function ProductEditor({
             ) : (
               <Check size={16} />
             )}
-            {busy ? "正在保存…" : "保存商品"}
+            {t(busy ? "正在保存…" : "保存商品")}
           </button>
         </fieldset>
       </form>

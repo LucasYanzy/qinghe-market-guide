@@ -1,3 +1,4 @@
+import { useLanguage } from "./i18n";
 import { useState } from "react";
 import {
   ArrowUpRight,
@@ -17,6 +18,7 @@ import {
 import guide from "../references/rutgers-market-guide.json";
 
 export function OfficialSource() {
+  const { t } = useLanguage();
   return (
     <section className="official-market-reference">
       <div className="official-reference-icon">
@@ -24,26 +26,24 @@ export function OfficialSource() {
       </div>
       <div className="official-reference-copy">
         <span className="eyebrow">RUTGERS · OFFICIAL INFORMATION</span>
-        <h2>{guide.name}</h2>
-        <p>
-          地址与市场介绍已按 Rutgers 官方页面整理。核对日期：{guide.checkedOn}。
+        <h2>{t(guide.name)}</h2>
+        <p>{t("地址与市场介绍已按 Rutgers 官方页面整理。核对日期：")}{t(guide.checkedOn)}。
         </p>
-        <small>{guide.scheduleNotice}</small>
+        <small>{t(guide.scheduleNotice)}</small>
       </div>
       <a
         className="button official-reference-link"
         href={guide.sourceUrl}
         target="_blank"
         rel="noreferrer"
-      >
-        查看官方原文
-        <ExternalLink size={15} />
+      >{t("查看官方原文")}<ExternalLink size={15} />
       </a>
     </section>
   );
 }
 
 export default function MarketGuide() {
+  const { t } = useLanguage();
   const [area, setArea] = useState("全部地点");
   const [search, setSearch] = useState("");
   const [mode, setMode] = useState("driving");
@@ -69,42 +69,42 @@ export default function MarketGuide() {
     <div className="market-guide">
       <OfficialSource />
       <div className="guide-toolbar">
-        <div className="category-tabs" aria-label="市场区域">
+        <div className="category-tabs" aria-label={t("市场区域")}>
           {["全部地点", "Rutgers 校园", "New Brunswick 社区"].map((a) => (
             <button
               key={a}
               className={a === area ? "selected" : ""}
               onClick={() => setArea(a)}
             >
-              {a}
+              {t(a)}
             </button>
           ))}
         </div>
         <label className="search-field">
           <Search size={17} />
           <input
-            aria-label="搜索市场地址"
-            placeholder="搜索市场或地址…"
+            aria-label={t("搜索市场地址")}
+            placeholder={t("搜索市场或地址…")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </label>
       </div>
       <div className="guide-mode">
-        <span>显示 {locations.length} 个地点 · 导航出行方式</span>
+        <span>{t("显示 ")}{locations.length}{t(" 个地点 · 导航出行方式")}</span>
         <select
-          aria-label="导航出行方式"
+          aria-label={t("导航出行方式")}
           value={mode}
           onChange={(e) => setMode(e.target.value)}
         >
-          <option value="driving">驾车</option>
-          <option value="walking">步行</option>
-          <option value="transit">公共交通</option>
+          <option value="driving">{t("驾车")}</option>
+          <option value="walking">{t("步行")}</option>
+          <option value="transit">{t("公共交通")}</option>
         </select>
       </div>
       {error && (
         <p className="form-error" role="alert">
-          {error}
+          {t(error)}
         </p>
       )}
       <div className="official-location-grid">
@@ -117,29 +117,29 @@ export default function MarketGuide() {
               <span
                 className={`status-badge ${l.status === "historical" ? "status-pending" : "status-cancelled"}`}
               >
-                {l.status === "historical"
+                {t(l.status === "historical"
                   ? "历史日程 · 待确认今年安排"
-                  : "具体时间待公布"}
+                  : "具体时间待公布")}
               </span>
             </div>
-            <span className="eyebrow">{l.area}</span>
-            <h2>{l.name}</h2>
+            <span className="eyebrow">{t(l.area)}</span>
+            <h2>{t(l.name)}</h2>
             <div className="market-detail">
               <MapPin size={18} />
               <div>
-                <strong>官网地址</strong>
-                <p>{l.address}</p>
-                <small className="helper-text">原文：{l.sourceAddress}</small>
+                <strong>{t("官网地址")}</strong>
+                <p>{t(l.address)}</p>
+                <small className="helper-text">{t("原文：")}{t(l.sourceAddress)}</small>
               </div>
             </div>
             <div className="market-detail">
               <Clock3 size={18} />
               <div>
-                <strong>{l.schedule}</strong>
-                <p>{l.season} · 美国东部时间</p>
+                <strong>{t(l.schedule)}</strong>
+                <p>{t(l.season)}{t(" · 美国东部时间")}</p>
               </div>
             </div>
-            <p className="location-note">{l.note}</p>
+            <p className="location-note">{t(l.note)}</p>
             <div className="navigation-buttons">
               <a
                 className="button primary"
@@ -147,31 +147,25 @@ export default function MarketGuide() {
                 rel="noreferrer"
                 href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(l.address)}&travelmode=${mode}`}
               >
-                <Navigation size={16} />
-                Google 地图
-                <ExternalLink size={13} />
+                <Navigation size={16} />{t("Google 地图")}<ExternalLink size={13} />
               </a>
               <a
                 className="button secondary"
                 target="_blank"
                 rel="noreferrer"
                 href={`https://maps.apple.com/?daddr=${encodeURIComponent(l.address)}&dirflg=${mode === "walking" ? "w" : mode === "transit" ? "r" : "d"}`}
-              >
-                Apple 地图
-                <ArrowUpRight size={14} />
+              >{t("Apple 地图")}<ArrowUpRight size={14} />
               </a>
               <button
                 className="icon-button"
-                aria-label={`复制 ${l.name} 地址`}
+                aria-label={t("复制 {0} 地址", {0: t(l.name)})}
                 onClick={() => void copy(l.id, l.address)}
               >
                 {copied === l.id ? <Check size={17} /> : <Copy size={17} />}
               </button>
             </div>
             {copied === l.id && (
-              <p className="helper-text" role="status">
-                地址已复制
-              </p>
+              <p className="helper-text" role="status">{t("地址已复制")}</p>
             )}
           </article>
         ))}
@@ -179,30 +173,28 @@ export default function MarketGuide() {
       {!locations.length && (
         <div className="empty-state">
           <Search />
-          <h3>没有找到对应地点</h3>
-          <p>试试其他关键词或切换区域。</p>
+          <h3>{t("没有找到对应地点")}</h3>
+          <p>{t("试试其他关键词或切换区域。")}</p>
           <button
             className="button secondary"
             onClick={() => {
               setSearch("");
               setArea("全部地点");
             }}
-          >
-            清除筛选
-          </button>
+          >{t("清除筛选")}</button>
         </div>
       )}
       <section className="panel offerings-panel">
         <div>
           <span className="eyebrow">FRESH. LOCAL. SUSTAINABLE.</span>
-          <h2>在市集，还能遇见什么？</h2>
-          <p>官网介绍的市场品类；具体摊位及当天供应以现场为准。</p>
+          <h2>{t("在市集，还能遇见什么？")}</h2>
+          <p>{t("官网介绍的市场品类；具体摊位及当天供应以现场为准。")}</p>
         </div>
         <div className="offering-tags">
           {guide.offerings.map((o) => (
             <span key={o}>
               <Leaf size={14} />
-              {o}
+              {t(o)}
             </span>
           ))}
         </div>
@@ -243,37 +235,31 @@ const faqs = [
 ];
 
 export function HelpCenter() {
+  const { t } = useLanguage();
   return (
     <div className="help-center">
       <section className="panel support-hero">
         <span className="eyebrow">
           STUDENT BASIC NEEDS · COMMUNITY RESOURCES
         </span>
-        <h2>让新鲜更容易获得。</h2>
-        <p>了解食品援助资源，也了解这份预购如何完成。</p>
+        <h2>{t("让新鲜更容易获得。")}</h2>
+        <p>{t("了解食品援助资源，也了解这份预购如何完成。")}</p>
       </section>
       <section className="panel">
         <div className="panel-heading">
           <h2>
-            <ShoppingBag size={20} />
-            Market Bucks 项目
-          </h2>
+            <ShoppingBag size={20} />{t("Market Bucks 项目")}</h2>
           <a
             className="text-button"
             href={guide.marketBucks.sourceUrl}
             target="_blank"
             rel="noreferrer"
-          >
-            查看官方说明
-            <ExternalLink size={14} />
+          >{t("查看官方说明")}<ExternalLink size={14} />
           </a>
         </div>
-        <p className="support-copy">{guide.marketBucks.summary}</p>
-        <p className="support-caution">{guide.marketBucks.notice}</p>
-        <p className="helper-text">
-          页面核对日期：{guide.marketBucks.checkedOn}；相关页面的市场日程仍列示
-          2025 年。
-        </p>
+        <p className="support-copy">{t(guide.marketBucks.summary)}</p>
+        <p className="support-caution">{t(guide.marketBucks.notice)}</p>
+        <p className="helper-text">{t("页面核对日期：")}{t(guide.marketBucks.checkedOn)}{t("；相关页面的市场日程仍列示 2025 年。")}</p>
       </section>
       <div className="resource-grid">
         {guide.resources.map((r) => (
@@ -285,29 +271,29 @@ export function HelpCenter() {
             key={r.name}
           >
             <h3>
-              {r.name}
+              {t(r.name)}
               <ArrowUpRight size={17} />
             </h3>
-            <p>{r.description}</p>
+            <p>{t(r.description)}</p>
           </a>
         ))}
       </div>
       <section className="panel faq-panel">
         <div className="panel-heading">
-          <h2>常见问题与使用指引</h2>
+          <h2>{t("常见问题与使用指引")}</h2>
         </div>
         {faqs.map(([q, a]) => (
           <details key={q}>
-            <summary>{q}</summary>
-            <p>{a}</p>
+            <summary>{t(q)}</summary>
+            <p>{t(a)}</p>
           </details>
         ))}
       </section>
       <section className="panel contact-panel">
         <div>
-          <h3>联系 Rutgers 官方办公室</h3>
+          <h3>{t("联系 Rutgers 官方办公室")}</h3>
           <p>{guide.contact.name}</p>
-          <p>{guide.contact.address}（办公室地址，非市集地点）</p>
+          <p>{guide.contact.address}{t("（办公室地址，非市集地点）")}</p>
         </div>
         <div>
           <a href={`tel:+1${guide.contact.phone.replaceAll("-", "")}`}>
