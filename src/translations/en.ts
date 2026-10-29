@@ -530,6 +530,19 @@ export const english: Record<string, string> = {
   "把田野的新鲜，\n带回你的餐桌": "From the fields\nto your table",
   "每一份用心，\n都有一张餐桌在等待。": "Your harvest.\nYour community's table.",
   "一份好食物，\n也是一次好相遇": "Good food,\ngood company",
-  "让每一份新鲜，\n都有清楚的来处。": "Good food starts\nwith knowing its source.",
-  "正在创建账号…": "Creating your account…"
+  "让每一份新鲜，\n都有清楚的来处。": "Fresh food\nwith a clear origin.",
+  "正在创建账号…": "Creating your account…",
+  "这份商品暂不可购，请选择其他新鲜。": "This item is currently unavailable. Please choose another vegetable.",
+  "已达到可购数量": "Purchase limit reached",
+  "这份新鲜暂时下架了": "This item is no longer available",
+  "商品信息已更新，继续看看其他当季蔬菜吧。": "The listing has changed. Explore other seasonal vegetables instead.",
+  "已选 {count} 件": "{count} items selected",
+  "继续选购": "Continue shopping",
+  "当前最多可购 {count} {unit}": "You can order up to {count} {unit}",
+  "试试查看全部订单，找到其他状态的预购。": "View all orders to find preorders with another status.",
+  "查看全部订单": "View all orders",
+  "预购已提交，等待商户确认；确认后再按自提时段到场。": "Your preorder is awaiting vendor confirmation. Once confirmed, arrive during your pickup window.",
+  "商户已确认，请按约定时段自提并到场付款。": "Your preorder is confirmed. Collect and pay during your pickup window.",
+  "已完成自提，感谢你支持本地农场。": "Pickup complete. Thank you for supporting local farms.",
+  "预购已取消，无需到场；可以重新挑选蔬菜。": "This preorder was cancelled. You can shop again whenever you are ready."
 };
