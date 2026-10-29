@@ -32,6 +32,7 @@ import {
   type InventoryFilter,
 } from "./vendorSupport";
 import type { Product } from "./types";
+import { InventoryBulkActions } from "./VendorBulkActions";
 
 const inventoryFilters: [InventoryFilter, string][] = [
   ["all", "全部商品"],
@@ -107,6 +108,8 @@ export function Inventory({
   const [busy, setBusy] = useState<number>();
   const [actionError, setActionError] = useState("");
   const [visibilityProduct, setVisibilityProduct] = useState<Product>();
+  const [selected, setSelected] = useState<number[]>([]);
+  const [batchBusy, setBatchBusy] = useState(false);
   useEffect(() => {
     if (loading || error) return;
     const query = new URLSearchParams(window.location.search);
@@ -180,6 +183,10 @@ export function Inventory({
   const totalPages = Math.max(1, Math.ceil(shown.length / 8));
   const currentPage = Math.min(page, totalPages);
   const paginated = shown.slice((currentPage - 1) * 8, currentPage * 8);
+  useEffect(
+    () => setSelected([]),
+    [filter, search, category, sort, currentPage],
+  );
   const reset = () => updateFilters(inventoryDefaults);
   return (
     <div className="vendor-inventory">
@@ -317,6 +324,22 @@ export function Inventory({
           ]}
           onReset={reset}
         />
+        <InventoryBulkActions
+          products={paginated}
+          selected={selected}
+          onSelection={setSelected}
+          busy={batchBusy}
+          onBusy={setBatchBusy}
+          disabled={loading || busy !== undefined || !!error}
+          onSaved={(saved) => {
+            const updates = new Map(saved.map((p) => [p.id, p]));
+            setData((current) => current?.map((p) => updates.get(p.id) ?? p));
+            refresh();
+            notify(
+              t("已更新 {count} 款商品的展示状态", { count: saved.length }),
+            );
+          }}
+        />
         {actionError && !visibilityProduct && (
           <VendorError error={actionError} refresh={refresh} />
         )}
@@ -360,8 +383,29 @@ export function Inventory({
               </thead>
               <tbody>
                 {paginated.map((p) => (
-                  <tr key={p.id}>
+                  <tr
+                    key={p.id}
+                    className={
+                      selected.includes(p.id)
+                        ? "vendor-row-selected"
+                        : undefined
+                    }
+                  >
                     <td className="vendor-product-cell">
+                      <input
+                        className="vendor-row-checkbox"
+                        type="checkbox"
+                        aria-label={t("选择 {name}", { name: t(p.name) })}
+                        checked={selected.includes(p.id)}
+                        disabled={batchBusy || loading || busy !== undefined}
+                        onChange={(e) =>
+                          setSelected((current) =>
+                            e.target.checked
+                              ? [...current, p.id]
+                              : current.filter((id) => id !== p.id),
+                          )
+                        }
+                      />
                       <div className={`mini-art art-bg-${p.art}`}>
                         <Produce kind={p.art} />
                       </div>

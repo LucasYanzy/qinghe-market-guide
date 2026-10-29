@@ -1,4 +1,25 @@
 export const vendorEnglish: Record<string, string> = {
+  选择本页商品: "Select this page",
+  "已选 {count} 款": "{count} selected",
+  批量上架: "List selected",
+  批量下架: "Unlist selected",
+  取消选择: "Clear selection",
+  "选择商品后，可统一调整展示状态。":
+    "Select products to update their listing status together.",
+  "批量上架这些商品？": "List these products?",
+  "批量下架这些商品？": "Unlist these products?",
+  "上架后，仅售卖日期为今天的商品会展示给顾客。库存、价格和售卖日期保持当前值。":
+    "Only products with today's sale date will appear in the market. Current stock, prices and sale dates are preserved.",
+  "下架后，顾客无法再预购这些商品。已有订单继续履约，库存和价格保持当前值。":
+    "Customers will no longer be able to preorder these products. Existing orders continue; current stock and prices are preserved.",
+  返回选择: "Back to selection",
+  确认批量上架: "Confirm listing",
+  确认批量下架: "Confirm unlisting",
+  "选择 {name}": "Select {name}",
+  "已更新 {count} 款商品的展示状态":
+    "Listing status updated for {count} products",
+  "部分商品不存在或不属于当前商户，请刷新后重选。":
+    "Some products are missing or not yours. Refresh and select again.",
   近七天暂无预购记录: "No preorders in the past seven days",
   近七天预购金额: "Preorder amounts over the past seven days",
   每一天的收获: "Your week at a glance",

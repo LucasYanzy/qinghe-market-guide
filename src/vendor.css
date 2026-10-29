@@ -1,4 +1,103 @@
 /* Vendor workspace: shared market palette with denser, readable operational views. */
+.vendor-selection-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  border-top: 1px solid #e6ebdd;
+  border-bottom: 1px solid #e6ebdd;
+  background: #f9fbf6;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+.vendor-selection-bar.has-selection {
+  background: #edf4e5;
+}
+.vendor-selection-bar label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+}
+.vendor-selection-bar input,
+.vendor-row-checkbox {
+  accent-color: #375d47;
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.vendor-selection-bar > span {
+  color: #5d7354;
+  font-size: 11px;
+}
+.vendor-selection-bar > small {
+  color: #6e7e6a;
+  font-size: 10px;
+  margin-left: auto;
+}
+.vendor-bulk-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-left: auto;
+}
+.vendor-bulk-buttons .button {
+  min-height: 36px;
+  padding: 8px 12px;
+  font-size: 11px;
+}
+.vendor-row-selected {
+  background: #f3f7ec;
+}
+.vendor-bulk-preview {
+  list-style: none;
+  padding: 0;
+  max-height: 210px;
+  overflow-y: auto;
+  border: 1px solid #e2e8d9;
+  border-radius: 8px;
+  margin: 18px 0;
+}
+.vendor-bulk-preview li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 12px 14px;
+  font-size: 12px;
+  border-bottom: 1px solid #e2e8d9;
+}
+.vendor-bulk-preview li:last-child {
+  border-bottom: 0;
+}
+.vendor-bulk-preview strong {
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+.vendor-bulk-preview span {
+  color: #74816b;
+  font-size: 11px;
+}
+@media (max-width: 760px) {
+  .vendor-selection-bar {
+    padding: 13px 16px;
+    gap: 10px;
+  }
+  .vendor-selection-bar > small {
+    width: 100%;
+    margin: 0;
+    line-height: 1.7;
+  }
+  .vendor-bulk-buttons {
+    flex-basis: 100%;
+    margin: 0;
+  }
+  .vendor-bulk-buttons .button {
+    flex: 1;
+  }
+}
 .retailer-site {
   --vendor-ink: #304c39;
   --vendor-muted: #6e7e6a;

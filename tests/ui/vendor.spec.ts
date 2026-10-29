@@ -399,3 +399,53 @@ for (const width of [320, 390]) {
     ).toBe(true);
   });
 }
+
+test("库存多选批量下架失败可重试，筛选变化清除选择", async ({ page }) => {
+  await signIn(page);
+  const prefix = `批量菜 ${Date.now()}`;
+  const first = await createProduct(page, { name: `${prefix} A` });
+  await createProduct(page, { name: `${prefix} B` });
+  await page.goto(`/retailer/inventory?search=${encodeURIComponent(prefix)}`);
+  await page.getByRole("checkbox", { name: "选择本页商品" }).check();
+  await expect(page.locator(".vendor-selection-bar")).toContainText(
+    "已选 2 款",
+  );
+  await page
+    .getByRole("checkbox", { name: `选择 ${first.name}`, exact: true })
+    .uncheck();
+  await expect(
+    page.getByRole("checkbox", { name: "选择本页商品" }),
+  ).toBeChecked({ indeterminate: true });
+  await page.getByRole("checkbox", { name: "选择本页商品" }).check();
+  await page.getByRole("button", { name: "批量下架", exact: true }).click();
+  const modal = page.getByRole("dialog", { name: "批量下架这些商品？" });
+  await expect(modal).toContainText(first.name);
+  await page.route("**/api/retailer/products/visibility", (route) =>
+    route.fulfill({ status: 503, json: { error: "保存失败，请重试" } }),
+  );
+  await modal.getByRole("button", { name: "确认批量下架" }).click();
+  await expect(modal.getByRole("alert")).toHaveText("保存失败，请重试");
+  await page.unroute("**/api/retailer/products/visibility");
+  await modal.getByRole("button", { name: "确认批量下架" }).click();
+  await expect(modal).not.toBeVisible();
+  await expect(page.locator(".vendor-table tbody .status-badge")).toHaveText([
+    "已下架",
+    "已下架",
+  ]);
+  await expect(page.locator(".vendor-selection-bar")).toContainText(
+    "已选 0 款",
+  );
+  await page.getByRole("checkbox", { name: "选择本页商品" }).check();
+  await page.getByLabel("搜索库存商品").fill(first.name);
+  await expect(page.locator(".vendor-selection-bar")).toContainText(
+    "已选 0 款",
+  );
+  const stored = await (
+    await page.request.get("/api/retailer/products")
+  ).json();
+  expect(stored.find((p: { id: number }) => p.id === first.id)).toMatchObject({
+    stock: 4,
+    price_cents: 425,
+    active: 0,
+  });
+});
