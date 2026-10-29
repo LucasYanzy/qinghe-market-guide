@@ -1,4 +1,109 @@
 /* Vendor workspace: shared market palette with denser, readable operational views. */
+.vendor-data-feedback {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 18px;
+  padding: 10px 14px;
+  border: 1px solid #e3e9da;
+  border-radius: 8px;
+  color: #67795b;
+  background: #f8faf5;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.vendor-data-feedback > svg {
+  flex-shrink: 0;
+}
+.vendor-data-feedback > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.vendor-data-feedback time {
+  margin-left: auto;
+  white-space: nowrap;
+  color: #7a876e;
+  font-size: 10px;
+}
+.vendor-data-feedback.is-stale {
+  color: #845c2d;
+  border-color: #e9d7b7;
+  background: #fff8ec;
+  flex-wrap: wrap;
+}
+.vendor-data-feedback.is-stale p {
+  margin: 3px 0 0;
+}
+.vendor-data-feedback .text-button {
+  flex-shrink: 0;
+  color: inherit;
+}
+.vendor-skeleton {
+  padding: 22px;
+  border: 1px solid #e3e9da;
+  border-radius: 12px;
+  background: #fff;
+}
+.vendor-skeleton > p {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 24px;
+  color: #67795b;
+  font-size: 13px;
+}
+.vendor-skeleton-line,
+.vendor-skeleton-metrics > div,
+.vendor-skeleton-content span {
+  background: #eef2e8;
+  border-radius: 6px;
+}
+.vendor-skeleton-line {
+  width: 42%;
+  height: 18px;
+  margin-bottom: 24px;
+}
+.vendor-skeleton-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.vendor-skeleton-metrics > div {
+  height: 110px;
+}
+.vendor-skeleton-content > div {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 20px;
+  padding: 24px 0;
+  border-top: 1px solid #edf1e6;
+}
+.vendor-skeleton-content span {
+  height: 14px;
+}
+@media (max-width: 760px) {
+  .vendor-data-feedback {
+    flex-wrap: wrap;
+  }
+  .vendor-data-feedback > div {
+    flex: 1;
+  }
+  .vendor-data-feedback time {
+    flex-basis: 100%;
+    margin-left: 25px;
+    white-space: normal;
+  }
+  .vendor-skeleton {
+    padding: 18px;
+  }
+  .vendor-skeleton-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .vendor-skeleton-content > div {
+    gap: 12px;
+  }
+}
 .vendor-order-mode-bar {
   display: flex;
   align-items: center;

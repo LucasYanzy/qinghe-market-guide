@@ -23,6 +23,7 @@ import { Produce } from "./Produce";
 import { Empty, Modal } from "./ui";
 import { VendorAnalytics } from "./VendorAnalytics";
 import { VendorOrderProgress, VendorPreparation } from "./VendorPreparation";
+import { VendorDataFeedback, VendorLoading } from "./VendorDataFeedback";
 import {
   openVendorPage,
   orderLabels,
@@ -144,7 +145,7 @@ export function RetailDashboard({
   today: string;
 }) {
   const { t, language } = useLanguage();
-  const { data, error, loading } = useVendorData<Dashboard>(
+  const { data, error, loading, updatedAt } = useVendorData<Dashboard>(
     "/retailer/dashboard",
     revision,
   );
@@ -154,16 +155,20 @@ export function RetailDashboard({
     weekday: "long",
     timeZone: "UTC",
   }).format(new Date(`${today}T12:00:00Z`));
-  if (error) return <VendorError error={error} refresh={refresh} />;
   if (!data)
-    return (
-      <div className="loading-panel">
-        <LoaderCircle className="spin" />
-        {t("正在汇总经营数据…")}
-      </div>
+    return error ? (
+      <VendorError error={error} refresh={refresh} />
+    ) : (
+      <VendorLoading kind="dashboard" />
     );
   return (
     <div className="vendor-dashboard">
+      <VendorDataFeedback
+        loading={loading}
+        error={error}
+        updatedAt={updatedAt}
+        refresh={refresh}
+      />
       <section className="vendor-welcome-strip">
         <div>
           <span className="vendor-kicker">
@@ -427,12 +432,11 @@ export function VendorOrders({
   notify: (message: string) => void;
 }) {
   const { t, language } = useLanguage();
-  const {
-    data: orders = [],
-    setData,
-    error,
-    loading,
-  } = useVendorData<Order[]>("/orders", revision);
+  const { data, setData, error, loading, updatedAt } = useVendorData<Order[]>(
+    "/orders",
+    revision,
+  );
+  const orders = data ?? [];
   const [filters, updateFilters] = useVendorFilters(orderDefaults);
   const status = ["all", "open", ...Object.keys(orderLabels)].includes(
     filters.status,
@@ -441,7 +445,7 @@ export function VendorOrders({
     : "all";
   const { search, date, slot, sort, view, overdue } = filters;
   const setSearch = (search: string) => updateFilters({ search });
-  const setDate = (date: string) => updateFilters({ date });
+  const setDate = (date: string) => updateFilters({ date, overdue: "" });
   const setSlot = (slot: string) => updateFilters({ slot });
   const [lastAction, setLastAction] = useState<{
     id: string;
@@ -459,7 +463,7 @@ export function VendorOrders({
   }, []);
   const changeStatus = (status: string) => updateFilters({ status });
   const update = async (order: Order, next: OrderStatus) => {
-    if (busy) return;
+    if (busy || loading || error) return;
     setBusy(order.id);
     setActionError("");
     try {
@@ -532,8 +536,20 @@ export function VendorOrders({
     );
   });
   const reset = () => updateFilters(orderDefaults);
+  if (!data)
+    return error ? (
+      <VendorError error={error} refresh={refresh} />
+    ) : (
+      <VendorLoading kind="orders" />
+    );
   return (
     <div className="vendor-orders">
+      <VendorDataFeedback
+        loading={loading}
+        error={error}
+        updatedAt={updatedAt}
+        refresh={refresh}
+      />
       <div className="vendor-order-guide">
         <span className="vendor-task-icon">
           <Package size={23} />
@@ -740,14 +756,7 @@ export function VendorOrders({
       {actionError && !confirm && (
         <VendorError error={actionError} refresh={refresh} />
       )}
-      {error ? (
-        <VendorError error={error} refresh={refresh} />
-      ) : loading && !orders.length ? (
-        <div className="loading-panel">
-          <LoaderCircle className="spin" />
-          {t("正在读取预购订单…")}
-        </div>
-      ) : view === "prep" ? (
+      {view === "prep" ? (
         <VendorPreparation
           orders={visible}
           today={today}
@@ -846,7 +855,7 @@ export function VendorOrders({
                 <div className="vendor-order-actions">
                   <button
                     className="button subtle"
-                    disabled={!!busy || loading}
+                    disabled={!!busy || loading || !!error}
                     onClick={() => {
                       setActionError("");
                       setConfirm({ order: o, status: "cancelled" });
@@ -856,7 +865,7 @@ export function VendorOrders({
                   </button>
                   <button
                     className="button primary"
-                    disabled={!!busy || loading}
+                    disabled={!!busy || loading || !!error}
                     onClick={() =>
                       o.status === "pending"
                         ? void update(o, "confirmed")
@@ -919,7 +928,7 @@ export function VendorOrders({
             </button>
             <button
               className={`button ${confirm.status === "completed" ? "primary" : "danger"}`}
-              disabled={!!busy}
+              disabled={!!busy || loading || !!error}
               onClick={() => void update(confirm.order, confirm.status)}
             >
               {t(

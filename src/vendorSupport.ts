@@ -46,13 +46,17 @@ export function useVendorData<T>(path: string, revision: number) {
   const [data, setData] = useState<T>();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [updatedAt, setUpdatedAt] = useState<number>();
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
     setError("");
     api<T>(path, { signal: controller.signal })
       .then((result) => {
-        if (!controller.signal.aborted) setData(result);
+        if (!controller.signal.aborted) {
+          setData(result);
+          setUpdatedAt(Date.now());
+        }
       })
       .catch((e: Error) => {
         if (!controller.signal.aborted) setError(e.message);
@@ -62,7 +66,7 @@ export function useVendorData<T>(path: string, revision: number) {
       });
     return () => controller.abort();
   }, [path, revision]);
-  return { data, setData, error, loading };
+  return { data, setData, error, loading, updatedAt };
 }
 
 // URL-backed filters survive reloads, back navigation and opening a saved link.

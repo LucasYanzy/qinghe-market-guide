@@ -1,4 +1,10 @@
 export const vendorEnglish: Record<string, string> = {
+  "正在更新，当前保留已读取的内容。":
+    "Refreshing; showing the previously loaded data.",
+  已读取最新数据: "Data is up to date",
+  "显示上次读取的数据，请刷新后再修改商品或订单。":
+    "Showing previously loaded data. Refresh before changing products or orders.",
+  "最近读取 {time} ET": "Last loaded {time} ET",
   "订单已取消，预留库存已归还。":
     "Order cancelled; reserved stock has been returned.",
   履约步骤: "Fulfillment steps",
