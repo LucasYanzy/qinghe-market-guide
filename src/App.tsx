@@ -55,6 +55,7 @@ import ReferencePrices from "./ReferencePrices";
 import { PageLink, useNavigation, type Page } from "./navigation";
 import { AboutMarket, PreorderSteps } from "./VisitorGuide";
 import { InteractiveHero, MotionGrid, ScrollActions, usePageMotion } from "./motion";
+import { useCartFeedback } from "./cartFeedback";
 import type {
   Config,
   Dashboard,
@@ -243,10 +244,12 @@ function App() {
   const [sort, setSort] = useState("recommended");
   const [inStock, setInStock] = useState(false);
   const retailer = user?.role === "retailer";
+  const cartCount = Object.values(cart).reduce((sum, quantity) => sum + quantity, 0);
   const notify = useCallback((message: string) => {
     setToast((previous) => ({ message, id: (previous?.id ?? 0) + 1 }));
   }, []);
   const mainRef = usePageMotion(page, !loading && !!config);
+  const animateCart = useCartFeedback(`${page}:${cartOpen}:${authOpen}:${detail?.id ?? ""}`, cartCount);
   const sidebarRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!mobileNav) return;
@@ -376,10 +379,11 @@ function App() {
       notify((e as Error).message);
     }
   };
-  const add = (product: Product) => {
+  const add = (product: Product, source: HTMLElement) => {
     if (retailer) return;
     if ((cart[product.id] ?? 0) >= product.stock)
       return notify("已达到当前库存数量");
+    animateCart(source);
     setCart((c) => ({ ...c, [product.id]: (c[product.id] ?? 0) + 1 }));
     notify(t("{0} 已加入购物袋", { 0: t(product.name) }));
   };
@@ -395,7 +399,6 @@ function App() {
   const resetFilters = () => {
     setSearch(""); setCategory("全部蔬菜"); setInStock(false); setSort("recommended");
   };
-  const cartCount = Object.values(cart).reduce((a, b) => a + b, 0);
   let visible = products.filter(
     (p) =>
       (category === "全部蔬菜" || p.category === category) &&
@@ -587,7 +590,7 @@ function App() {
                 className="button cart-button"
                 onClick={() => setCartOpen(true)}
               >
-                <ShoppingBag size={18} />{t("购物袋")}<span key={cartCount} className="count-pill quantity-pop">{cartCount}</span>
+                <span className="cart-target" data-cart-target><ShoppingBag size={18} /></span>{t("购物袋")}<span key={cartCount} className="count-pill quantity-pop">{cartCount}</span>
               </button>
             )}
           </div>
@@ -734,7 +737,7 @@ function App() {
                       key={product.id}
                       product={product}
                       quantity={cart[product.id] ?? 0}
-                      onAdd={() => add(product)}
+                      onAdd={(source) => add(product, source)}
                       onRemove={() => remove(product)}
                       onView={() => setDetail(product)}
                     />
@@ -964,14 +967,23 @@ function App() {
               </span>
             </div>
             <p className="helper-text">{t("称重类商品按标示单位预订；如需现场称重，最终金额请与商户确认。")}</p>
-            <button
-              className="button primary full-width"
-              disabled={!detail.stock || retailer}
-              onClick={() => add(detail)}
-            >
-              <ShoppingBag size={17} />
-              {t(detail.stock ? "加入购物袋" : "今日已售罄")}
-            </button>
+            <div className="detail-cart-actions">
+              <button
+                className="button primary"
+                disabled={!detail.stock || retailer || (cart[detail.id] ?? 0) >= detail.stock}
+                onClick={(event) => add(detail, event.currentTarget)}
+              >
+                <Plus size={17} />
+                {t(detail.stock ? "加入购物袋" : "今日已售罄")}
+              </button>
+              {!retailer && <button className="button secondary" aria-label={t("购物袋")} onClick={() => {
+                setDetail(undefined);
+                setCartOpen(true);
+              }}>
+                <span className="cart-target" data-cart-target><ShoppingBag size={18} /></span>
+                <span key={cartCount} className="count-pill quantity-pop">{cartCount}</span>
+              </button>}
+            </div>
           </div>
         </Modal>
       )}
@@ -988,14 +1000,14 @@ function ProductCard({
 }: {
   product: Product;
   quantity: number;
-  onAdd: () => void;
+  onAdd: (source: HTMLButtonElement) => void;
   onRemove: () => void;
   onView: () => void;
 }) {
   const { t } = useLanguage();
   const addRef = useRef<HTMLButtonElement>(null);
   return (
-    <article className="product-card" data-product-id={p.id}>
+    <article className={`product-card ${quantity ? "product-selected" : ""}`} data-product-id={p.id}>
       <button
         className={`product-image art-bg-${p.art}`}
         onClick={onView}
@@ -1039,7 +1051,7 @@ function ProductCard({
               className={`add-button ${quantity ? "has-quantity" : ""}`}
               disabled={!p.stock || quantity >= p.stock}
               aria-label={t("将{0}加入购物袋", {0: t(p.name)})}
-              onClick={onAdd}
+              onClick={(event) => onAdd(event.currentTarget)}
             ><Plus size={quantity ? 15 : 20} /></button>
           </div>
         </div>
@@ -1299,7 +1311,7 @@ function CartModal({
                           >
                             <Minus size={13} />
                           </button>
-                          <span>{quantity}</span>
+                          <span><span className="quantity-pop" key={quantity}>{quantity}</span></span>
                           <button
                             type="button"
                             aria-label={t("增加{0}", {0: t(p.name)})}
@@ -1324,7 +1336,7 @@ function CartModal({
                         )}
                       </div>
                       <div className="cart-line-total">
-                        <strong>{t(money(p.price_cents * quantity))}</strong>
+                        <strong><span className="value-update" key={p.price_cents * quantity}>{t(money(p.price_cents * quantity))}</span></strong>
                         <button
                           type="button"
                           aria-label={t("移除{0}", {0: t(p.name)})}
@@ -1375,7 +1387,7 @@ function CartModal({
             <div className="cart-total">
               <span>{t("预计合计 ")}<small>USD</small>
               </span>
-              <strong>{t(money(total))}</strong>
+              <strong><span className="value-update" key={total}>{t(money(total))}</span></strong>
             </div>
             <p className="helper-text">{t("预购会为你保留库存；订单确认后请按时自提。此版本不收取线上款项。价格以提交订单时的服务端报价为准。")}</p>
             {invalid && (

@@ -123,6 +123,9 @@ export function ScrollActions({ count, total, onCart, page, retailer, inert }: {
 }) {
   const { t } = useLanguage();
   const [visible, setVisible] = useState(false);
+  // A click can arrive before the browser dispatches its pending scroll event.
+  // Expose the dock during the cart commit, before the flight measures its target.
+  useLayoutEffect(() => setVisible(window.scrollY > 420), [count]);
   useEffect(() => {
     const update = () => setVisible(window.scrollY > 420);
     update();
@@ -134,8 +137,8 @@ export function ScrollActions({ count, total, onCart, page, retailer, inert }: {
     <div className="scroll-actions" inert={inert}>
       {!!count && !retailer && (
         <button className="basket-dock" onClick={onCart} aria-label={t("打开购物袋，已选 {0} 件", { 0: count })}>
-          <span className="dock-icon"><ShoppingBag size={20} /><span key={count}>{count}</span></span>
-          <span className="dock-copy"><strong>{t("选好的新鲜")}</strong><small>{t("预估 ")}{total}</small></span>
+          <span className="dock-icon cart-target" data-cart-target><ShoppingBag size={20} /><span key={count}>{count}</span></span>
+          <span className="dock-copy"><strong>{t("选好的新鲜")}</strong><small>{t("预估 ")}<span className="value-update" key={total}>{total}</span></small></span>
           <span className="dock-action">{t("查看购物袋")}<ArrowUpRight size={17} /></span>
         </button>
       )}
