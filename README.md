@@ -30,6 +30,17 @@
 
 手机端提供底部快捷导航；完整菜单中可以访问访客指南、登录和商户入口。首页商品入口、页脚链接和常见问题均可用键盘操作。
 
+## 交互与动画
+
+沿用青禾的浅绿与米白视觉，加入首页蔬菜插画入场与鼠标轻视差、滚动内容出现、筛选与排序时的商品位置过渡，以及弹窗开合和按钮反馈。动画使用原生 CSS 与 Web Animations API，没有新增依赖；系统开启“减少动态效果”时关闭这些效果，内容始终可读。
+
+- 商品卡片支持增减数量，与购物袋同步；加购提示和数量变化提供即时反馈。
+- 搜索、分类、库存与排序条件以可撤销标签展示，支持一键重置。
+- 向下浏览后显示购物袋快捷入口（已选数量、预估金额）与返回顶部按钮；购物袋继续保留本次会话的自提草稿。
+- 手机菜单支持关闭按钮、Esc、Tab 焦点约束、背景滚动锁定，并在切回桌面宽度时自动关闭。
+
+新增浏览器回归覆盖数量同步、组合筛选、购物袋草稿、手机菜单、英文反馈和减少动态效果。测试端口被占用时，可用 `UI_TEST_PORT=3198 npm run test:ui` 指定独立端口。
+
 ## Rutgers 官方资料来源
 
 已于 **2026-10-16** 读取并核对 [Rutgers Farmers Market](https://ruoffcampus.rutgers.edu/basic-needs/food-assistance/rutgers-farmers-market) 与 [Market Bucks Program](https://ruoffcampus.rutgers.edu/basic-needs/food-assistance/market-bucks-program)。整理内容保存在 `references/rutgers-market-guide.json`，首页、市场目录与帮助中心共用这份资料。
