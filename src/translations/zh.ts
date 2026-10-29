@@ -1,5 +1,7 @@
 // English source labels and official resource names used in the Chinese UI.
 export const chinese: Record<string, string> = {
+  "Place preorder": "确认预购",
+  "Accept preorder": "确认预购",
   "RUTGERS FARMERS MARKET": "RUTGERS 社区农夫市集",
   "Rutgers Community Farmers Market": "Rutgers 社区农夫市集",
   "LOCAL FOOD. LOCAL GOOD.": "在地好食物，邻里好生活。",
@@ -8,7 +10,7 @@ export const chinese: Record<string, string> = {
   "DEMO": "演示",
   "FRESH FROM THE FARM": "新鲜，来自农场",
   "MEET US AT THE MARKET": "我们，市集见",
-  "A CLEARER VIEW OF FRESHNESS": "看清每一份新鲜的价格",
+  "PRODUCE PRICES AT A GLANCE": "看清每一份新鲜的价格",
   "GOOD FOOD STARTS WITH YOU": "好食物，从你的用心开始",
   "STOCK WATCH": "库存提醒",
   "RUTGERS · OFFICIAL INFORMATION": "RUTGERS · 官方信息",

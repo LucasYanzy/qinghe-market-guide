@@ -1402,7 +1402,7 @@ function CartModal({
               {t(busy
                 ? "正在提交预购，请稍候…"
                 : user
-                  ? "确认预购"
+                  ? "Place preorder"
                   : "登录后预购")}
               <ArrowRight size={16} />
             </button>
@@ -1518,7 +1518,7 @@ function ForecastPrices({
           >
             {products.map((p) => (
               <option value={p.id} key={p.id}>
-                {t("{product} · 每{unit}", { product: t(p.name), unit: t(p.unit) })}
+                {t("{product} · 每{unit}", { product: t(p.name), unit: { unit: p.unit, count: 1 } })}
               </option>
             ))}
           </select>
@@ -1544,7 +1544,7 @@ function ForecastPrices({
               <Stat
                 label={t("当前售价")}
                 value={money(data.product.price_cents)}
-                note={t("每{0} · 最新记录 {1}", {0: t(data.product.unit), 1: t(shortDate(data.history.at(-1)?.date ?? ""))})}
+                note={t("每{0} · 最新记录 {1}", {0: { unit: data.product.unit, count: 1 }, 1: t(shortDate(data.history.at(-1)?.date ?? ""))})}
                 icon={<Wallet />}
               />
               <Stat
@@ -1577,7 +1577,7 @@ function ForecastPrices({
             <section className="panel chart-panel">
               <div className="panel-heading">
                 <div>
-                  <span className="eyebrow">{t("A CLEARER VIEW OF FRESHNESS")}</span>
+                  <span className="eyebrow">{t("PRODUCE PRICES AT A GLANCE")}</span>
                   <h2>{t("{product} · 价格走势", { product: t(data.product.name) })}</h2>
                 </div>
                 <div className="chart-legend">
@@ -1927,7 +1927,7 @@ function Orders({
                       ) : (
                         <Check size={16} />
                       )}
-                      {t(busy === o.id ? "正在确认…" : "确认预购")}
+                      {t(busy === o.id ? "正在确认…" : "Accept preorder")}
                     </button>
                   )}
                   {user.role === "retailer" && o.status === "confirmed" && (
