@@ -102,3 +102,21 @@ test("浏览器缺少 Web Animations API 时仍能正常加购和调整数量", 
   await page.getByRole("button", { name: "减少藤熟番茄", exact: true }).click();
   await expect(page.getByRole("button", { name: /^购物袋/ })).toContainText("0");
 });
+
+test("连续点击超过库存时只为实际入袋数量播放飞行动画", async ({ page }) => {
+  await page.route("**/api/products", async (route) => {
+    const response = await route.fetch();
+    const products = await response.json();
+    await route.fulfill({ json: products.map((product: { stock: number }) => ({ ...product, stock: 2 })) });
+  });
+  await page.goto("/");
+  const add = page.getByRole("button", { name: "将藤熟番茄加入购物袋", exact: true });
+  await add.scrollIntoViewIfNeeded();
+  await add.evaluate((button: HTMLButtonElement) => {
+    for (let i = 0; i < 20; i++) button.click();
+  });
+  await expect(page.locator(".cart-flight-dot")).toHaveCount(2);
+  await expect(page.getByRole("button", { name: /^购物袋/ })).toContainText("2");
+  await expect(add).toBeDisabled();
+  await expect(page.locator(".cart-flight-dot")).toHaveCount(0);
+});

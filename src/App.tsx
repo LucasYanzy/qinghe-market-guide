@@ -6,6 +6,8 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type Dispatch,
+  type SetStateAction,
   type ReactNode,
 } from "react";
 import {
@@ -47,7 +49,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { api, money, shortDate } from "./api";
+import { api, ApiError, money, shortDate } from "./api";
 import { BasketArt, Produce } from "./Produce";
 import MarketGuide, { HelpCenter } from "./MarketGuide";
 import guide from "../references/rutgers-market-guide.json";
@@ -70,6 +72,7 @@ import type {
 
 type Cart = Record<number, number>;
 type CheckoutDraft = { slot: string; note: string };
+const maxQuantity = (product: Product) => Math.min(product.stock, 100);
 const statusLabels: Record<OrderStatus, string> = {
   pending: "待商户确认",
   confirmed: "待到场自提",
@@ -122,10 +125,10 @@ function Modal({
     const previous = document.activeElement as HTMLElement | null;
     const original = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    ref.current?.focus();
+    ref.current?.focus({ preventScroll: true });
     return () => {
       document.body.style.overflow = original;
-      if (previous?.isConnected) previous.focus();
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
     };
   }, []);
   useEffect(() => {
@@ -147,7 +150,10 @@ function Modal({
         }
         const first = focusable[0],
           last = focusable[focusable.length - 1];
-        if (
+        if (!ref.current?.contains(document.activeElement)) {
+          e.preventDefault();
+          (e.shiftKey ? last : first).focus();
+        } else if (
           e.shiftKey &&
           (document.activeElement === first ||
             document.activeElement === ref.current)
@@ -230,6 +236,7 @@ function App() {
   const [authOpen, setAuthOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [cart, setCart] = useState<Cart>({});
+  const cartOwnerId = useRef<number | null>(null);
   const [checkout, setCheckout] = useState<CheckoutDraft>({
     slot: "",
     note: "",
@@ -238,7 +245,8 @@ function App() {
     null,
   );
   const [mobileNav, setMobileNav] = useState(false);
-  const [detail, setDetail] = useState<Product>();
+  const [detailId, setDetailId] = useState<number>();
+  const detail = products.find((product) => product.id === detailId);
   const [revision, setRevision] = useState(0);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("全部蔬菜");
@@ -250,7 +258,7 @@ function App() {
     setToast((previous) => ({ message, id: (previous?.id ?? 0) + 1 }));
   }, []);
   const mainRef = usePageMotion(page, !loading && !!config);
-  const animateCart = useCartFeedback(`${page}:${cartOpen}:${authOpen}:${detail?.id ?? ""}`, cartCount);
+  const animateCart = useCartFeedback(`${page}:${cartOpen}:${authOpen}:${detailId ?? ""}`, cartCount);
   const sidebarRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!mobileNav) return;
@@ -291,6 +299,14 @@ function App() {
   const refresh = useCallback(() => {
     setRevision((r) => r + 1);
   }, []);
+  const reloadListings = useCallback(async () => {
+    const [nextConfig, nextProducts] = await Promise.all([
+      api<Config>("/config"),
+      api<Product[]>("/products"),
+    ]);
+    setConfig(nextConfig);
+    setProducts(nextProducts);
+  }, []);
   const load = useCallback(async () => {
     setLoadError("");
     setLoading(true);
@@ -302,6 +318,7 @@ function App() {
       ]);
       setConfig(c);
       setUser(u.user);
+      cartOwnerId.current = u.user?.role === "client" ? u.user.id : null;
       setProducts(p);
       if (u.user?.role === "retailer" && window.location.pathname === "/")
         replacePage("dashboard");
@@ -316,10 +333,8 @@ function App() {
   }, [load]);
   useEffect(() => {
     if (revision)
-      api<Product[]>("/products")
-        .then(setProducts)
-        .catch((e) => notify(e));
-  }, [revision, notify]);
+      void reloadListings().catch((e) => notify(e));
+  }, [revision, notify, reloadListings]);
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(null), 4500);
@@ -328,9 +343,6 @@ function App() {
   // Refresh the business date and listings when a long-running tab regains focus.
   useEffect(() => {
     const onFocus = () => {
-      api<Config>("/config")
-        .then(setConfig)
-        .catch(() => {});
       refresh();
     };
     window.addEventListener("focus", onFocus);
@@ -342,14 +354,16 @@ function App() {
   };
   const onLogin = (next: User) => {
     setUser(next);
-    const resetCart = next.role === "retailer" || (user && user.id !== next.id);
+    const resetCart = next.role === "retailer" ||
+      (cartOwnerId.current !== null && cartOwnerId.current !== next.id);
+    cartOwnerId.current = next.role === "client" ? next.id : null;
     if (resetCart) {
       setCart({});
       setCheckout({ slot: "", note: "" });
     }
     setAuthOpen(false);
     setCartOpen(loginIntent === "cart" && !resetCart);
-    navigate(
+    const nextPage =
       next.role === "retailer"
         ? page === "inventory"
           ? "inventory"
@@ -358,8 +372,9 @@ function App() {
           ? "orders"
           : page === "dashboard" || page === "inventory" || page === "not-found"
             ? "discover"
-            : page,
-    );
+            : page;
+    if (nextPage !== page) navigate(nextPage);
+    else setMobileNav(false);
     setLoginIntent(null);
     refresh();
     notify(
@@ -372,6 +387,7 @@ function App() {
     try {
       await api("/auth/logout", { method: "POST" });
       setUser(null);
+      cartOwnerId.current = null;
       setCart({});
       setCheckout({ slot: "", note: "" });
       navigate("discover");
@@ -382,10 +398,15 @@ function App() {
   };
   const add = (product: Product, source: HTMLElement) => {
     if (retailer) return;
-    if ((cart[product.id] ?? 0) >= product.stock)
-      return notify("已达到当前库存数量");
+    const current = products.find((item) => item.id === product.id);
+    if (!current || !current.stock) return notify("这份商品暂不可购，请选择其他新鲜。");
+    const limit = maxQuantity(current);
+    if ((cart[current.id] ?? 0) >= limit)
+      return notify("已达到可购数量");
     animateCart(source);
-    setCart((c) => ({ ...c, [product.id]: (c[product.id] ?? 0) + 1 }));
+    setCart((c) => (c[current.id] ?? 0) >= limit ? c : {
+      ...c, [current.id]: (c[current.id] ?? 0) + 1,
+    });
     notify({ message: "{product} 已加入购物袋", values: { product: { message: product.name } } });
   };
   const remove = (product: Product) => {
@@ -432,7 +453,11 @@ function App() {
     setLoginIntent(null);
   }, [loginIntent]);
   const closeCart = useCallback(() => setCartOpen(false), []);
-  const closeDetail = useCallback(() => setDetail(undefined), []);
+  const closeDetail = useCallback(() => setDetailId(undefined), []);
+  const continueShopping = () => {
+    setCartOpen(false);
+    if (page !== "discover") navigate("discover");
+  };
   if (loading)
     return (
       <div className="boot-screen">
@@ -740,7 +765,7 @@ function App() {
                       quantity={cart[product.id] ?? 0}
                       onAdd={(source) => add(product, source)}
                       onRemove={() => remove(product)}
-                      onView={() => setDetail(product)}
+                      onView={() => setDetailId(product.id)}
                     />
                   ))}
                 </MotionGrid>
@@ -832,11 +857,13 @@ function App() {
           )}
           {page === "orders" && (
             <Orders
+              key={user?.id ?? "guest"}
               user={user}
               revision={revision}
               refresh={refresh}
               notify={notify}
               onLogin={() => {
+                setUser(null);
                 setLoginIntent("orders");
                 setAuthOpen(true);
               }}
@@ -931,11 +958,14 @@ function App() {
           onDraftChange={setCheckout}
           onClose={closeCart}
           onLogin={() => {
+            setUser(null);
             setCartOpen(false);
             setLoginIntent("cart");
             setAuthOpen(true);
           }}
           update={setCart}
+          onShop={continueShopping}
+          onRefreshListings={reloadListings}
           onSuccess={(order) => {
             setCart({});
             setCheckout({ slot: "", note: "" });
@@ -946,8 +976,9 @@ function App() {
           }}
         />
       )}
-      {detail && (
+      {detailId !== undefined && (
         <Modal title={t("这份新鲜的故事")} onClose={closeDetail}>
+          {detail ? <>
           <div className={`detail-art art-bg-${detail.art}`}>
             <Produce kind={detail.art} />
             {detail.organic === 1 && (
@@ -971,14 +1002,14 @@ function App() {
             <div className="detail-cart-actions">
               <button
                 className="button primary"
-                disabled={!detail.stock || retailer || (cart[detail.id] ?? 0) >= detail.stock}
+                disabled={!detail.stock || retailer || (cart[detail.id] ?? 0) >= maxQuantity(detail)}
                 onClick={(event) => add(detail, event.currentTarget)}
               >
                 <Plus size={17} />
-                {t(detail.stock ? "加入购物袋" : "今日已售罄")}
+                {t(!detail.stock ? "今日已售罄" : (cart[detail.id] ?? 0) >= maxQuantity(detail) ? "已达到可购数量" : "加入购物袋")}
               </button>
               {!retailer && <button className="button secondary" aria-label={t("购物袋")} onClick={() => {
-                setDetail(undefined);
+                setDetailId(undefined);
                 setCartOpen(true);
               }}>
                 <span className="cart-target" data-cart-target><ShoppingBag size={18} /></span>
@@ -986,6 +1017,12 @@ function App() {
               </button>}
             </div>
           </div>
+          </> : <Empty
+            icon={<Sprout />}
+            title={t("这份新鲜暂时下架了")}
+            text={t("商品信息已更新，继续看看其他当季蔬菜吧。")}
+            action={<button className="button primary" onClick={closeDetail}>{t("继续逛逛")}<ArrowRight size={16} /></button>}
+          />}
         </Modal>
       )}
     </div>
@@ -1050,7 +1087,7 @@ function ProductCard({
             <button
               ref={addRef}
               className={`add-button ${quantity ? "has-quantity" : ""}`}
-              disabled={!p.stock || quantity >= p.stock}
+              disabled={!p.stock || quantity >= maxQuantity(p)}
               aria-label={t("将{0}加入购物袋", {0: t(p.name)})}
               onClick={(event) => onAdd(event.currentTarget)}
             ><Plus size={quantity ? 15 : 20} /></button>
@@ -1214,6 +1251,8 @@ function CartModal({
   onSuccess,
   draft,
   onDraftChange,
+  onShop,
+  onRefreshListings,
 }: {
   cart: Cart;
   products: Product[];
@@ -1221,10 +1260,12 @@ function CartModal({
   user: User | null;
   onClose: () => void;
   onLogin: () => void;
-  update: (cart: Cart) => void;
+  update: Dispatch<SetStateAction<Cart>>;
   onSuccess: (order: Order) => void;
   draft: CheckoutDraft;
   onDraftChange: (draft: CheckoutDraft) => void;
+  onShop: () => void;
+  onRefreshListings: () => Promise<void>;
 }) {
   const { t, language } = useLanguage();
   const slot = config.pickupSlots.includes(draft.slot)
@@ -1232,6 +1273,7 @@ function CartModal({
     : (config.pickupSlots[0] ?? "");
   const { note } = draft;
   const [busy, setBusy] = useState(false);
+  const submitting = useRef(false);
   const [error, setError] = useState<Message>("");
   const entries = Object.entries(cart).map(([id, quantity]) => ({
     id: Number(id),
@@ -1243,19 +1285,33 @@ function CartModal({
     0,
   );
   const invalid = entries.some(
-    (item) => !item.product || item.quantity > (item.product?.stock ?? 0),
+    (item) => !item.product || item.quantity > maxQuantity(item.product),
   );
   const change = (id: number, quantity: number) => {
-    const next = { ...cart };
-    if (quantity <= 0) delete next[id];
-    else next[id] = quantity;
-    update(next);
+    update((current) => {
+      const next = { ...current };
+      if (quantity <= 0) delete next[id];
+      else next[id] = quantity;
+      return next;
+    });
+    setError("");
+  };
+  const adjust = (product: Product, delta: number) => {
+    update((current) => {
+      const quantity = (current[product.id] ?? 0) + delta;
+      if (delta > 0 && quantity > maxQuantity(product)) return current;
+      const next = { ...current };
+      if (quantity <= 0) delete next[product.id];
+      else next[product.id] = quantity;
+      return next;
+    });
     setError("");
   };
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (busy || invalid || !slot) return;
+    if (submitting.current || invalid || !slot || !entries.length) return;
     if (!user) return onLogin();
+    submitting.current = true;
     setBusy(true);
     setError("");
     try {
@@ -1272,8 +1328,16 @@ function CartModal({
       });
       onSuccess(order);
     } catch (e) {
+      if (e instanceof ApiError && e.status === 401) {
+        onLogin();
+        return;
+      }
       setError(e as Error);
+      if (e instanceof ApiError && e.status === 409) {
+        await onRefreshListings().catch(() => {});
+      }
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   };
@@ -1284,13 +1348,17 @@ function CartModal({
           title={t("购物袋在等一份新鲜")}
           text={t("挑选喜欢的蔬菜，提前预购，到市集轻松取。")}
           action={
-            <button className="button primary" onClick={onClose}>{t("继续逛逛")}<ArrowRight size={16} />
+            <button className="button primary" onClick={onShop}>{t("继续逛逛")}<ArrowRight size={16} />
             </button>
           }
         />
       ) : (
         <form onSubmit={submit}>
           <fieldset className="form-fields" disabled={busy}>
+            <div className="cart-continue">
+              <span>{t("已选 {count} 件", { count: entries.reduce((sum, item) => sum + item.quantity, 0) })}</span>
+              <button className="text-button" type="button" onClick={onShop}>{t("继续选购")}<ArrowRight size={14} /></button>
+            </div>
             <div className="cart-list">
               {entries.map(({ id, product: p, quantity }) => (
                 <div className="cart-item" key={id}>
@@ -1308,7 +1376,7 @@ function CartModal({
                           <button
                             type="button"
                             aria-label={t("减少{0}", {0: t(p.name)})}
-                            onClick={() => change(p.id, quantity - 1)}
+                            onClick={() => adjust(p, -1)}
                           >
                             <Minus size={13} />
                           </button>
@@ -1316,20 +1384,20 @@ function CartModal({
                           <button
                             type="button"
                             aria-label={t("增加{0}", {0: t(p.name)})}
-                            disabled={quantity >= p.stock}
-                            onClick={() => change(p.id, quantity + 1)}
+                            disabled={quantity >= maxQuantity(p)}
+                            onClick={() => adjust(p, 1)}
                           >
                             <Plus size={13} />
                           </button>
                         </div>
-                        {quantity > p.stock && (
+                        {quantity > maxQuantity(p) && (
                           <div className="stock-warning" role="status">
-                            <span>{t("当前仅剩 {count} {unit}", { count: p.stock, unit: quantityUnit(language, p.unit, p.stock) })}
+                            <span>{t(p.stock <= 100 ? "当前仅剩 {count} {unit}" : "当前最多可购 {count} {unit}", { count: maxQuantity(p), unit: quantityUnit(language, p.unit, maxQuantity(p)) })}
                             </span>
                             <button
                               type="button"
                               className="text-button"
-                              onClick={() => change(p.id, p.stock)}
+                              onClick={() => change(p.id, maxQuantity(p))}
                             >
                               {t(p.stock > 0 ? "调整至可购数量" : "移除售罄商品")}
                             </button>
@@ -1772,15 +1840,21 @@ function Orders({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Message>("");
   const [busy, setBusy] = useState("");
+  const updating = useRef(false);
   const [cancelOrder, setCancelOrder] = useState<Order>();
+  const [cancelError, setCancelError] = useState<Message>("");
+  const hasLoaded = useRef(false);
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    setLoading(true);
+    setLoading(!hasLoaded.current);
     setError("");
     api<Order[]>("/orders")
       .then((d) => {
-        if (!cancelled) setOrders(d);
+        if (!cancelled) {
+          setOrders(d);
+          hasLoaded.current = true;
+        }
       })
       .catch((e) => {
         if (!cancelled) setError(e);
@@ -1792,15 +1866,21 @@ function Orders({
       cancelled = true;
     };
   }, [user, revision]);
-  const closeCancel = useCallback(() => setCancelOrder(undefined), []);
+  const closeCancel = useCallback(() => {
+    setCancelOrder(undefined);
+    setCancelError("");
+  }, []);
   const update = async (order: Order, status: OrderStatus) => {
-    if (busy) return;
+    if (updating.current) return;
+    updating.current = true;
     setBusy(order.id);
+    setCancelError("");
     try {
-      await api(`/orders/${order.id}/status`, {
+      const updated = await api<Order>(`/orders/${order.id}/status`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
       });
+      setOrders((current) => current.map((item) => item.id === updated.id ? updated : item));
       setCancelOrder(undefined);
       refresh();
       notify(
@@ -1811,8 +1891,17 @@ function Orders({
             : "订单已完成",
       );
     } catch (e) {
-      notify(e as Error);
+      if (e instanceof ApiError && e.status === 401) {
+        closeCancel();
+        onLogin();
+      } else if (e instanceof ApiError && e.status === 409) {
+        closeCancel();
+        refresh();
+        notify(e);
+      } else if (status === "cancelled") setCancelError(e as Error);
+      else notify(e as Error);
     } finally {
+      updating.current = false;
       setBusy("");
     }
   };
@@ -1830,9 +1919,13 @@ function Orders({
   const visible = orders.filter((o) => filter === "all" || o.status === filter);
   return (
     <>
+      {user.role === "client" && orders.length > 0 && <div className="order-shopping-link">
+        <button className="text-button" onClick={onShop}>{t("继续选购")}<ArrowRight size={15} /></button>
+      </div>}
       <div className="order-tabs category-tabs">
         <button
           className={filter === "all" ? "selected" : ""}
+          aria-pressed={filter === "all"}
           onClick={() => setFilter("all")}
         >{t("全部订单 ")}<span>{orders.length}</span>
         </button>
@@ -1840,6 +1933,7 @@ function Orders({
           <button
             key={key}
             className={filter === key ? "selected" : ""}
+            aria-pressed={filter === key}
             onClick={() => setFilter(key)}
           >
             {t(label)} <span>{orders.filter((o) => o.status === key).length}</span>
@@ -1852,18 +1946,22 @@ function Orders({
       ) : error ? (
         <div className="error-panel" role="alert">
           {t(error)}
-          <button className="text-button" onClick={refresh}>{t("重新加载")}</button>
+          {error instanceof ApiError && error.status === 401
+            ? <button className="text-button" onClick={onLogin}>{t("登录 / 注册")}</button>
+            : <button className="text-button" onClick={refresh}>{t("重新加载")}</button>}
         </div>
       ) : !visible.length ? (
         <Empty
           title={t(filter === "all" ? "还没有新鲜预购" : "这个状态下还没有订单")}
           text={
-            t(user.role === "client"
+            t(filter !== "all"
+              ? "试试查看全部订单，找到其他状态的预购。"
+              : user.role === "client"
               ? "去看看今日的蔬菜，为下一餐挑一点新鲜。"
               : "顾客提交预购后，你可以在这里确认订单并安排自提。")
           }
           action={
-            user.role === "client" ? (
+            filter !== "all" ? <button className="button secondary" onClick={() => setFilter("all")}>{t("查看全部订单")}<ArrowRight size={16} /></button> : user.role === "client" ? (
               <button className="button primary" onClick={onShop}>{t("逛逛今日市集")}<ArrowRight size={16} />
               </button>
             ) : undefined
@@ -1889,6 +1987,16 @@ function Orders({
                   {t(statusLabels[o.status])}
                 </span>
               </div>
+              {user.role === "client" && <p className={`order-next-step status-${o.status}`}>
+                <CheckCircle2 size={16} />
+                {t(o.status === "pending"
+                  ? "预购已提交，等待商户确认；确认后再按自提时段到场。"
+                  : o.status === "confirmed"
+                    ? "商户已确认，请按约定时段自提并到场付款。"
+                    : o.status === "completed"
+                      ? "已完成自提，感谢你支持本地农场。"
+                      : "预购已取消，无需到场；可以重新挑选蔬菜。")}
+              </p>}
               <div className="order-items">
                 {o.items.map((item) => (
                   <div key={item.product_id}>
@@ -1925,7 +2033,7 @@ function Orders({
                     <button
                       className="button subtle"
                       disabled={!!busy}
-                      onClick={() => setCancelOrder(o)}
+                      onClick={() => { setCancelError(""); setCancelOrder(o); }}
                     >{t("取消订单")}</button>
                   )}
                   {user.role === "retailer" && o.status === "pending" && (
@@ -1965,6 +2073,7 @@ function Orders({
       {cancelOrder && (
         <Modal title={t("取消这份预购？")} onClose={closeCancel} busy={!!busy}>
           <p className="modal-intro">{t("订单 {id} 取消后，预留库存会自动归还。已取消订单无法恢复。", { id: cancelOrder.id })}</p>
+          {cancelError && <p className="form-error" role="alert">{t(cancelError)}</p>}
           <div className="modal-actions">
             <button
               className="button secondary"

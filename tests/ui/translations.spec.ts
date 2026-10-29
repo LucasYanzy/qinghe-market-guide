@@ -80,6 +80,7 @@ test('English product search, details, cart, sign-in, live notifications, orders
   await page.getByRole('button', { name: 'Add to bag', exact: true }).click();
   await expect(page.getByRole('status')).toContainText('Vine-ripened Tomatoes added to your bag');
   await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'About this produce', exact: true })).not.toBeVisible();
   await page.getByRole('button', { name: /^Shopping bag/ }).click();
   await page.getByRole('textbox', { name: 'Note for the farm', exact: false }).fill('保留我的备注');
   await expectEnglish(page);

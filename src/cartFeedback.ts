@@ -37,6 +37,7 @@ export function useCartFeedback(scope: string, count: number) {
   const particles = useRef(new Set<HTMLElement>());
   const pulses = useRef(new Map<HTMLElement, Animation>());
   const scrollPosition = useRef({ x: 0, y: 0 });
+  const previousCount = useRef(count);
 
   const track = useCallback((target: HTMLElement, animation: Animation) => {
     pulses.current.get(target)?.cancel();
@@ -89,7 +90,9 @@ export function useCartFeedback(scope: string, count: number) {
 
   // Flush after the cart commit so the first add has a real, stable destination.
   useLayoutEffect(() => {
-    const sources = queue.current.splice(0);
+    const added = Math.max(0, count - previousCount.current);
+    previousCount.current = count;
+    const sources = queue.current.splice(0).slice(0, added);
     for (const source of sources) {
       const frame = requestAnimationFrame(() => {
         frames.current.delete(frame);
