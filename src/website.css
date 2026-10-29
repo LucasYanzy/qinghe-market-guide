@@ -2,6 +2,12 @@ html {
   scroll-behavior: smooth;
   scroll-padding-top: 24px;
 }
+.hero h2,
+.retailer-welcome h2,
+.about-intro h2,
+.about-note h3 {
+  white-space: pre-line;
+}
 .language-switcher {
   display: inline-flex;
   flex-shrink: 0;

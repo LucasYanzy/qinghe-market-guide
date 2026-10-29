@@ -6,12 +6,11 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { english } from "./translations/en";
+import { translate, type Language, type Message, type Parameters } from "./translations/translate";
 
-export type Language = "zh" | "en";
+export type { Language, Message } from "./translations/translate";
 const storageKey = "qinghe-language";
-type Parameters = Record<string, string | number>;
-type Translator = (text: string | null | undefined, values?: Parameters) => string;
+type Translator = (text: Message | null | undefined, values?: Parameters) => string;
 
 function readLanguage(): Language {
   try {
@@ -38,13 +37,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     }
   };
   const t = useMemo<Translator>(
-    () => (text, values = {}) => {
-      const source = text ?? "";
-      const translated = language === "en" ? (english[source] ?? source) : source;
-      return translated.replace(/\{(\w+)\}/g, (match, key: string) =>
-        Object.hasOwn(values, key) ? String(values[key]) : match,
-      );
-    },
+    () => (text, values) => translate(language, text, values),
     [language],
   );
   useEffect(() => {

@@ -150,10 +150,11 @@ test("cancellation restores stock exactly once; overselling and duplicate lines 
       cookie: client,
       body: { items, pickupSlot: "12:00–14:00" },
     });
-  assert.equal(
-    (await make([{ productId: p.id, quantity: p.stock + 1 }])).status,
-    409,
-  );
+  const insufficient = await make([{ productId: p.id, quantity: p.stock + 1 }]);
+  assert.equal(insufficient.status, 409);
+  assert.equal(insufficient.data.error, `${p.name} 库存不足，当前剩余 ${p.stock} ${p.unit}。`);
+  assert.equal(insufficient.data.messageKey, "{product} 库存不足，当前剩余 {stock} {unit}。");
+  assert.deepEqual(insufficient.data.values, { product: p.name, stock: p.stock, unit: p.unit });
   assert.equal(
     (
       await make([
