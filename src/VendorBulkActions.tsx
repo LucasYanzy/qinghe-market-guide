@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from "react";
 import { CheckSquare, Eye, EyeOff, LoaderCircle, X } from "lucide-react";
 import { api } from "./api";
-import { useLanguage } from "./i18n";
+import { useLanguage, type Message } from "./i18n";
 import { Modal } from "./ui";
 import type { Product } from "./types";
 
@@ -25,7 +25,7 @@ export function InventoryBulkActions({
   const { t } = useLanguage();
   const checkbox = useRef<HTMLInputElement>(null);
   const [confirm, setConfirm] = useState<boolean>();
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Message>("");
   const chosen = products.filter((p) => selected.includes(p.id));
   const all = !!products.length && chosen.length === products.length;
   useEffect(() => {
@@ -49,7 +49,7 @@ export function InventoryBulkActions({
       onSelection([]);
       close();
     } catch (e) {
-      setError((e as Error).message);
+      setError(e as Error);
     } finally {
       onBusy(false);
     }

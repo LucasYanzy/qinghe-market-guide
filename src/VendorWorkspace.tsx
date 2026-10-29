@@ -18,7 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { api, money } from "./api";
-import { useLanguage } from "./i18n";
+import { useLanguage, type Message } from "./i18n";
 import { Produce } from "./Produce";
 import { Empty, Modal } from "./ui";
 import { VendorAnalytics } from "./VendorAnalytics";
@@ -88,7 +88,7 @@ export function VendorError({
   error,
   refresh,
 }: {
-  error: string;
+  error: Message;
   refresh: () => void;
 }) {
   const { t } = useLanguage();
@@ -176,8 +176,7 @@ export function RetailDashboard({
             {date} · ET
           </span>
           <h2>
-            {t("欢迎回来，")}
-            {user.name}
+            {t("欢迎回来，{name}", { name: { message: user.name } })}
           </h2>
         </div>
         <div className="vendor-welcome-actions">
@@ -367,7 +366,7 @@ export function RetailDashboard({
                       {p.stock
                         ? t("仅剩 {count} {unit}", {
                             count: p.stock,
-                            unit: t(p.unit),
+                            unit: { unit: p.unit, count: p.stock },
                           })
                         : t("已售罄，及时补货")}
                     </small>
@@ -456,7 +455,7 @@ export function VendorOrders({
     order: Order;
     status: "completed" | "cancelled";
   }>();
-  const [actionError, setActionError] = useState("");
+  const [actionError, setActionError] = useState<Message>("");
   const closeConfirm = useCallback(() => {
     setConfirm(undefined);
     setActionError("");
@@ -485,7 +484,7 @@ export function VendorOrders({
             : "订单已完成",
       );
     } catch (e) {
-      setActionError((e as Error).message);
+      setActionError(e as Error);
     } finally {
       setBusy("");
     }

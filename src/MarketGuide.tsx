@@ -1,4 +1,5 @@
 import { useLanguage } from "./i18n";
+import { matchesSearch } from "./translations/translate";
 import { useState } from "react";
 import {
   ArrowUpRight,
@@ -25,9 +26,9 @@ export function OfficialSource() {
         <Store size={25} />
       </div>
       <div className="official-reference-copy">
-        <span className="eyebrow">RUTGERS · OFFICIAL INFORMATION</span>
+        <span className="eyebrow">{t("RUTGERS · OFFICIAL INFORMATION")}</span>
         <h2>{t(guide.name)}</h2>
-        <p>{t("地址与市场介绍已按 Rutgers 官方页面整理。核对日期：")}{t(guide.checkedOn)}。
+        <p>{t("地址与市场介绍已按 Rutgers 官方页面整理。核对日期：{date}。", { date: guide.checkedOn })}
         </p>
         <small>{t(guide.scheduleNotice)}</small>
       </div>
@@ -52,9 +53,7 @@ export default function MarketGuide() {
   const locations = guide.locations.filter(
     (l) =>
       (area === "全部地点" || l.area === area) &&
-      `${l.name} ${l.address}`
-        .toLowerCase()
-        .includes(search.trim().toLowerCase()),
+      matchesSearch(search, l.name, l.address, l.area),
   );
   const copy = async (id: string, address: string) => {
     try {
@@ -91,7 +90,7 @@ export default function MarketGuide() {
         </label>
       </div>
       <div className="guide-mode">
-        <span>{t("显示 ")}{locations.length}{t(" 个地点 · 导航出行方式")}</span>
+        <span>{t("显示 {count} 个地点 · 导航出行方式", { count: locations.length })}</span>
         <select
           aria-label={t("导航出行方式")}
           value={mode}
@@ -186,7 +185,7 @@ export default function MarketGuide() {
       )}
       <section className="panel offerings-panel">
         <div>
-          <span className="eyebrow">FRESH. LOCAL. SUSTAINABLE.</span>
+          <span className="eyebrow">{t("FRESH. LOCAL. SUSTAINABLE.")}</span>
           <h2>{t("在市集，还能遇见什么？")}</h2>
           <p>{t("官网介绍的市场品类；具体摊位及当天供应以现场为准。")}</p>
         </div>
@@ -240,7 +239,7 @@ export function HelpCenter() {
     <div className="help-center">
       <section className="panel support-hero">
         <span className="eyebrow">
-          STUDENT BASIC NEEDS · COMMUNITY RESOURCES
+          {t("STUDENT BASIC NEEDS · COMMUNITY RESOURCES")}
         </span>
         <h2>{t("让新鲜更容易获得。")}</h2>
         <p>{t("了解食品援助资源，也了解这份预购如何完成。")}</p>
@@ -259,7 +258,7 @@ export function HelpCenter() {
         </div>
         <p className="support-copy">{t(guide.marketBucks.summary)}</p>
         <p className="support-caution">{t(guide.marketBucks.notice)}</p>
-        <p className="helper-text">{t("页面核对日期：")}{t(guide.marketBucks.checkedOn)}{t("；相关页面的市场日程仍列示 2025 年。")}</p>
+        <p className="helper-text">{t("页面核对日期：{date}；相关页面的市场日程仍列示 2025 年。", { date: guide.marketBucks.checkedOn })}</p>
       </section>
       <div className="resource-grid">
         {guide.resources.map((r) => (
@@ -292,7 +291,7 @@ export function HelpCenter() {
       <section className="panel contact-panel">
         <div>
           <h3>{t("联系 Rutgers 官方办公室")}</h3>
-          <p>{guide.contact.name}</p>
+          <p>{t(guide.contact.name)}</p>
           <p>{guide.contact.address}{t("（办公室地址，非市集地点）")}</p>
         </div>
         <div>

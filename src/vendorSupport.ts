@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import type { Message } from "./i18n";
 import { api } from "./api";
 import { pagePaths, type Page } from "./navigation";
 import type { Product, OrderStatus } from "./types";
@@ -44,7 +45,7 @@ export function openVendorPage(
 }
 export function useVendorData<T>(path: string, revision: number) {
   const [data, setData] = useState<T>();
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Message>("");
   const [loading, setLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<number>();
   useEffect(() => {
@@ -59,7 +60,7 @@ export function useVendorData<T>(path: string, revision: number) {
         }
       })
       .catch((e: Error) => {
-        if (!controller.signal.aborted) setError(e.message);
+        if (!controller.signal.aborted) setError(e);
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);

@@ -521,7 +521,10 @@ export function createApp(
     if (error.type === "entity.parse.failed")
       return res.status(400).json({ error: "请求内容必须为有效 JSON。" });
     if (error.status)
-      return res.status(error.status).json({ error: error.message });
+      return res.status(error.status).json({
+        error: error.message,
+        ...(error.messageKey ? { messageKey: error.messageKey, values: error.values } : {}),
+      });
     console.error("Request failed:", error.message);
     res.status(500).json({ error: "服务器暂时无法完成请求，请重试。" });
   });

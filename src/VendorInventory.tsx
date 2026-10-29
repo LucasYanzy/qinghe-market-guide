@@ -17,7 +17,8 @@ import {
   X,
 } from "lucide-react";
 import { api, money } from "./api";
-import { useLanguage } from "./i18n";
+import { quantityUnit } from "./translations/translate";
+import { useLanguage, type Message } from "./i18n";
 import { Produce } from "./Produce";
 import { Empty, Modal } from "./ui";
 import {
@@ -84,7 +85,7 @@ export function Inventory({
   refresh: () => void;
   notify: (message: string) => void;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { data, setData, error, loading, updatedAt } = useVendorData<Product[]>(
     "/retailer/products",
     revision,
@@ -107,7 +108,7 @@ export function Inventory({
   const setPage = (page: number) => updateFilters({ page: String(page) });
   const [adjusting, setAdjusting] = useState<Product>();
   const [busy, setBusy] = useState<number>();
-  const [actionError, setActionError] = useState("");
+  const [actionError, setActionError] = useState<Message>("");
   const [visibilityProduct, setVisibilityProduct] = useState<Product>();
   const [selected, setSelected] = useState<number[]>([]);
   const [batchBusy, setBatchBusy] = useState(false);
@@ -155,7 +156,7 @@ export function Inventory({
           : "商品已下架，已有预购不受影响",
       );
     } catch (e) {
-      setActionError((e as Error).message);
+      setActionError(e as Error);
     } finally {
       setBusy(undefined);
     }
@@ -448,7 +449,7 @@ export function Inventory({
                           busy !== undefined || batchBusy || unavailable
                         }
                       >
-                        <strong>{p.stock}</strong> <span>{t(p.unit)}</span>
+                        <strong>{p.stock}</strong> <span>{quantityUnit(language, p.unit, p.stock)}</span>
                         <Plus size={12} />
                         <span className="vendor-stock-level" aria-hidden="true">
                           <span
@@ -654,7 +655,7 @@ function ProductEditor({
   };
   const [draft, setDraft] = useState(initial);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Message>("");
   const [discard, setDiscard] = useState(false);
   const [expectedStock, setExpectedStock] = useState(p?.stock);
   const [readingStock, setReadingStock] = useState(false);
@@ -701,7 +702,7 @@ function ProductEditor({
       onSaved(saved);
     } catch (e) {
       const message = (e as Error).message;
-      setError(message);
+      setError(e as Error);
       if (message === "库存已变化，请读取最新库存后重新核对。")
         setStockConflict(true);
     } finally {
@@ -756,7 +757,7 @@ function ProductEditor({
                 <input
                   required
                   maxLength={50}
-                  value={draft.name}
+                  value={t(draft.name)}
                   onChange={(e) => field("name", e.target.value)}
                   placeholder={t("例如：刚采收的田园番茄")}
                 />
@@ -794,7 +795,7 @@ function ProductEditor({
                 <textarea
                   maxLength={500}
                   rows={3}
-                  value={draft.description}
+                  value={t(draft.description)}
                   onChange={(e) => field("description", e.target.value)}
                   placeholder={t("介绍产地、口感或推荐做法…")}
                 />
@@ -898,7 +899,7 @@ function ProductEditor({
             >
               {t(status)}
             </span>
-            <h3>{draft.name || t("你的新鲜商品")}</h3>
+            <h3>{t(draft.name || "你的新鲜商品")}</h3>
             <p>
               {t(draft.category)}
               {draft.organic ? ` · ${t("有机种植")}` : ""}
@@ -914,7 +915,7 @@ function ProductEditor({
             <p>
               {t("可预购 {count} {unit}", {
                 count: draft.stock || 0,
-                unit: t(draft.unit),
+                unit: { unit: draft.unit, count: Number(draft.stock) },
               })}
             </p>
             <span className="vendor-preview-note">
@@ -947,7 +948,7 @@ function ProductEditor({
                         setError("");
                         setStockConflict(false);
                       } catch (e) {
-                        setError((e as Error).message);
+                        setError(e as Error);
                       } finally {
                         setReadingStock(false);
                       }
@@ -995,11 +996,11 @@ function StockAdjuster({
   onClose: () => void;
   onSaved: (product: Product) => void;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [baseline, setBaseline] = useState(product.stock);
   const [quantity, setQuantity] = useState(String(product.stock));
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Message>("");
   const [conflict, setConflict] = useState(false);
   const stock = Number(quantity);
   const valid =
@@ -1020,7 +1021,7 @@ function StockAdjuster({
       setError("");
       setConflict(false);
     } catch (e) {
-      setError((e as Error).message);
+      setError(e as Error);
     } finally {
       setBusy(false);
     }
@@ -1041,7 +1042,7 @@ function StockAdjuster({
       onSaved(saved);
     } catch (e) {
       const message = (e as Error).message;
-      setError(message);
+      setError(e as Error);
       if (message === "库存已变化，请读取最新库存后重新核对。")
         setConflict(true);
     } finally {
@@ -1059,7 +1060,7 @@ function StockAdjuster({
           <span>
             {t("当前库存 {count} {unit}", {
               count: baseline,
-              unit: t(product.unit),
+              unit: { unit: product.unit, count: baseline },
             })}
           </span>
         </div>
@@ -1109,7 +1110,7 @@ function StockAdjuster({
                 disabled={!valid || stock + amount > 10000}
                 onClick={() => setQuantity(String(stock + amount))}
               >
-                +{amount} {t(product.unit)}
+                +{amount} {quantityUnit(language, product.unit, amount)}
               </button>
             ))}
           </div>
@@ -1120,7 +1121,7 @@ function StockAdjuster({
                 ? "—"
                 : difference === 0
                   ? t("未变化")
-                  : `${difference > 0 ? "+" : ""}${difference} ${t(product.unit)}`}
+                  : `${difference > 0 ? "+" : ""}${difference} ${quantityUnit(language, product.unit, Math.abs(difference))}`}
             </strong>
           </div>
           <p className="helper-text">
