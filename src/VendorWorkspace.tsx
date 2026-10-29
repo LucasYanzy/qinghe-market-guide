@@ -19,11 +19,49 @@ import {
 } from "lucide-react";
 import { api, money } from "./api";
 import { useLanguage } from "./i18n";
-import { BasketArt, Produce } from "./Produce";
+import { Produce } from "./Produce";
 import { Empty, Modal } from "./ui";
-import { openVendorPage, orderLabels, useVendorData } from "./vendorSupport";
+import { VendorAnalytics } from "./VendorAnalytics";
+import {
+  openVendorPage,
+  orderLabels,
+  useVendorData,
+  useVendorFilters,
+} from "./vendorSupport";
 import type { Page } from "./navigation";
 import type { Dashboard, Order, OrderStatus, User } from "./types";
+
+export function VendorFilterChips({
+  chips,
+  onReset,
+}: {
+  chips: { label: string; remove: () => void }[];
+  onReset: () => void;
+}) {
+  const { t } = useLanguage();
+  if (!chips.length) return null;
+  return (
+    <div
+      className="vendor-filter-chips"
+      role="group"
+      aria-label={t("当前筛选条件")}
+    >
+      {chips.map((chip) => (
+        <button
+          key={chip.label}
+          onClick={chip.remove}
+          aria-label={t("移除筛选：{label}", { label: chip.label })}
+        >
+          {chip.label}
+          <X size={12} />
+        </button>
+      ))}
+      <button className="vendor-reset" onClick={onReset}>
+        {t("清除筛选")}
+      </button>
+    </div>
+  );
+}
 
 export function VendorRefresh({
   refresh,
@@ -66,7 +104,9 @@ function Metric({
   value,
   note,
   icon,
+  onClick,
 }: {
+  onClick: () => void;
   label: string;
   value: string;
   note: string;
@@ -74,12 +114,19 @@ function Metric({
 }) {
   const { t } = useLanguage();
   return (
-    <div className="vendor-metric">
+    <button
+      className="vendor-metric"
+      onClick={onClick}
+      aria-label={t("查看 {label}", { label: t(label) })}
+    >
       <span className="vendor-metric-icon">{icon}</span>
       <span>{t(label)}</span>
       <strong>{value}</strong>
-      <small>{t(note)}</small>
-    </div>
+      <small>
+        {t(note)}
+        <ArrowUpRight size={13} />
+      </small>
+    </button>
   );
 }
 export function RetailDashboard({
@@ -116,73 +163,65 @@ export function RetailDashboard({
     );
   return (
     <div className="vendor-dashboard">
-      <section className="vendor-hero">
-        <div className="vendor-hero-copy">
+      <section className="vendor-welcome-strip">
+        <div>
           <span className="vendor-kicker">
             <span className="tiny-dot" />
-            {t("你的农场，你的每一天")}
+            {date} · ET
           </span>
           <h2>
             {t("欢迎回来，")}
-            <br />
             {user.name}
-            <span>。</span>
           </h2>
-          <p>{t("从整理今日上架开始，把每一份新鲜送到邻里手中。")}</p>
-          <div className="vendor-hero-actions">
-            <button
-              className="button primary"
-              onClick={() =>
-                openVendorPage(navigate, "inventory", { status: "today" })
-              }
-            >
-              {t("管理今日商品")}
-              <ArrowRight size={16} />
-            </button>
-            <button
-              className="text-button"
-              onClick={() =>
-                openVendorPage(navigate, "inventory", { new: "1" })
-              }
-            >
-              {t("上架新商品")}
-              <ArrowUpRight size={16} />
-            </button>
-          </div>
         </div>
-        <BasketArt />
-        <span className="vendor-hero-caption">
-          GROWN WITH CARE. SHARED WITH COMMUNITY.
-        </span>
+        <div className="vendor-welcome-actions">
+          <VendorRefresh refresh={refresh} loading={loading} />
+          <button
+            className="button primary"
+            onClick={() => openVendorPage(navigate, "inventory", { new: "1" })}
+          >
+            {t("上架新商品")}
+            <ArrowUpRight size={16} />
+          </button>
+        </div>
       </section>
-      <div className="vendor-section-title">
-        <div>
-          <span className="eyebrow">THE DAILY PICTURE</span>
-          <h2>{t("今日经营概览")}</h2>
-          <p>{date} · ET</p>
-        </div>
-        <VendorRefresh refresh={refresh} loading={loading} />
+      <div className="vendor-overview-heading">
+        <h2>{t("今日经营概览")}</h2>
+        <span>{t("以美国东部自提日期为准")}</span>
       </div>
       <div className="vendor-metrics">
         <Metric
+          onClick={() => openVendorPage(navigate, "orders", { date: today })}
           label="今日预购订单"
           value={String(data.todayOrders)}
           note="不含已取消订单"
           icon={<ShoppingBag size={20} />}
         />
         <Metric
+          onClick={() =>
+            openVendorPage(navigate, "orders", {
+              date: today,
+              status: "completed",
+            })
+          }
           label="今日已完成金额"
           value={money(data.revenueCents)}
           note="已自提并确认收款"
           icon={<Wallet size={20} />}
         />
         <Metric
+          onClick={() =>
+            openVendorPage(navigate, "orders", { date: today, status: "open" })
+          }
           label="今日待履约金额"
           value={money(data.reservedCents)}
           note="待确认与待自提订单合计"
           icon={<Truck size={20} />}
         />
         <Metric
+          onClick={() =>
+            openVendorPage(navigate, "inventory", { status: "today" })
+          }
           label="今日展示商品"
           value={String(data.activeProducts)}
           note={t("其中 {count} 款已售罄", { count: data.outOfStock })}
@@ -245,6 +284,7 @@ export function RetailDashboard({
           <ArrowUpRight size={17} />
         </button>
       </div>
+      <VendorAnalytics data={data} today={today} navigate={navigate} />
       <div className="vendor-dashboard-columns">
         <section className="vendor-panel">
           <div className="vendor-panel-heading">
@@ -341,7 +381,11 @@ export function RetailDashboard({
             className="button secondary full-width"
             onClick={() =>
               openVendorPage(navigate, "inventory", {
-                status: data.outOfStock ? "out" : "low",
+                status: data.outOfStock
+                  ? "out"
+                  : data.lowStock.length
+                    ? "low"
+                    : "all",
               })
             }
           >
@@ -357,6 +401,14 @@ export function RetailDashboard({
     </div>
   );
 }
+
+const orderDefaults = {
+  status: "all",
+  search: "",
+  date: "",
+  slot: "",
+  sort: "priority",
+};
 
 export function VendorOrders({
   today,
@@ -378,18 +430,20 @@ export function VendorOrders({
     error,
     loading,
   } = useVendorData<Order[]>("/orders", revision);
-  const initialStatus =
-    new URLSearchParams(window.location.search).get("status") ?? "all";
-  const [status, setStatus] = useState(
-    ["all", ...Object.keys(orderLabels)].includes(initialStatus)
-      ? initialStatus
-      : "all",
-  );
-  const [search, setSearch] = useState(
-    () => new URLSearchParams(window.location.search).get("search") ?? "",
-  );
-  const [date, setDate] = useState("");
-  const [slot, setSlot] = useState("");
+  const [filters, updateFilters] = useVendorFilters(orderDefaults);
+  const status = ["all", "open", ...Object.keys(orderLabels)].includes(
+    filters.status,
+  )
+    ? filters.status
+    : "all";
+  const { search, date, slot, sort } = filters;
+  const setSearch = (search: string) => updateFilters({ search });
+  const setDate = (date: string) => updateFilters({ date });
+  const setSlot = (slot: string) => updateFilters({ slot });
+  const [lastAction, setLastAction] = useState<{
+    id: string;
+    status: OrderStatus;
+  }>();
   const [busy, setBusy] = useState("");
   const [confirm, setConfirm] = useState<{
     order: Order;
@@ -400,16 +454,7 @@ export function VendorOrders({
     setConfirm(undefined);
     setActionError("");
   }, []);
-  const changeStatus = (next: string) => {
-    setStatus(next);
-    const params = new URLSearchParams(window.location.search);
-    params.set("status", next);
-    window.history.replaceState(
-      null,
-      "",
-      `${window.location.pathname}?${params}`,
-    );
-  };
+  const changeStatus = (status: string) => updateFilters({ status });
   const update = async (order: Order, next: OrderStatus) => {
     if (busy) return;
     setBusy(order.id);
@@ -422,6 +467,7 @@ export function VendorOrders({
       setData((current) =>
         current?.map((item) => (item.id === saved.id ? saved : item)),
       );
+      setLastAction({ id: saved.id, status: saved.status });
       closeConfirm();
       refresh();
       notify(
@@ -455,21 +501,31 @@ export function VendorOrders({
           .includes(query)),
   );
   const visible = matching.filter(
-    (o) => status === "all" || o.status === status,
+    (o) =>
+      status === "all" ||
+      (status === "open"
+        ? ["pending", "confirmed"].includes(o.status)
+        : o.status === status),
   );
-  const reset = () => {
-    setSearch("");
-    setDate("");
-    setSlot("");
-    changeStatus("all");
-    const params = new URLSearchParams(window.location.search);
-    params.delete("search");
-    window.history.replaceState(
-      null,
-      "",
-      `${window.location.pathname}?${params}`,
+  visible.sort((a, b) => {
+    if (sort === "priority") {
+      const rank = { pending: 0, confirmed: 1, completed: 2, cancelled: 3 };
+      const difference = rank[a.status] - rank[b.status];
+      if (difference) return difference;
+      if (rank[a.status] < 2)
+        return (
+          a.pickup_date.localeCompare(b.pickup_date) ||
+          a.pickup_slot.localeCompare(b.pickup_slot) ||
+          a.created_at.localeCompare(b.created_at) ||
+          a.id.localeCompare(b.id)
+        );
+    }
+    return (
+      (sort === "oldest" ? 1 : -1) *
+      (a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
     );
-  };
+  });
+  const reset = () => updateFilters(orderDefaults);
   return (
     <div className="vendor-orders">
       <div className="vendor-order-guide">
@@ -515,25 +571,111 @@ export function VendorOrders({
         </label>
         <VendorRefresh refresh={refresh} loading={loading} />
       </div>
-      <div className="vendor-tabs" role="group" aria-label={t("订单状态筛选")}>
-        {[["all", "全部订单"], ...Object.entries(orderLabels)].map(
-          ([key, label]) => (
-            <button
-              key={key}
-              aria-pressed={status === key}
-              onClick={() => changeStatus(key)}
-            >
-              {t(label)}
-              <span>
-                {
-                  matching.filter((o) => key === "all" || o.status === key)
-                    .length
-                }
-              </span>
-            </button>
-          ),
-        )}
+      <div className="vendor-order-view-tools">
+        <button
+          className="button secondary"
+          aria-pressed={date === today}
+          onClick={() => setDate(date === today ? "" : today)}
+        >
+          <CalendarDays size={14} />
+          {t("今天自提")}
+        </button>
+        <label className="vendor-filter-label">
+          {t("订单排序")}
+          <select
+            value={sort}
+            onChange={(e) => updateFilters({ sort: e.target.value })}
+          >
+            <option value="priority">{t("待办优先")}</option>
+            <option value="newest">{t("最新预购优先")}</option>
+            <option value="oldest">{t("最早预购优先")}</option>
+          </select>
+        </label>
       </div>
+      <div className="vendor-tabs" role="group" aria-label={t("订单状态筛选")}>
+        {[
+          ["all", "全部订单"],
+          ["open", "待履约"],
+          ...Object.entries(orderLabels),
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            aria-pressed={status === key}
+            onClick={() => changeStatus(key)}
+          >
+            {t(label)}
+            <span>
+              {
+                matching.filter(
+                  (o) =>
+                    key === "all" ||
+                    (key === "open"
+                      ? ["pending", "confirmed"].includes(o.status)
+                      : o.status === key),
+                ).length
+              }
+            </span>
+          </button>
+        ))}
+      </div>
+      <VendorFilterChips
+        chips={[
+          ...(search
+            ? [
+                {
+                  label: t("搜索：{value}", { value: search }),
+                  remove: () => setSearch(""),
+                },
+              ]
+            : []),
+          ...(date ? [{ label: date, remove: () => setDate("") }] : []),
+          ...(slot ? [{ label: slot, remove: () => setSlot("") }] : []),
+          ...(status !== "all"
+            ? [
+                {
+                  label: t(
+                    status === "open"
+                      ? "待履约"
+                      : orderLabels[status as OrderStatus],
+                  ),
+                  remove: () => changeStatus("all"),
+                },
+              ]
+            : []),
+        ]}
+        onReset={reset}
+      />
+      {lastAction && (
+        <div className="vendor-action-receipt" role="status">
+          <CheckCircle2 size={19} />
+          <span>
+            {t("{id} 已更新为{status}", {
+              id: lastAction.id,
+              status: t(orderLabels[lastAction.status]),
+            })}
+          </span>
+          <button
+            className="text-button"
+            onClick={() =>
+              updateFilters({
+                ...orderDefaults,
+                status: lastAction.status,
+                search: lastAction.id,
+              })
+            }
+          >
+            {t("查看此订单")}
+            <ArrowRight size={14} />
+          </button>
+          <button
+            className="icon-button"
+            onClick={() => setLastAction(undefined)}
+            aria-label={t("关闭提示")}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
       <div className="vendor-results">
         <span role="status">
           {t("共 {count} 笔预购", { count: visible.length })}

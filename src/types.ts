@@ -68,6 +68,19 @@ export interface Dashboard {
   offDateProducts: number;
   lowStock: Product[];
   recentOrders: Order[];
+  series: {
+    date: string;
+    orders: number;
+    completedCents: number;
+    reservedCents: number;
+  }[];
+  statusCounts: Record<OrderStatus, number>;
+  pickupSummary: {
+    slot: string;
+    pending: number;
+    confirmed: number;
+    completed: number;
+  }[];
 }
 export interface PriceData {
   product: Product;

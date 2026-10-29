@@ -34,6 +34,7 @@ export function useNavigation() {
       window.history[replace ? "replaceState" : "pushState"](null, "", url);
     }
     setPage(next);
+    window.dispatchEvent(new Event("qinghe:navigate"));
     window.scrollTo({ top: 0, behavior: "instant" });
   }, []);
   const navigate = useCallback((next: Page) => changePage(next), [changePage]);

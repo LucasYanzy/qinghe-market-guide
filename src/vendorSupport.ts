@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "./api";
 import { pagePaths, type Page } from "./navigation";
 import type { Product, OrderStatus } from "./types";
@@ -40,6 +40,7 @@ export function openVendorPage(
   const query = new URLSearchParams(params).toString();
   if (query)
     window.history.replaceState(null, "", `${pagePaths[page]}?${query}`);
+  window.dispatchEvent(new Event("qinghe:navigate"));
 }
 export function useVendorData<T>(path: string, revision: number) {
   const [data, setData] = useState<T>();
@@ -62,4 +63,47 @@ export function useVendorData<T>(path: string, revision: number) {
     return () => controller.abort();
   }, [path, revision]);
   return { data, setData, error, loading };
+}
+
+// URL-backed filters survive reloads, back navigation and opening a saved link.
+export function useVendorFilters<T extends Record<string, string>>(
+  defaults: T,
+) {
+  const read = useCallback(() => {
+    const query = new URLSearchParams(window.location.search);
+    return Object.fromEntries(
+      Object.entries(defaults).map(([key, value]) => [
+        key,
+        query.get(key) ?? value,
+      ]),
+    ) as T;
+  }, [defaults]);
+  const [filters, setFilters] = useState(read);
+  useEffect(() => {
+    const sync = () => setFilters(read());
+    window.addEventListener("popstate", sync);
+    window.addEventListener("qinghe:navigate", sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("qinghe:navigate", sync);
+    };
+  }, [read]);
+  const update = useCallback(
+    (patch: Partial<T>) => {
+      const next = { ...read(), ...patch };
+      const query = new URLSearchParams(window.location.search);
+      Object.entries(next).forEach(([key, value]) => {
+        if (value === defaults[key]) query.delete(key);
+        else query.set(key, value);
+      });
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${query.size ? `?${query}` : ""}`,
+      );
+      setFilters(next);
+    },
+    [defaults, read],
+  );
+  return [filters, update] as const;
 }

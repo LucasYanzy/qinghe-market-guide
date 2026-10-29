@@ -20,10 +20,15 @@ import { api, money } from "./api";
 import { useLanguage } from "./i18n";
 import { Produce } from "./Produce";
 import { Empty, Modal } from "./ui";
-import { VendorError, VendorRefresh } from "./VendorWorkspace";
+import {
+  VendorError,
+  VendorRefresh,
+  VendorFilterChips,
+} from "./VendorWorkspace";
 import {
   inventoryMatches,
   useVendorData,
+  useVendorFilters,
   type InventoryFilter,
 } from "./vendorSupport";
 import type { Product } from "./types";
@@ -36,6 +41,13 @@ const inventoryFilters: [InventoryFilter, string][] = [
   ["off-date", "非今日售卖"],
   ["hidden", "已下架"],
 ];
+const inventoryDefaults = {
+  status: "all",
+  search: "",
+  category: "",
+  sort: "default",
+  page: "1",
+};
 const categories = ["叶菜类", "根茎类", "果实类"];
 const arts: Record<string, string> = {
   tomato: "番茄",
@@ -78,16 +90,20 @@ export function Inventory({
     loading,
   } = useVendorData<Product[]>("/retailer/products", revision);
   const [editing, setEditing] = useState<Product | null>();
-  const initial = new URLSearchParams(window.location.search).get("status");
-  const [filter, setFilter] = useState<InventoryFilter>(
-    inventoryFilters.some(([key]) => key === initial)
-      ? (initial as InventoryFilter)
-      : "all",
-  );
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("");
-  const [sort, setSort] = useState("default");
-  const [page, setPage] = useState(1);
+  const [filters, updateFilters] = useVendorFilters(inventoryDefaults);
+  const filter = inventoryFilters.some(([key]) => key === filters.status)
+    ? (filters.status as InventoryFilter)
+    : "all";
+  const { search, category, sort } = filters;
+  const parsedPage = Number(filters.page);
+  const page =
+    Number.isSafeInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+  const setSearch = (search: string) => updateFilters({ search, page: "1" });
+  const setCategory = (category: string) =>
+    updateFilters({ category, page: "1" });
+  const setSort = (sort: string) => updateFilters({ sort, page: "1" });
+  const setPage = (page: number) => updateFilters({ page: String(page) });
+  const [adjusting, setAdjusting] = useState<Product>();
   const [busy, setBusy] = useState<number>();
   const [actionError, setActionError] = useState("");
   const [visibilityProduct, setVisibilityProduct] = useState<Product>();
@@ -113,17 +129,8 @@ export function Inventory({
     setVisibilityProduct(undefined);
     setActionError("");
   }, []);
-  const changeFilter = (next: InventoryFilter) => {
-    setFilter(next);
-    setPage(1);
-    const query = new URLSearchParams(window.location.search);
-    query.set("status", next);
-    window.history.replaceState(
-      null,
-      "",
-      `${window.location.pathname}?${query}`,
-    );
-  };
+  const changeFilter = (status: InventoryFilter) =>
+    updateFilters({ status, page: "1" });
   const toggle = async (p: Product) => {
     if (busy !== undefined) return;
     setBusy(p.id);
@@ -173,21 +180,11 @@ export function Inventory({
   const totalPages = Math.max(1, Math.ceil(shown.length / 8));
   const currentPage = Math.min(page, totalPages);
   const paginated = shown.slice((currentPage - 1) * 8, currentPage * 8);
-  const reset = () => {
-    setSearch("");
-    setCategory("");
-    setSort("default");
-    changeFilter("all");
-  };
+  const reset = () => updateFilters(inventoryDefaults);
   return (
     <div className="vendor-inventory">
       <div className="vendor-inventory-summary">
         <div>
-          <span className="vendor-kicker">
-            <Sprout size={16} />
-            {t("把新鲜，准备好。")}
-          </span>
-          <h2>{t("你的商品，井井有条。")}</h2>
           <p>{t("核对日期、库存和价格，让顾客看到今天可以买到的收获。")}</p>
         </div>
         <button className="button primary" onClick={() => setEditing(null)}>
@@ -228,10 +225,7 @@ export function Inventory({
               placeholder={t("搜索商品名称或描述…")}
               aria-label={t("搜索库存商品")}
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
+              onChange={(e) => setSearch(e.target.value)}
             />
             {search && (
               <button onClick={() => setSearch("")} aria-label={t("清除搜索")}>
@@ -244,10 +238,7 @@ export function Inventory({
             {t("分类")}
             <select
               value={category}
-              onChange={(e) => {
-                setCategory(e.target.value);
-                setPage(1);
-              }}
+              onChange={(e) => setCategory(e.target.value)}
             >
               <option value="">{t("全部分类")}</option>
               {categories.map((c) => (
@@ -259,13 +250,7 @@ export function Inventory({
           </label>
           <label className="vendor-filter-label">
             {t("排序")}
-            <select
-              value={sort}
-              onChange={(e) => {
-                setSort(e.target.value);
-                setPage(1);
-              }}
-            >
+            <select value={sort} onChange={(e) => setSort(e.target.value)}>
               <option value="default">{t("最新上架")}</option>
               <option value="stock">{t("库存从低到高")}</option>
               <option value="price">{t("价格从低到高")}</option>
@@ -292,6 +277,46 @@ export function Inventory({
             </button>
           ))}
         </div>
+        <VendorFilterChips
+          chips={[
+            ...(search
+              ? [
+                  {
+                    label: t("搜索：{value}", { value: search }),
+                    remove: () => setSearch(""),
+                  },
+                ]
+              : []),
+            ...(category
+              ? [{ label: t(category), remove: () => setCategory("") }]
+              : []),
+            ...(filter !== "all"
+              ? [
+                  {
+                    label: t(
+                      inventoryFilters.find(([key]) => key === filter)![1],
+                    ),
+                    remove: () => changeFilter("all"),
+                  },
+                ]
+              : []),
+            ...(sort !== "default"
+              ? [
+                  {
+                    label: t(
+                      sort === "stock"
+                        ? "库存从低到高"
+                        : sort === "price"
+                          ? "价格从低到高"
+                          : "按商品名称",
+                    ),
+                    remove: () => setSort("default"),
+                  },
+                ]
+              : []),
+          ]}
+          onReset={reset}
+        />
         {actionError && !visibilityProduct && (
           <VendorError error={actionError} refresh={refresh} />
         )}
@@ -358,16 +383,20 @@ export function Inventory({
                       <small> / {t(p.unit)}</small>
                     </td>
                     <td data-label={t("可预购库存")}>
-                      <span
-                        className={
-                          p.stock < 10
-                            ? "vendor-stock-low"
-                            : "vendor-stock-normal"
-                        }
+                      <button
+                        className={`vendor-stock-control ${p.stock < 10 ? "vendor-stock-low" : "vendor-stock-normal"}`}
+                        aria-label={t("调整 {name} 库存", { name: t(p.name) })}
+                        onClick={() => setAdjusting(p)}
+                        disabled={busy !== undefined || loading}
                       >
-                        {p.stock} {t(p.unit)}
-                        {p.stock < 10 && <span className="vendor-stock-dot" />}
-                      </span>
+                        <strong>{p.stock}</strong> <span>{t(p.unit)}</span>
+                        <Plus size={12} />
+                        <span className="vendor-stock-level" aria-hidden="true">
+                          <span
+                            style={{ width: `${Math.min(100, p.stock * 10)}%` }}
+                          />
+                        </span>
+                      </button>
                     </td>
                     <td data-label={t("售卖日期")}>
                       <span
@@ -479,6 +508,20 @@ export function Inventory({
           }}
         />
       )}
+      {adjusting && (
+        <StockAdjuster
+          product={adjusting}
+          onClose={() => setAdjusting(undefined)}
+          onSaved={(saved) => {
+            setData((current) =>
+              current?.map((item) => (item.id === saved.id ? saved : item)),
+            );
+            setAdjusting(undefined);
+            refresh();
+            notify("库存已更新");
+          }}
+        />
+      )}
       {visibilityProduct && (
         <Modal
           title="下架这款商品？"
@@ -546,6 +589,10 @@ function ProductEditor({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [discard, setDiscard] = useState(false);
+  const [expectedStock, setExpectedStock] = useState(p?.stock);
+  const [readingStock, setReadingStock] = useState(false);
+  const [stockConflict, setStockConflict] = useState(false);
+  const locked = busy || readingStock;
   const changed = JSON.stringify(draft) !== JSON.stringify(initial);
   const close = useCallback(
     () => (changed ? setDiscard(true) : onClose()),
@@ -557,7 +604,7 @@ function ProductEditor({
   ) => setDraft((d) => ({ ...d, [key]: value }));
   const save = async (event: FormEvent) => {
     event.preventDefault();
-    if (busy) return;
+    if (locked || stockConflict) return;
     if (!draft.name.trim()) {
       setError("请输入商品名称。");
       return;
@@ -576,6 +623,7 @@ function ProductEditor({
             unit: draft.unit,
             price_cents: Math.round(Number(draft.price) * 100),
             stock: Number(draft.stock),
+            ...(p ? { expected_stock: expectedStock } : {}),
             available_date: draft.date,
             description: draft.description.trim(),
             organic: draft.organic,
@@ -585,7 +633,10 @@ function ProductEditor({
       );
       onSaved(saved);
     } catch (e) {
-      setError((e as Error).message);
+      const message = (e as Error).message;
+      setError(message);
+      if (message === "库存已变化，请读取最新库存后重新核对。")
+        setStockConflict(true);
     } finally {
       setBusy(false);
     }
@@ -604,7 +655,7 @@ function ProductEditor({
         discard ? "放弃未保存的修改？" : p ? "编辑这份新鲜" : "上架一份新鲜"
       }
       onClose={discard ? () => setDiscard(false) : close}
-      busy={busy}
+      busy={locked}
       wide={!discard}
     >
       {discard ? (
@@ -629,7 +680,7 @@ function ProductEditor({
         <form onSubmit={save} className="vendor-editor">
           <fieldset
             className="form-fields vendor-editor-fields"
-            disabled={busy}
+            disabled={locked}
           >
             <div className="vendor-editor-section">
               <span className="eyebrow">01 / {t("商品资料")}</span>
@@ -775,7 +826,11 @@ function ProductEditor({
             <div className={`vendor-preview-art art-bg-${draft.art}`}>
               <Produce kind={draft.art} />
             </div>
-            <span className="status-badge status-confirmed">{t(status)}</span>
+            <span
+              className={`status-badge status-${!draft.active || draft.date !== today ? "cancelled" : Number(draft.stock) ? "confirmed" : "pending"}`}
+            >
+              {t(status)}
+            </span>
             <h3>{draft.name || t("你的新鲜商品")}</h3>
             <p>
               {t(draft.category)}
@@ -801,19 +856,53 @@ function ProductEditor({
           </aside>
           <div className="vendor-editor-footer">
             {error && (
-              <p className="form-error" role="alert">
-                {t(error)}
-              </p>
+              <div className="vendor-editor-error">
+                <p className="form-error" role="alert">
+                  {t(error)}
+                </p>
+                {p && stockConflict && (
+                  <button
+                    type="button"
+                    className="button secondary"
+                    disabled={readingStock || busy}
+                    onClick={async () => {
+                      setReadingStock(true);
+                      try {
+                        const products =
+                          await api<Product[]>("/retailer/products");
+                        const latest = products.find(
+                          (item) => item.id === p.id,
+                        );
+                        if (!latest)
+                          throw new Error("商品不存在或不属于当前商户。");
+                        setExpectedStock(latest.stock);
+                        field("stock", String(latest.stock));
+                        setError("");
+                        setStockConflict(false);
+                      } catch (e) {
+                        setError((e as Error).message);
+                      } finally {
+                        setReadingStock(false);
+                      }
+                    }}
+                  >
+                    {t(readingStock ? "正在读取库存…" : "读取最新库存")}
+                  </button>
+                )}
+              </div>
             )}
             <button
               type="button"
               className="button secondary"
               onClick={close}
-              disabled={busy}
+              disabled={locked}
             >
               {t("取消")}
             </button>
-            <button className="button primary" disabled={busy}>
+            <button
+              className="button primary"
+              disabled={locked || stockConflict}
+            >
               {busy ? (
                 <LoaderCircle className="spin" size={16} />
               ) : (
@@ -824,6 +913,192 @@ function ProductEditor({
           </div>
         </form>
       )}
+    </Modal>
+  );
+}
+
+function StockAdjuster({
+  product,
+  onClose,
+  onSaved,
+}: {
+  product: Product;
+  onClose: () => void;
+  onSaved: (product: Product) => void;
+}) {
+  const { t } = useLanguage();
+  const [baseline, setBaseline] = useState(product.stock);
+  const [quantity, setQuantity] = useState(String(product.stock));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [conflict, setConflict] = useState(false);
+  const stock = Number(quantity);
+  const valid =
+    quantity.trim() !== "" &&
+    Number.isInteger(stock) &&
+    stock >= 0 &&
+    stock <= 10000;
+  const difference = stock - baseline;
+  const readStock = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const products = await api<Product[]>("/retailer/products");
+      const latest = products.find((item) => item.id === product.id);
+      if (!latest) throw new Error("商品不存在或不属于当前商户。");
+      setBaseline(latest.stock);
+      setQuantity(String(latest.stock));
+      setError("");
+      setConflict(false);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const save = async (event: FormEvent) => {
+    event.preventDefault();
+    if (busy || conflict || !valid || difference === 0) return;
+    setBusy(true);
+    setError("");
+    try {
+      const saved = await api<Product>(
+        `/retailer/products/${product.id}/stock`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ stock, expected_stock: baseline }),
+        },
+      );
+      onSaved(saved);
+    } catch (e) {
+      const message = (e as Error).message;
+      setError(message);
+      if (message === "库存已变化，请读取最新库存后重新核对。")
+        setConflict(true);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal title="调整可预购库存" onClose={onClose} busy={busy}>
+      <div className="vendor-adjust-product">
+        <div className={`mini-art art-bg-${product.art}`}>
+          <Produce kind={product.art} />
+        </div>
+        <div>
+          <strong>{t(product.name)}</strong>
+          <span>
+            {t("当前库存 {count} {unit}", {
+              count: baseline,
+              unit: t(product.unit),
+            })}
+          </span>
+        </div>
+      </div>
+      <form className="form-stack vendor-stock-form" onSubmit={save}>
+        <fieldset className="form-fields form-stack" disabled={busy}>
+          <label>
+            {t("调整后的可预购数量")}
+            <div className="vendor-quantity-input">
+              <button
+                type="button"
+                aria-label={t("库存减一")}
+                disabled={!valid || stock === 0}
+                onClick={() => setQuantity(String(stock - 1))}
+              >
+                −
+              </button>
+              <input
+                aria-label={t("调整后的可预购数量")}
+                required
+                type="number"
+                min="0"
+                max="10000"
+                step="1"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+              />
+              <button
+                type="button"
+                aria-label={t("库存加一")}
+                disabled={!valid || stock === 10000}
+                onClick={() => setQuantity(String(stock + 1))}
+              >
+                +
+              </button>
+            </div>
+          </label>
+          <div
+            className="vendor-stock-presets"
+            role="group"
+            aria-label={t("快速补货")}
+          >
+            {[5, 10, 20].map((amount) => (
+              <button
+                key={amount}
+                type="button"
+                disabled={!valid || stock + amount > 10000}
+                onClick={() => setQuantity(String(stock + amount))}
+              >
+                +{amount} {t(product.unit)}
+              </button>
+            ))}
+          </div>
+          <div className="vendor-stock-difference" role="status">
+            <span>{t("本次调整")}</span>
+            <strong>
+              {!valid
+                ? "—"
+                : difference === 0
+                  ? t("未变化")
+                  : `${difference > 0 ? "+" : ""}${difference} ${t(product.unit)}`}
+            </strong>
+          </div>
+          <p className="helper-text">
+            {t(
+              "补货增加数量，现场售出则减少数量。这里不包含已预留的预购商品。",
+            )}
+          </p>
+        </fieldset>
+        {error && (
+          <div>
+            <p className="form-error" role="alert">
+              {t(error)}
+            </p>
+            {conflict && (
+              <button
+                type="button"
+                className="text-button"
+                disabled={busy}
+                onClick={() => void readStock()}
+              >
+                {t("读取最新库存")}
+              </button>
+            )}
+          </div>
+        )}
+        <div className="modal-actions">
+          <button
+            className="button secondary"
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+          >
+            {t("取消")}
+          </button>
+          <button
+            className="button primary"
+            disabled={busy || conflict || !valid || difference === 0}
+          >
+            {busy ? (
+              <LoaderCircle className="spin" size={15} />
+            ) : (
+              <Check size={15} />
+            )}
+            {t(busy ? "正在保存…" : "确认调整")}
+          </button>
+        </div>
+      </form>
     </Modal>
   );
 }

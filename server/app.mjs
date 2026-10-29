@@ -9,6 +9,7 @@ import { resolve, join } from "node:path";
 import { existsSync } from "node:fs";
 import { z } from "zod";
 import { marketDay, hashPassword } from "./db.mjs";
+import { vendorAnalytics } from "./vendor.mjs";
 import { forecastPrices } from "./forecast.mjs";
 import {
   getOrders,
@@ -303,6 +304,31 @@ export function createApp(
       );
     },
   );
+  app.patch(
+    "/api/retailer/products/:id/stock",
+    requireUser,
+    role("retailer"),
+    (req, res) => {
+      const input = z
+        .object({
+          stock: z.number().int().min(0).max(10000),
+          expected_stock: z.number().int().min(0).max(10000),
+        })
+        .parse(req.body);
+      const result = db
+        .prepare(
+          "UPDATE products SET stock=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND retailer_id=? AND stock=?",
+        )
+        .run(input.stock, req.params.id, req.user.id, input.expected_stock);
+      const product = db
+        .prepare("SELECT * FROM products WHERE id=? AND retailer_id=?")
+        .get(req.params.id, req.user.id);
+      if (!product) throw new HttpError(404, "商品不存在或不属于当前商户。");
+      if (!result.changes)
+        throw new HttpError(409, "库存已变化，请读取最新库存后重新核对。");
+      res.json(product);
+    },
+  );
   app.post(
     "/api/retailer/products",
     requireUser,
@@ -352,13 +378,25 @@ export function createApp(
     requireUser,
     role("retailer"),
     (req, res) => {
-      const p = productSchema.parse(req.body);
+      const p = productSchema
+        .extend({
+          expected_stock: z.number().int().min(0).max(10000).optional(),
+        })
+        .parse(req.body);
       const product = db
-        .prepare("SELECT id FROM products WHERE id=? AND retailer_id=?")
+        .prepare("SELECT id,stock FROM products WHERE id=? AND retailer_id=?")
         .get(req.params.id, req.user.id);
       if (!product) throw new HttpError(404, "商品不存在或不属于当前商户。");
       db.exec("BEGIN IMMEDIATE");
       try {
+        const current = db
+          .prepare("SELECT stock FROM products WHERE id=?")
+          .get(product.id);
+        if (
+          p.expected_stock !== undefined &&
+          current.stock !== p.expected_stock
+        )
+          throw new HttpError(409, "库存已变化，请读取最新库存后重新核对。");
         db.prepare(
           `UPDATE products SET name=?,category=?,art=?,unit=?,price_cents=?,stock=?,description=?,organic=?,available_date=?,active=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`,
         ).run(
@@ -396,6 +434,7 @@ export function createApp(
         .all(req.user.id);
       const today = orders.filter((o) => o.pickup_date === marketDay());
       res.json({
+        ...vendorAnalytics(orders, marketDay()),
         todayOrders: today.filter((o) => o.status !== "cancelled").length,
         pending: orders.filter((o) => o.status === "pending").length,
         revenueCents: today

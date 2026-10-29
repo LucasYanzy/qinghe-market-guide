@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { openDatabase, marketDay } from "../server/db.mjs";
 import { createApp } from "../server/app.mjs";
 import { forecastPrices } from "../server/forecast.mjs";
+import { vendorAnalytics } from "../server/vendor.mjs";
 
 let db, server, base, client, retailer;
 const directory = mkdtempSync(join(tmpdir(), "qinghe-test-"));
@@ -458,4 +459,182 @@ test("vendor overview excludes hidden and other-date products from today's stock
     dashboard.waitingPickup,
     orders.filter((o) => o.status === "confirmed").length,
   );
+});
+
+test("vendor analytics keep seven pickup dates across year boundaries and exclude cancellations", () => {
+  const orders = [
+    {
+      pickup_date: "2025-12-31",
+      pickup_slot: "10:00–12:00",
+      status: "completed",
+      total_cents: 1000,
+    },
+    {
+      pickup_date: "2026-01-02",
+      pickup_slot: "10:00–12:00",
+      status: "pending",
+      total_cents: 250,
+    },
+    {
+      pickup_date: "2026-01-02",
+      pickup_slot: "10:00–12:00",
+      status: "confirmed",
+      total_cents: 350,
+    },
+    {
+      pickup_date: "2026-01-02",
+      pickup_slot: "12:00–14:00",
+      status: "completed",
+      total_cents: 400,
+    },
+    {
+      pickup_date: "2026-01-02",
+      pickup_slot: "12:00–14:00",
+      status: "cancelled",
+      total_cents: 9999,
+    },
+    { pickup_date: "2025-12-26", status: "completed", total_cents: 8888 },
+    { pickup_date: "2026-01-03", status: "pending", total_cents: 7777 },
+  ];
+  const data = vendorAnalytics(orders, "2026-01-02");
+  assert.equal(data.series.length, 7);
+  assert.equal(data.series[0].date, "2025-12-27");
+  assert.deepEqual(data.series.at(-1), {
+    date: "2026-01-02",
+    orders: 3,
+    completedCents: 400,
+    reservedCents: 600,
+  });
+  assert.equal(
+    data.series.reduce(
+      (sum, day) => sum + day.completedCents + day.reservedCents,
+      0,
+    ),
+    2000,
+  );
+  assert.deepEqual(data.statusCounts, {
+    pending: 1,
+    confirmed: 1,
+    completed: 1,
+    cancelled: 1,
+  });
+  assert.deepEqual(data.pickupSummary[0], {
+    slot: "10:00–12:00",
+    pending: 1,
+    confirmed: 1,
+    completed: 0,
+  });
+  const empty = vendorAnalytics([], "2026-01-02");
+  assert.ok(
+    empty.series.every(
+      (day) =>
+        day.orders === 0 && day.completedCents === 0 && day.reservedCents === 0,
+    ),
+  );
+  assert.ok(
+    empty.pickupSummary.every(
+      (slot) => slot.pending + slot.confirmed + slot.completed === 0,
+    ),
+  );
+});
+
+test("stock adjustment enforces access, validates quantities and rejects stale edits without changing prices", async () => {
+  const p = (await request("/retailer/products", { cookie: retailer })).data[0];
+  const path = `/retailer/products/${p.id}/stock`;
+  const input = { stock: p.stock + 5, expected_stock: p.stock };
+  const history = db
+    .prepare("SELECT * FROM price_history WHERE product_id=? ORDER BY date")
+    .all(p.id);
+  assert.equal(
+    (await request(path, { method: "PATCH", body: input })).status,
+    401,
+  );
+  assert.equal(
+    (await request(path, { method: "PATCH", body: input, cookie: client }))
+      .status,
+    403,
+  );
+  for (const body of [
+    { stock: -1, expected_stock: p.stock },
+    { stock: 1.5, expected_stock: p.stock },
+    { stock: 10001, expected_stock: p.stock },
+    { stock: 10 },
+  ]) {
+    assert.equal(
+      (await request(path, { method: "PATCH", cookie: retailer, body })).status,
+      400,
+    );
+  }
+  const other = db
+    .prepare("SELECT id FROM products WHERE retailer_id<>?")
+    .get(p.retailer_id);
+  assert.equal(
+    (
+      await request(`/retailer/products/${other.id}/stock`, {
+        method: "PATCH",
+        cookie: retailer,
+        body: input,
+      })
+    ).status,
+    404,
+  );
+  const saved = await request(path, {
+    method: "PATCH",
+    cookie: retailer,
+    body: { ...input, price_cents: 1, active: false },
+  });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.data.stock, p.stock + 5);
+  for (const key of ["price_cents", "active", "available_date", "name"])
+    assert.equal(saved.data[key], p[key]);
+  assert.equal(
+    (await request(path, { method: "PATCH", cookie: retailer, body: input }))
+      .status,
+    409,
+  );
+  const staleEdit = await request(`/retailer/products/${p.id}`, {
+    method: "PUT",
+    cookie: retailer,
+    body: {
+      ...p,
+      stock: 999,
+      expected_stock: p.stock,
+      price_cents: 1,
+      organic: !!p.organic,
+      active: !!p.active,
+    },
+  });
+  assert.equal(staleEdit.status, 409);
+  const stored = db.prepare("SELECT * FROM products WHERE id=?").get(p.id);
+  assert.equal(stored.stock, p.stock + 5);
+  assert.equal(stored.price_cents, p.price_cents);
+  assert.deepEqual(
+    db
+      .prepare("SELECT * FROM price_history WHERE product_id=? ORDER BY date")
+      .all(p.id),
+    history,
+  );
+});
+
+test("dashboard analytics include only this vendor's orders", async () => {
+  const before = (await request("/retailer/dashboard", { cookie: retailer }))
+    .data;
+  const other = db.prepare("SELECT * FROM products WHERE farm='Other'").get();
+  const customer = db
+    .prepare("SELECT id FROM users WHERE role='client' LIMIT 1")
+    .get();
+  db.prepare(
+    "INSERT INTO orders(id,client_id,market_id,status,total_cents,pickup_date,pickup_slot) VALUES('other-vendor-analytics',?,1,'completed',98765,?,'10:00–12:00')",
+  ).run(customer.id, marketDay());
+  db.prepare(
+    "INSERT INTO order_items VALUES('other-vendor-analytics',?,'Other','把',98765,1,?)",
+  ).run(other.id, other.retailer_id);
+  const after = (await request("/retailer/dashboard", { cookie: retailer }))
+    .data;
+  for (const key of ["series", "statusCounts", "pickupSummary"])
+    assert.deepEqual(after[key], before[key]);
+  const today = after.series.at(-1);
+  assert.equal(today.orders, after.todayOrders);
+  assert.equal(today.completedCents, after.revenueCents);
+  assert.equal(today.reservedCents, after.reservedCents);
 });
