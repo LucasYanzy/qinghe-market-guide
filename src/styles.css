@@ -3516,7 +3516,14 @@ tbody tr:last-child td {
     padding: 23px 16px 0;
   }
   .topbar {
-    padding: 0 12px;
+    min-height: 61px;
+    height: auto;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+  .topbar-actions {
+    margin-left: auto;
   }
   .page-heading h1 {
     font-size: 22px;
