@@ -44,11 +44,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     document.documentElement.lang = language === "en" ? "en" : "zh-CN";
     document.querySelector('meta[name="description"]')?.setAttribute(
       "content",
-      language === "en"
-        ? "Rutgers Community Farmers Market: discover fresh vegetables, preorder for pickup, and explore markets and price trends."
-        : "Rutgers 社区农夫市集：发现当日新鲜蔬菜、预购自提、查看市场和价格趋势。",
+      t("Rutgers 社区农夫市集：发现当日新鲜蔬菜、预购自提、查看市场和价格趋势。"),
     );
-  }, [language]);
+  }, [language, t]);
   useEffect(() => {
     const sync = (event: StorageEvent) => {
       if (event.key === storageKey || event.key === null) updateLanguage(readLanguage());

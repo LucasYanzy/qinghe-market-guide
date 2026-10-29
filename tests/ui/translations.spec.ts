@@ -39,11 +39,11 @@ async function login(page: Page, role: 'client' | 'retailer') {
 test('English covers every public page, FAQs, navigation, metadata, and reloads', async ({ page }) => {
   await english(page);
   const nav = page.getByRole('navigation', { name: 'Main navigation', exact: true });
-  await expect(nav.getByRole('link', { name: 'Explore market', exact: true })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Shop the market', exact: true })).toBeVisible();
   for (const [path, heading] of [
     ['/', 'Good food, every day.'],
     ['/markets', 'Markets & directions'],
-    ['/prices', 'Price watch'],
+    ['/prices', 'Prices & trends'],
     ['/orders', 'My preorders'],
     ['/about', 'About Qinghe'],
     ['/help', 'Help & food assistance'],
@@ -105,11 +105,11 @@ test('English product search, details, cart, sign-in, live notifications, orders
       values: { product: '藤熟番茄', stock: 0, unit: '磅' },
     } });
   });
-  await page.getByRole('button', { name: 'Confirm preorder', exact: true }).click();
+  await page.getByRole('button', { name: 'Place preorder', exact: true }).click();
   await expect(page.getByRole('alert')).toHaveText('Not enough stock for Vine-ripened Tomatoes. Available: 0 lb.');
   await expectEnglish(page);
   await page.unroute('**/api/orders');
-  await page.getByRole('button', { name: 'Confirm preorder', exact: true }).click();
+  await page.getByRole('button', { name: 'Place preorder', exact: true }).click();
   await expect(page).toHaveURL('/orders');
   await expect(page.locator('.order-card').first()).toBeVisible();
   await expect(page.getByRole('status')).toContainText('Preorder placed · QH-');
@@ -118,7 +118,7 @@ test('English product search, details, cart, sign-in, live notifications, orders
   await page.getByRole('button', { name: 'Cancel order', exact: true }).first().click();
   await expectEnglish(page);
   await page.getByRole('button', { name: 'Confirm cancellation', exact: true }).click();
-  await expect(page.getByRole('status')).toContainText('Order cancelled. Reserved stock has been released.');
+  await expect(page.getByRole('status')).toContainText('Order canceled. Reserved stock has been released.');
   await page.getByRole('button', { name: '切换为中文', exact: true }).click();
   await expect(page.getByRole('status')).toContainText('订单已取消，库存已归还');
 });
@@ -140,6 +140,15 @@ test('English archive preserves source units and uncertainty, and forecasts tran
 });
 
 test('English vendor pages, inventory search, product editor, and order actions are translated', async ({ page }) => {
+  await login(page, 'client');
+  const products = await (await page.request.get('/api/products')).json();
+  const product = products.find((product: { stock: number }) => product.stock > 0);
+  const { pickupSlots } = await (await page.request.get('/api/config')).json();
+  const response = await page.request.post('/api/orders', {
+    data: { items: [{ productId: product.id, quantity: 1 }], pickupSlot: pickupSlots[0] },
+  });
+  expect(response.status()).toBe(201);
+  const order = await response.json();
   await login(page, 'retailer');
   await english(page, '/retailer');
   await expect(page.locator('.stat-grid')).toBeVisible();
@@ -162,6 +171,16 @@ test('English vendor pages, inventory search, product editor, and order actions 
   await page.goto('/orders');
   await expect(page.locator('.order-tabs')).toBeVisible();
   await expectEnglish(page);
+  const card = page.locator('.order-card').filter({ hasText: order.id });
+  await expect(card.locator('.status-badge')).toHaveText('Awaiting confirmation');
+  await card.getByRole('button', { name: 'Accept preorder', exact: true }).click();
+  await expect(card.locator('.status-badge')).toHaveText('Awaiting pickup');
+  await page.getByRole('button', { name: '切换为中文', exact: true }).click();
+  await expect(card.locator('.status-badge')).toHaveText('待到场自提');
+  await expect(card.getByRole('button', { name: '确认已自提并收款', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Switch to English', exact: true }).click();
+  await expect(card.getByRole('button', { name: 'Confirm pickup & payment', exact: true })).toBeVisible();
+  await expectEnglish(page);
 });
 
 for (const width of [320, 390]) {
@@ -176,5 +195,11 @@ for (const width of [320, 390]) {
     await expectEnglish(page);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await expect(page.getByRole('button', { name: 'Switch to English', exact: true })).toBeInViewport();
+    await login(page, 'retailer');
+    for (const path of ['/retailer', '/retailer/inventory']) {
+      await page.goto(path);
+      await expect(page.getByRole('button', { name: 'Customer view', exact: true })).toBeInViewport();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    }
   });
 }
