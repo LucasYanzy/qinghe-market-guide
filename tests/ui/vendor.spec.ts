@@ -366,7 +366,12 @@ for (const width of [320, 390]) {
   test(`商户 ${width}px 页面可用且无横向溢出`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 });
     await signIn(page);
-    for (const path of ["/retailer", "/retailer/inventory", "/orders"]) {
+    for (const path of [
+      "/retailer",
+      "/retailer/inventory",
+      "/orders",
+      "/orders?view=prep",
+    ]) {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await expect(page.locator(".loading-panel")).toHaveCount(0);
@@ -377,7 +382,12 @@ for (const width of [320, 390]) {
       ).toBe(true);
     }
     await page.getByRole("button", { name: "Switch to English" }).click();
-    for (const path of ["/retailer", "/retailer/inventory", "/orders"]) {
+    for (const path of [
+      "/retailer",
+      "/retailer/inventory",
+      "/orders",
+      "/orders?view=prep",
+    ]) {
       await page.goto(path);
       await expect(page.locator(".loading-panel")).toHaveCount(0);
       expect(
@@ -499,6 +509,23 @@ test("备货按时段汇总已确认快照，排除其他状态并保留备注",
     await make(4, "pending");
     await make(6, "cancelled");
     await make(7, "completed");
+    const stored = (
+      await (await page.request.get("/api/retailer/products")).json()
+    ).find((p: { id: number }) => p.id === product.id);
+    expect(
+      (
+        await page.request.put(`/api/retailer/products/${product.id}`, {
+          data: {
+            ...stored,
+            unit: "个",
+            organic: !!stored.organic,
+            active: !!stored.active,
+            expected_stock: stored.stock,
+          },
+        })
+      ).ok(),
+    ).toBe(true);
+    await make(1, "confirmed");
     await page.goto(`/orders?search=${encodeURIComponent(product.name)}`);
     await page
       .getByRole("group", { name: "订单显示方式" })
@@ -506,18 +533,19 @@ test("备货按时段汇总已确认快照，排除其他状态并保留备注",
       .click();
     const board = page.getByRole("region", { name: "备货清单" });
     await expect(board.locator(".vendor-prep-items")).toContainText("5把");
-    await expect(board).toContainText("2 笔待自提");
+    await expect(board).toContainText("3 笔待自提");
+    await expect(board.locator(".vendor-prep-items")).toContainText("1个");
     await expect(board).toContainText("分装好，谢谢");
     await page.reload();
     await expect(board).toBeVisible();
     await page.getByRole("button", { name: "查看时段订单" }).click();
-    await expect(page.locator(".vendor-order")).toHaveCount(2);
+    await expect(page.locator(".vendor-order")).toHaveCount(3);
     await expect(page.getByLabel("自提日期", { exact: true })).toHaveValue(
       config.today,
     );
     await expect(
       page.locator(".vendor-order-progress [aria-current=step]"),
-    ).toHaveText(["2备货与待自提", "2备货与待自提"]);
+    ).toHaveText(["2备货与待自提", "2备货与待自提", "2备货与待自提"]);
     await page.getByRole("button", { name: "查看往日未履约" }).click();
     await expect(page.locator(".vendor-order")).toHaveCount(0);
     await expect(
