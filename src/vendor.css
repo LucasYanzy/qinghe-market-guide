@@ -48,7 +48,7 @@
   padding: 8px 12px;
   font-size: 11px;
 }
-.vendor-row-selected {
+.vendor-table tr.vendor-row-selected {
   background: #f3f7ec;
 }
 .vendor-bulk-preview {
