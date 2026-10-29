@@ -5,7 +5,7 @@ import archive from "../references/externship-market-prices.json";
 import { money } from "./api";
 
 export default function ReferencePrices() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [search, setSearch] = useState("");
   const visible = archive.items.filter((item) =>
     `${item.name} ${item.english_name}`
@@ -17,14 +17,13 @@ export default function ReferencePrices() {
       <div className="reference-intro panel">
         <div className="panel-heading">
           <div>
-            <span className="eyebrow">EXTERNSHIP · FIELD RESEARCH ARCHIVE</span>
+            <span className="eyebrow">{t("EXTERNSHIP · FIELD RESEARCH ARCHIVE")}</span>
             <h2>
               <BookOpen size={20} />{t("市场历史采价档案")}</h2>
           </div>
           <span className="status-badge status-pending">{t("历史资料 · 非实时报价")}</span>
         </div>
-        <p>{t("来自 Externship 项目的市场价格整理及 9 张现场照片核价记录，共")}{t(" ")}
-          {archive.items.length}{t(" 项商品。保留价签原始单位、优惠条件与核验限制。")}</p>
+        <p>{t("来自 Externship 项目的市场价格整理及 9 张现场照片核价记录，共 {count} 项商品。保留价签原始单位、优惠条件与核验限制。", { count: archive.items.length })}</p>
         <div className="reference-source-meta">
           <span>
             <FileText size={14} />{t("复核记录日：")}{t(archive.review_record_date)}
@@ -40,7 +39,7 @@ export default function ReferencePrices() {
         <p className="helper-text">{t("资料恢复方式：")}{t(archive.retrieval_note)}</p>
       </div>
       <div className="reference-toolbar">
-        <span>{t("显示 ")}{visible.length} / {archive.items.length}{t(" 项")}</span>
+        <span>{t("显示 {count} / {total} 项", { count: visible.length, total: archive.items.length })}</span>
         <label className="search-field">
           <Search size={17} />
           <input
@@ -67,16 +66,16 @@ export default function ReferencePrices() {
               {visible.map((item) => (
                 <tr key={item.id}>
                   <td>
-                    <strong>{t(item.name)}</strong>
-                    <small className="reference-english">
-                      {item.english_name}
+                    <strong>{language === "en" ? item.english_name : item.name}</strong>
+                    <small className="reference-english" lang={language === "en" ? "zh-CN" : "en"}>
+                      {language === "en" ? item.name : item.english_name}
                     </small>
                   </td>
                   <td>
                     <strong>{t(money(item.listed_price_cents))}</strong>
                   </td>
                   <td>{t(item.unit)}</td>
-                  <td>{t(item.offer ?? "未记录")}</td>
+                  <td>{item.offer ? t(item.offer) : t("未记录")}</td>
                   <td className="reference-note">{t(item.note)}</td>
                 </tr>
               ))}

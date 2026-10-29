@@ -1,4 +1,5 @@
-import { LanguageSwitcher, useLanguage } from "./i18n";
+import { LanguageSwitcher, useLanguage, type Message } from "./i18n";
+import { matchesSearch, quantityUnit } from "./translations/translate";
 import {
   useCallback,
   useEffect,
@@ -217,14 +218,14 @@ function Empty({
   );
 }
 function App() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [config, setConfig] = useState<Config>();
   const [user, setUser] = useState<User | null>(null);
   const { page, navigate: changePage, replacePage } = useNavigation();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [toast, setToast] = useState<{ message: string; id: number } | null>(null);
+  const [loadError, setLoadError] = useState<Message>("");
+  const [toast, setToast] = useState<{ message: Message; id: number } | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [cart, setCart] = useState<Cart>({});
@@ -243,7 +244,7 @@ function App() {
   const [sort, setSort] = useState("recommended");
   const [inStock, setInStock] = useState(false);
   const retailer = user?.role === "retailer";
-  const notify = useCallback((message: string) => {
+  const notify = useCallback((message: Message) => {
     setToast((previous) => ({ message, id: (previous?.id ?? 0) + 1 }));
   }, []);
   const mainRef = usePageMotion(page, !loading && !!config);
@@ -302,7 +303,7 @@ function App() {
       if (u.user?.role === "retailer" && window.location.pathname === "/")
         replacePage("dashboard");
     } catch (e) {
-      setLoadError((e as Error).message);
+      setLoadError(e as Error);
     } finally {
       setLoading(false);
     }
@@ -314,7 +315,7 @@ function App() {
     if (revision)
       api<Product[]>("/products")
         .then(setProducts)
-        .catch((e) => notify(e.message));
+        .catch((e) => notify(e));
   }, [revision, notify]);
   useEffect(() => {
     if (!toast) return;
@@ -361,7 +362,7 @@ function App() {
     notify(
       loginIntent === "cart" && !resetCart
         ? "登录成功，请确认自提信息后提交预购"
-        : `欢迎回来，${next.name}`,
+        : { message: "欢迎回来，{name}", values: { name: next.name } },
     );
   };
   const logout = async () => {
@@ -373,7 +374,7 @@ function App() {
       navigate("discover");
       notify("已退出登录");
     } catch (e) {
-      notify((e as Error).message);
+      notify(e as Error);
     }
   };
   const add = (product: Product) => {
@@ -381,7 +382,7 @@ function App() {
     if ((cart[product.id] ?? 0) >= product.stock)
       return notify("已达到当前库存数量");
     setCart((c) => ({ ...c, [product.id]: (c[product.id] ?? 0) + 1 }));
-    notify(t("{0} 已加入购物袋", { 0: t(product.name) }));
+    notify({ message: "{product} 已加入购物袋", values: { product: { message: product.name } } });
   };
   const remove = (product: Product) => {
     setCart((current) => {
@@ -400,7 +401,7 @@ function App() {
     (p) =>
       (category === "全部蔬菜" || p.category === category) &&
       (!inStock || p.stock > 0) &&
-      `${p.name}${p.farm}`.toLowerCase().includes(search.trim().toLowerCase()),
+      matchesSearch(search, p.name, p.farm),
   );
   if (sort === "price-up")
     visible = [...visible].sort((a, b) => a.price_cents - b.price_cents);
@@ -419,9 +420,9 @@ function App() {
     "not-found": "页面未找到",
   }[page];
   useEffect(() => {
-    document.title = `${title} · 青禾 Rutgers 社区农夫市集`;
+    document.title = t("{page} · 青禾 Rutgers 社区农夫市集", { page: t(title) });
     setMobileNav(false);
-  }, [title, page]);
+  }, [title, page, t]);
   const closeAuth = useCallback(() => {
     setAuthOpen(false);
     if (loginIntent === "cart") setCartOpen(true);
@@ -469,9 +470,9 @@ function App() {
             <Leaf size={25} />
           </span>
           <span>
-            <b>{t("青禾")}<span className="brand-english">QINGHE</span>
+            <b>{t("青禾")}{language === "zh" && <span className="brand-english" lang="en">QINGHE</span>}
             </b>
-            <small>RUTGERS FARMERS MARKET</small>
+            <small>{t("RUTGERS FARMERS MARKET")}</small>
           </span>
         </PageLink>
         <div className="workspace-label">
@@ -488,7 +489,7 @@ function App() {
               navigate={navigate}
             >
               <item.icon size={20} />
-              {item.label}
+              {t(item.label)}
               {page === item.id && <span className="nav-active-dot" />}
             </PageLink>
           ))}
@@ -499,12 +500,12 @@ function App() {
           </span>
           <h4>{t("好食物，连接好邻里。")}</h4>
           <p>{t("支持在地农场")}<br />{t("让每一口新鲜都有来处。")}</p>
-          <span>LOCAL FOOD. LOCAL GOOD.</span>
+          <span>{t("LOCAL FOOD. LOCAL GOOD.")}</span>
         </div>
         <div className="sidebar-bottom">
-          <div className="avatar">{t(user ? user.name.slice(0, 1) : "青")}</div>
+          <div className="avatar">{user ? user.name.slice(0, 1) : t("青")}</div>
           <div>
-            <strong>{t(user?.name ?? "欢迎来到青禾")}</strong>
+            <strong>{user?.name ?? t("欢迎来到青禾")}</strong>
             <small>
               {t(user
                 ? retailer
@@ -561,8 +562,8 @@ function App() {
                   : "A LITTLE FRESHNESS, EVERY DAY")}
               </div>
               <h1>
-                {t(page === "discover" ? "今天，也要好好吃饭。" : title)}
-                <span className="heading-dot">.</span>
+                {t(page === "discover" ? "今天，也要好好吃饭。" : title).replace(/[。.]+$/, "")}
+                <span className="heading-dot">{t("。")}</span>
               </h1>
               <p>
                 {t(page === "discover"
@@ -593,7 +594,7 @@ function App() {
           </div>
           {config.demo && (
             <div className="demo-notice">
-              <span className="demo-badge">DEMO</span>{t(" ")}{t("市场目录已核对官网；商品、库存与预购为演示，官方页面的 2025 年日程不代表当前营业安排。")}{retailer && t(" 商户修改会影响当前演示商品与订单。")}
+              <span className="demo-badge">{t("DEMO")}</span>{t(" ")}{t("市场目录已核对官网；商品、库存与预购为演示，官方页面的 2025 年日程不代表当前营业安排。")}{retailer && t(" 商户修改会影响当前演示商品与订单。")}
             </div>
           )}
           {page === "discover" && (
@@ -602,7 +603,7 @@ function App() {
                 <div className="hero-copy">
                   <div className="hero-kicker">
                     <span />{t("在地生长 · 当季新鲜")}</div>
-                  <h2>{t("把田野的新鲜，")}<br />{t("带回你的餐桌")}<span>。</span>
+                  <h2>{t("把田野的新鲜，\n带回你的餐桌")}<span>{t("。")}</span>
                   </h2>
                   <p>{t("一份当季蔬菜，一点简单的幸福。")}<br />{t("提前预购，来市集把好味道带回家。")}</p>
                   <div className="hero-actions">
@@ -651,10 +652,10 @@ function App() {
               </div>
               <div className="section-heading" id="today-produce">
                 <div>
-                  <span className="eyebrow">FRESH FROM THE FARM</span>
+                  <span className="eyebrow">{t("FRESH FROM THE FARM")}</span>
                   <h2>{t("今日新鲜上架")}{t(" ")}
                     <span className="subtle-count">
-                      {products.length}{t(" 款当季好物")}</span>
+                      {t("{count} 款当季好物", { count: products.length })}</span>
                   </h2>
                 </div>
                 <span className="harvest-tag">
@@ -710,7 +711,7 @@ function App() {
                 </div>
               </div>
               <div className="results-meta">
-                <span aria-live="polite" aria-atomic="true">{t("发现 ")}<span key={visible.length} className="result-count">{visible.length}</span>{t(" 款新鲜好物")}</span>
+                <span aria-live="polite" aria-atomic="true"><span key={visible.length} className="result-count">{t("发现 {count} 款新鲜好物", { count: visible.length })}</span></span>
                 <label>
                   <input
                     type="checkbox"
@@ -770,7 +771,7 @@ function App() {
                     <Store size={30} />
                   </div>
                   <div>
-                    <span className="eyebrow">MEET US AT THE MARKET</span>
+                    <span className="eyebrow">{t("MEET US AT THE MARKET")}</span>
                     <h3>{t("下次见面，就在市集。")}</h3>
                     <p>
                       {t(guide.locations[0].name)} · {t(guide.locations[0].address)}
@@ -938,7 +939,7 @@ function App() {
             setCartOpen(false);
             refresh();
             navigate("orders");
-            notify(`预购成功 · ${order.id}`);
+            notify({ message: "预购成功 · {id}", values: { id: order.id } });
           }}
         />
       )}
@@ -960,7 +961,7 @@ function App() {
                 {t(money(detail.price_cents))}
                 <small> / {t(detail.unit)}</small>
               </strong>
-              <span>{t("今日剩余 ")}{detail.stock} {t(detail.unit)}
+              <span>{t("今日剩余 {count} {unit}", { count: detail.stock, unit: quantityUnit(language, detail.unit, detail.stock) })}
               </span>
             </div>
             <p className="helper-text">{t("称重类商品按标示单位预订；如需现场称重，最终金额请与商户确认。")}</p>
@@ -992,7 +993,7 @@ function ProductCard({
   onRemove: () => void;
   onView: () => void;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const addRef = useRef<HTMLButtonElement>(null);
   return (
     <article className="product-card" data-product-id={p.id}>
@@ -1019,14 +1020,14 @@ function ProductCard({
           {t(p.name)}
         </button>
         <div className="product-description">
-          {t(p.description.split("。")[0])}
+          {t(p.description).split(/[。.!?]/)[0]}
         </div>
         <div className="product-bottom">
           <div>
             <strong>{t(money(p.price_cents))}</strong>
             <small> / {t(p.unit)}</small>
             <span className={`stock-label ${p.stock < 10 ? "low" : ""}`}>
-              {t(p.stock > 0 ? `剩余 ${p.stock} ${p.unit}` : "等待下一次采收")}
+              {p.stock > 0 ? t("剩余 {count} {unit}", { count: p.stock, unit: quantityUnit(language, p.unit, p.stock) }) : t("等待下一次采收")}
             </span>
           </div>
           <div className={quantity ? "product-quantity" : "product-add"}>
@@ -1065,7 +1066,7 @@ function AuthModal({
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Message>("");
   const submit = async (e?: FormEvent, role?: Role) => {
     e?.preventDefault();
     if (busy) return;
@@ -1081,7 +1082,7 @@ function AuthModal({
       );
       onLogin(result.user);
     } catch (e) {
-      setError((e as Error).message);
+      setError(e as Error);
     } finally {
       setBusy(false);
     }
@@ -1126,7 +1127,7 @@ function AuthModal({
         </div>
       )}
       <div className="divider">
-        <span>{t("或使用邮箱")}{t(register ? "注册" : "登录")}</span>
+        <span>{t(register ? "或使用邮箱注册" : "或使用邮箱登录")}</span>
       </div>
       <form onSubmit={submit} className="form-stack">
         <fieldset className="form-fields form-stack" disabled={busy}>
@@ -1169,7 +1170,7 @@ function AuthModal({
           )}
           <button className="button primary full-width" disabled={busy}>
             {busy ? <LoaderCircle size={17} className="spin" /> : null}
-            {t(busy ? "正在连接账号…" : register ? "创建顾客账号" : "登录")}
+            {t(busy ? (register ? "正在创建账号…" : "正在连接账号…") : register ? "创建顾客账号" : "登录")}
             <ArrowRight size={16} />
           </button>
         </fieldset>
@@ -1213,13 +1214,13 @@ function CartModal({
   draft: CheckoutDraft;
   onDraftChange: (draft: CheckoutDraft) => void;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const slot = config.pickupSlots.includes(draft.slot)
     ? draft.slot
     : (config.pickupSlots[0] ?? "");
   const { note } = draft;
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Message>("");
   const entries = Object.entries(cart).map(([id, quantity]) => ({
     id: Number(id),
     product: products.find((p) => p.id === Number(id)),
@@ -1259,7 +1260,7 @@ function CartModal({
       });
       onSuccess(order);
     } catch (e) {
-      setError((e as Error).message);
+      setError(e as Error);
     } finally {
       setBusy(false);
     }
@@ -1311,7 +1312,7 @@ function CartModal({
                         </div>
                         {quantity > p.stock && (
                           <div className="stock-warning" role="status">
-                            <span>{t("当前仅剩 ")}{p.stock} {t(p.unit)}
+                            <span>{t("当前仅剩 {count} {unit}", { count: p.stock, unit: quantityUnit(language, p.unit, p.stock) })}
                             </span>
                             <button
                               type="button"
@@ -1452,7 +1453,7 @@ function ForecastPrices({
   const { t } = useLanguage();
   const [selected, setSelected] = useState(products[0]?.id ?? 0);
   const [data, setData] = useState<PriceData>();
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Message>("");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (!selected) return;
@@ -1464,7 +1465,7 @@ function ForecastPrices({
         if (!cancelled) setData(d);
       })
       .catch((e) => {
-        if (!cancelled) setError(e.message);
+        if (!cancelled) setError(e);
       })
       .finally(() => {
         if (!cancelled) setBusy(false);
@@ -1517,7 +1518,7 @@ function ForecastPrices({
           >
             {products.map((p) => (
               <option value={p.id} key={p.id}>
-                {t(p.name)}{t(" · 每")}{t(p.unit)}
+                {t("{product} · 每{unit}", { product: t(p.name), unit: t(p.unit) })}
               </option>
             ))}
           </select>
@@ -1576,8 +1577,8 @@ function ForecastPrices({
             <section className="panel chart-panel">
               <div className="panel-heading">
                 <div>
-                  <span className="eyebrow">A CLEARER VIEW OF FRESHNESS</span>
-                  <h2>{t(data.product.name)}{t(" · 价格走势")}</h2>
+                  <span className="eyebrow">{t("A CLEARER VIEW OF FRESHNESS")}</span>
+                  <h2>{t("{product} · 价格走势", { product: t(data.product.name) })}</h2>
                 </div>
                 <div className="chart-legend">
                   <span>
@@ -1749,7 +1750,7 @@ function Orders({
   user: User | null;
   revision: number;
   refresh: () => void;
-  notify: (s: string) => void;
+  notify: (s: Message) => void;
   onLogin: () => void;
   onShop: () => void;
 }) {
@@ -1757,7 +1758,7 @@ function Orders({
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Message>("");
   const [busy, setBusy] = useState("");
   const [cancelOrder, setCancelOrder] = useState<Order>();
   useEffect(() => {
@@ -1770,7 +1771,7 @@ function Orders({
         if (!cancelled) setOrders(d);
       })
       .catch((e) => {
-        if (!cancelled) setError(e.message);
+        if (!cancelled) setError(e);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -1798,7 +1799,7 @@ function Orders({
             : "订单已完成",
       );
     } catch (e) {
-      notify((e as Error).message);
+      notify(e as Error);
     } finally {
       setBusy("");
     }
@@ -1904,7 +1905,7 @@ function Orders({
               </div>
               {o.note && <p className="order-note">{t("备注：")}{o.note}</p>}
               <div className="order-card-bottom">
-                <span>{t("到场付款 · 共 ")}{o.items.reduce((a, i) => a + i.quantity, 0)}{t(" 件")}<strong>{t(money(o.total_cents))}</strong>
+                <span>{t("到场付款 · 共 {count} 件", { count: o.items.reduce((a, i) => a + i.quantity, 0) })}<strong>{t(money(o.total_cents))}</strong>
                 </span>
                 <div>
                   {(o.status === "pending" ||
@@ -1951,7 +1952,7 @@ function Orders({
       )}
       {cancelOrder && (
         <Modal title={t("取消这份预购？")} onClose={closeCancel} busy={!!busy}>
-          <p className="modal-intro">{t("订单 ")}{t(cancelOrder.id)}{t(" ")}{t("取消后，预留库存会自动归还。已取消订单无法恢复。")}</p>
+          <p className="modal-intro">{t("订单 {id} 取消后，预留库存会自动归还。已取消订单无法恢复。", { id: cancelOrder.id })}</p>
           <div className="modal-actions">
             <button
               className="button secondary"
@@ -2002,11 +2003,11 @@ function RetailDashboard({
 }: {
   revision: number;
   navigate: (p: Page) => void;
-  notify: (s: string) => void;
+  notify: (s: Message) => void;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [data, setData] = useState<Dashboard>();
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Message>("");
   useEffect(() => {
     let cancelled = false;
     api<Dashboard>("/retailer/dashboard")
@@ -2014,7 +2015,7 @@ function RetailDashboard({
         if (!cancelled) setData(d);
       })
       .catch((e) => {
-        if (!cancelled) setError(e.message);
+        if (!cancelled) setError(e);
       });
     return () => {
       cancelled = true;
@@ -2035,8 +2036,8 @@ function RetailDashboard({
     <>
       <section className="retailer-welcome">
         <div>
-          <span className="eyebrow">GOOD FOOD STARTS WITH YOU</span>
-          <h2>{t("每一份用心，")}<br />{t("都有一张餐桌在等待。")}</h2>
+          <span className="eyebrow">{t("GOOD FOOD STARTS WITH YOU")}</span>
+          <h2>{t("每一份用心，\n都有一张餐桌在等待。")}</h2>
           <p>{t("今天也一起，让社区的餐桌更丰富一点。")}</p>
           <button
             className="button primary"
@@ -2089,7 +2090,7 @@ function RetailDashboard({
                   <span>
                     <strong>{o.client_name}</strong>
                     <small>
-                      {t(o.id)} · {o.items.length}{t(" 款商品")}</small>
+                      {t("{id} · {count} 款商品", { id: o.id, count: o.items.length })}</small>
                   </span>
                   <span>
                     <strong>{t(money(o.total_cents))}</strong>
@@ -2109,7 +2110,7 @@ function RetailDashboard({
         <section className="panel">
           <div className="panel-heading">
             <h3>{t("库存小提醒")}</h3>
-            <span className="eyebrow">STOCK WATCH</span>
+            <span className="eyebrow">{t("STOCK WATCH")}</span>
           </div>
           {data.lowStock.length ? (
             data.lowStock.map((p) => (
@@ -2121,7 +2122,7 @@ function RetailDashboard({
                 <Produce kind={p.art} />
                 <span>
                   <strong>{t(p.name)}</strong>
-                  <small>{t("剩余 ")}{p.stock} {t(p.unit)}
+                  <small>{t("剩余 {count} {unit}", { count: p.stock, unit: quantityUnit(language, p.unit, p.stock) })}
                   </small>
                 </span>
                 <ArrowUpRight size={16} />
@@ -2157,13 +2158,13 @@ function Inventory({
   today: string;
   revision: number;
   refresh: () => void;
-  notify: (s: string) => void;
+  notify: (s: Message) => void;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [products, setProducts] = useState<Product[]>([]);
   const [editing, setEditing] = useState<Product | null>();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Message>("");
   const [search, setSearch] = useState("");
   useEffect(() => {
     let cancelled = false;
@@ -2173,7 +2174,7 @@ function Inventory({
         if (!cancelled) setProducts(d);
       })
       .catch((e) => {
-        if (!cancelled) setError(e.message);
+        if (!cancelled) setError(e);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -2183,7 +2184,7 @@ function Inventory({
     };
   }, [revision]);
   const close = useCallback(() => setEditing(undefined), []);
-  const shown = products.filter((p) => p.name.includes(search));
+  const shown = products.filter((p) => matchesSearch(search, p.name));
   return (
     <>
       <div className="inventory-toolbar">
@@ -2250,7 +2251,7 @@ function Inventory({
                       <span
                         className={p.stock < 10 ? "stock-low" : "stock-normal"}
                       >
-                        {p.stock} {t(p.unit)}
+                        {p.stock} {quantityUnit(language, p.unit, p.stock)}
                       </span>
                     </td>
                     <td>{t(p.available_date)}</td>
@@ -2318,7 +2319,7 @@ function ProductEditor({
   const [organic, setOrganic] = useState(!!p?.organic);
   const [active, setActive] = useState(p ? !!p.active : true);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Message>("");
   const save = async (e: FormEvent) => {
     e.preventDefault();
     if (busy) return;
@@ -2342,7 +2343,7 @@ function ProductEditor({
       });
       onSaved();
     } catch (e) {
-      setError((e as Error).message);
+      setError(e as Error);
     } finally {
       setBusy(false);
     }
