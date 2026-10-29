@@ -2,9 +2,13 @@ import { randomUUID } from "node:crypto";
 import { marketDay } from "./db.mjs";
 
 export class HttpError extends Error {
-  constructor(status, message) {
-    super(message);
+  constructor(status, message, values) {
+    super(values ? message.replace(/\{(\w+)\}/g, (match, key) =>
+      Object.hasOwn(values, key) ? String(values[key]) : match,
+    ) : message);
     this.status = status;
+    this.values = values;
+    this.messageKey = values ? message : undefined;
   }
 }
 export const pickupSlots = ["10:00–12:00", "12:00–14:00", "14:00–16:00"];
@@ -51,7 +55,8 @@ export function placeOrder(db, user, input) {
       if (product.stock < item.quantity)
         throw new HttpError(
           409,
-          `${product.name} 库存不足，当前剩余 ${product.stock} ${product.unit}。`,
+          "{product} 库存不足，当前剩余 {stock} {unit}。",
+          { product: product.name, stock: product.stock, unit: product.unit },
         );
       if (
         marketId &&
