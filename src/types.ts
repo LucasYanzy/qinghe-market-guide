@@ -63,6 +63,9 @@ export interface Dashboard {
   revenueCents: number;
   reservedCents: number;
   activeProducts: number;
+  waitingPickup: number;
+  outOfStock: number;
+  offDateProducts: number;
   lowStock: Product[];
   recentOrders: Order[];
 }

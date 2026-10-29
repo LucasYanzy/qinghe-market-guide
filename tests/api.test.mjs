@@ -316,3 +316,146 @@ test("a second database connection reads persisted listings and orders", () => {
   );
   second.close();
 });
+
+test("vendor visibility changes enforce ownership and preserve reserved stock and price history", async () => {
+  const p = (await request("/retailer/products", { cookie: retailer })).data[0];
+  const history = db
+    .prepare("SELECT * FROM price_history WHERE product_id=? ORDER BY date")
+    .all(p.id);
+  const path = `/retailer/products/${p.id}/visibility`;
+  assert.equal(
+    (await request(path, { method: "PATCH", body: { active: false } })).status,
+    401,
+  );
+  assert.equal(
+    (
+      await request(path, {
+        method: "PATCH",
+        cookie: client,
+        body: { active: false },
+      })
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await request(path, {
+        method: "PATCH",
+        cookie: retailer,
+        body: { active: "false" },
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await request("/retailer/products/999999/visibility", {
+        method: "PATCH",
+        cookie: retailer,
+        body: { active: false },
+      })
+    ).status,
+    404,
+  );
+  const hidden = await request(path, {
+    method: "PATCH",
+    cookie: retailer,
+    body: { active: false, stock: 999, price_cents: 1 },
+  });
+  assert.equal(hidden.status, 200);
+  assert.equal(hidden.data.active, 0);
+  assert.equal(hidden.data.stock, p.stock);
+  assert.equal(hidden.data.price_cents, p.price_cents);
+  assert.deepEqual(
+    db
+      .prepare("SELECT * FROM price_history WHERE product_id=? ORDER BY date")
+      .all(p.id),
+    history,
+  );
+  assert.ok(
+    !(await request("/products")).data.some((item) => item.id === p.id),
+  );
+  const otherUser = db
+    .prepare("INSERT INTO users(email,name,password_hash,role) VALUES(?,?,?,?)")
+    .run("other-vendor@test.local", "Other Farm", "unused", "retailer");
+  const otherProduct = db
+    .prepare(
+      "INSERT INTO products(market_id,retailer_id,name,category,art,unit,price_cents,stock,farm,description,available_date) VALUES(1,?,'Other','叶菜类','lettuce','把',100,2,'Other','',?)",
+    )
+    .run(otherUser.lastInsertRowid, marketDay());
+  assert.equal(
+    (
+      await request(
+        `/retailer/products/${otherProduct.lastInsertRowid}/visibility`,
+        { method: "PATCH", cookie: retailer, body: { active: false } },
+      )
+    ).status,
+    404,
+  );
+  const restored = await request(path, {
+    method: "PATCH",
+    cookie: retailer,
+    body: { active: true },
+  });
+  assert.equal(restored.data.active, 1);
+  assert.equal(restored.data.stock, p.stock);
+});
+
+test("vendor overview excludes hidden and other-date products from today's stock watch", async () => {
+  const input = {
+    name: "Stock watch",
+    category: "叶菜类",
+    art: "lettuce",
+    unit: "把",
+    price_cents: 100,
+    stock: 0,
+    description: "",
+    organic: false,
+    active: true,
+    available_date: marketDay(),
+  };
+  const soldOut = (
+    await request("/retailer/products", {
+      method: "POST",
+      cookie: retailer,
+      body: input,
+    })
+  ).data;
+  const offDate = (
+    await request("/retailer/products", {
+      method: "POST",
+      cookie: retailer,
+      body: { ...input, available_date: "2020-01-01" },
+    })
+  ).data;
+  const hidden = (
+    await request("/retailer/products", {
+      method: "POST",
+      cookie: retailer,
+      body: { ...input, active: false },
+    })
+  ).data;
+  const dashboard = (await request("/retailer/dashboard", { cookie: retailer }))
+    .data;
+  assert.ok(dashboard.lowStock.some((p) => p.id === soldOut.id));
+  assert.ok(
+    !dashboard.lowStock.some((p) => [offDate.id, hidden.id].includes(p.id)),
+  );
+  const products = (await request("/retailer/products", { cookie: retailer }))
+    .data;
+  assert.equal(
+    dashboard.outOfStock,
+    products.filter(
+      (p) => p.active && p.available_date === marketDay() && p.stock === 0,
+    ).length,
+  );
+  assert.equal(
+    dashboard.offDateProducts,
+    products.filter((p) => p.active && p.available_date !== marketDay()).length,
+  );
+  const orders = (await request("/orders", { cookie: retailer })).data;
+  assert.equal(
+    dashboard.waitingPickup,
+    orders.filter((o) => o.status === "confirmed").length,
+  );
+});

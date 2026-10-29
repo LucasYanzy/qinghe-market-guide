@@ -1,5 +1,8 @@
+import { vendorEnglish } from "./vendor";
+
 // Chinese source strings are stable translation keys. Unknown content is preserved.
 export const english: Record<string, string> = {
+  ...vendorEnglish,
   "界面语言": "Language",
   "逛逛市集": "Explore market",
   "市场与导航": "Markets & directions",

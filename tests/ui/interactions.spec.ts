@@ -216,7 +216,7 @@ test("商户保存期间锁定编辑弹窗，保存结果可重新读取", async
   await expect(editor).toBeVisible();
   release();
   await expect(editor).not.toBeVisible();
-  await expect(page.getByRole("status")).toContainText("商品已更新");
+  await expect(page.getByRole("status").filter({ hasText: "商品已保存" })).toBeVisible();
   await page.getByRole("button", { name: "编辑", exact: true }).first().click();
   await expect(editor.getByLabel("关于这份新鲜")).toHaveValue(
     "商户交互测试：当季采收",
