@@ -2,6 +2,33 @@ html {
   scroll-behavior: smooth;
   scroll-padding-top: 24px;
 }
+.language-switcher {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: #fff;
+}
+.language-switcher button {
+  padding: 7px 8px;
+  min-height: 32px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #66745e;
+  font-size: 11px;
+  cursor: pointer;
+}
+.language-switcher button[aria-pressed="true"] {
+  background: var(--green-dark);
+  color: #fff;
+}
+.language-switcher button:focus-visible {
+  outline: 2px solid var(--green-dark);
+  outline-offset: 2px;
+}
 .skip-link {
   position: fixed;
   top: 12px;

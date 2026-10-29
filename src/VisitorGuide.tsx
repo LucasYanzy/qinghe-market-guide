@@ -1,3 +1,4 @@
+import { useLanguage } from "./i18n";
 import {
   ArrowRight,
   CheckCircle2,
@@ -35,17 +36,16 @@ export function PreorderSteps({
   navigate: (page: Page) => void;
   showMore?: boolean;
 }) {
+  const { t } = useLanguage();
   return (
     <section className="preorder-guide" aria-labelledby="preorder-guide-title">
       <div className="section-heading">
         <div>
           <span className="eyebrow">FROM YOUR SCREEN TO YOUR TABLE</span>
-          <h2 id="preorder-guide-title">三步，把新鲜带回家。</h2>
+          <h2 id="preorder-guide-title">{t("三步，把新鲜带回家。")}</h2>
         </div>
         {showMore && (
-          <PageLink page="about" navigate={navigate} className="text-button">
-            第一次来？
-            <ArrowRight size={16} />
+          <PageLink page="about" navigate={navigate} className="text-button">{t("第一次来？")}<ArrowRight size={16} />
           </PageLink>
         )}
       </div>
@@ -58,8 +58,8 @@ export function PreorderSteps({
               </span>
               <span className="step-number">0{index + 1}</span>
             </div>
-            <h3>{step.title}</h3>
-            <p>{step.text}</p>
+            <h3>{t(step.title)}</h3>
+            <p>{t(step.text)}</p>
           </article>
         ))}
       </div>
@@ -74,36 +74,26 @@ export function AboutMarket({
   navigate: (page: Page) => void;
   demo: boolean;
 }) {
+  const { t } = useLanguage();
   return (
     <div className="about-market">
       <section className="about-intro">
         <div>
           <span className="eyebrow">GOOD FOOD. GOOD NEIGHBORS.</span>
-          <h2>
-            一份好食物，
-            <br />
-            也是一次好相遇<span>。</span>
+          <h2>{t("一份好食物，")}<br />{t("也是一次好相遇")}<span>。</span>
           </h2>
-          <p>
-            青禾把蔬菜浏览、预购和市场信息放在一起。少一点来回寻找，多一点与社区、与食物的连接。
-          </p>
+          <p>{t("青禾把蔬菜浏览、预购和市场信息放在一起。少一点来回寻找，多一点与社区、与食物的连接。")}</p>
           <PageLink
             page="discover"
             navigate={navigate}
             className="button primary"
-          >
-            逛逛今日市集
-            <ArrowRight size={17} />
+          >{t("逛逛今日市集")}<ArrowRight size={17} />
           </PageLink>
         </div>
         <div className="about-note">
           <Leaf size={36} />
-          <h3>
-            让每一份新鲜，
-            <br />
-            都有清楚的来处。
-          </h3>
-          <p>看清计价单位与库存，确认自提安排，再安心出发。</p>
+          <h3>{t("让每一份新鲜，")}<br />{t("都有清楚的来处。")}</h3>
+          <p>{t("看清计价单位与库存，确认自提安排，再安心出发。")}</p>
           <span>LOCAL FOOD. LOCAL GOOD.</span>
         </div>
       </section>
@@ -111,7 +101,7 @@ export function AboutMarket({
       <div className="visitor-details">
         <section className="visitor-faq" aria-labelledby="visitor-faq-title">
           <span className="eyebrow">A FEW THINGS TO KNOW</span>
-          <h2 id="visitor-faq-title">来之前，你可能想知道</h2>
+          <h2 id="visitor-faq-title">{t("来之前，你可能想知道")}</h2>
           {[
             [
               "需要先注册才能浏览吗？",
@@ -140,10 +130,10 @@ export function AboutMarket({
           ].map(([question, answer]) => (
             <details key={question}>
               <summary>
-                {question}
+                {t(question)}
                 <span aria-hidden="true">+</span>
               </summary>
-              <p>{answer}</p>
+              <p>{t(answer)}</p>
             </details>
           ))}
         </section>
@@ -151,19 +141,19 @@ export function AboutMarket({
           <span className="visit-icon">
             <MapPin size={25} />
           </span>
-          <h3>出发前，再确认一下。</h3>
+          <h3>{t("出发前，再确认一下。")}</h3>
           <ul>
             <li>
               <CheckCircle2 size={17} />
-              <span>查看官方开放日期与营业时间</span>
+              <span>{t("查看官方开放日期与营业时间")}</span>
             </li>
             <li>
               <CheckCircle2 size={17} />
-              <span>确认订单状态及约定自提时段</span>
+              <span>{t("确认订单状态及约定自提时段")}</span>
             </li>
             <li>
               <CheckCircle2 size={17} />
-              <span>带上购物袋，到场付款取货</span>
+              <span>{t("带上购物袋，到场付款取货")}</span>
             </li>
           </ul>
           <a
@@ -171,14 +161,10 @@ export function AboutMarket({
             href={officialMarketUrl}
             target="_blank"
             rel="noreferrer"
-          >
-            Rutgers 官方市场信息
-            <ExternalLink size={15} />
+          >{t("Rutgers 官方市场信息")}<ExternalLink size={15} />
           </a>
           {demo && (
-            <p className="helper-text">
-              商品预购和自提时段仍为演示；真实市场目录中的历史日程不能作为当前出行安排。
-            </p>
+            <p className="helper-text">{t("商品预购和自提时段仍为演示；真实市场目录中的历史日程不能作为当前出行安排。")}</p>
           )}
         </aside>
       </div>
