@@ -1,3 +1,5 @@
+import { useLanguage } from "./i18n";
+
 export function Produce({
   kind,
   className = "",
@@ -214,6 +216,7 @@ export function Produce({
 }
 
 export function BasketArt() {
+  const { t } = useLanguage();
   return (
     <div className="basket-art" aria-hidden="true">
       <div className="sun-circle" />
@@ -232,9 +235,9 @@ export function BasketArt() {
       </div>
       <div className="basket-rim" />
       <span className="hero-sticker">
-        GROWN LOCAL
+        {t("GROWN LOCAL")}
         <br />
-        <b>100% 新鲜心意</b>
+        <b>{t("100% 新鲜心意")}</b>
       </span>
       <span className="art-spark spark-one">✳</span>
       <span className="art-spark spark-two">✦</span>

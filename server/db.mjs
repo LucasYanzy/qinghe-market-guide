@@ -1,7 +1,8 @@
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { randomBytes, scryptSync } from "node:crypto";
+import { randomBytes, randomInt, scryptSync } from "node:crypto";
+import { migrateWorkflows } from "./workflow-schema.mjs";
 
 export const marketDay = (date = new Date()) =>
   new Intl.DateTimeFormat("en-CA", {
@@ -28,7 +29,7 @@ export function openDatabase(
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY, email TEXT NOT NULL UNIQUE COLLATE NOCASE,
       name TEXT NOT NULL, password_hash TEXT NOT NULL,
-      role TEXT NOT NULL CHECK(role IN ('client','retailer'))
+      role TEXT NOT NULL CHECK(role IN ('client','retailer','admin'))
     );
     CREATE TABLE IF NOT EXISTS sessions (
       token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id),
@@ -68,11 +69,123 @@ export function openDatabase(
       quantity INTEGER NOT NULL CHECK(quantity > 0), retailer_id INTEGER NOT NULL REFERENCES users(id),
       PRIMARY KEY(order_id,product_id)
     );
+    CREATE TABLE IF NOT EXISTS app_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    CREATE INDEX IF NOT EXISTS orders_pickup_market ON orders(pickup_date,market_id,status);
     CREATE INDEX IF NOT EXISTS orders_client ON orders(client_id,created_at);
     CREATE INDEX IF NOT EXISTS order_items_retailer ON order_items(retailer_id,order_id);
   `);
+  migrateSchoolManagement(db);
   if (demo && !db.prepare("SELECT id FROM users LIMIT 1").get()) seed(db);
+  if (demo && !db.prepare("SELECT id FROM users WHERE email=?").get("admin@qinghe.demo")) {
+    db.prepare("INSERT INTO users (email,name,password_hash,role) VALUES (?,?,?,'admin')")
+      .run("admin@qinghe.demo", "Rutgers 学校管理方", hashPassword("MarketDemo2026!"));
+  }
+  const membershipExists = db.prepare("SELECT name FROM sqlite_master WHERE name='market_vendors'").get();
+  db.exec(`CREATE TABLE IF NOT EXISTS market_vendors (
+    market_id INTEGER NOT NULL REFERENCES markets(id),
+    retailer_id INTEGER NOT NULL REFERENCES users(id),
+    PRIMARY KEY (market_id,retailer_id)
+  )`);
+  if (!membershipExists) db.exec(`INSERT INTO market_vendors (market_id,retailer_id)
+    SELECT DISTINCT market_id,retailer_id FROM products`);
+  migrateSnap(db);
+  migrateOperations(db);
+  migrateWorkflows(db);
   return db;
+}
+
+function migrateOperations(db) {
+  db.exec(`CREATE TABLE IF NOT EXISTS market_sessions (
+    id INTEGER PRIMARY KEY, market_id INTEGER NOT NULL REFERENCES markets(id), date TEXT NOT NULL,
+    starts_at TEXT NOT NULL, ends_at TEXT NOT NULL, cutoff TEXT NOT NULL,
+    slot_minutes INTEGER NOT NULL, capacity INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','open','closed')),
+    version INTEGER NOT NULL DEFAULT 0, UNIQUE(market_id,date)
+  );
+  CREATE TABLE IF NOT EXISTS vendor_profiles (
+    retailer_id INTEGER PRIMARY KEY REFERENCES users(id), contact_name TEXT NOT NULL DEFAULT '',
+    phone TEXT NOT NULL DEFAULT '', staff_managed INTEGER NOT NULL DEFAULT 1
+  );
+  CREATE TABLE IF NOT EXISTS operation_events (
+    id INTEGER PRIMARY KEY, actor_id INTEGER NOT NULL REFERENCES users(id), entity_type TEXT NOT NULL,
+    entity_id TEXT NOT NULL, action TEXT NOT NULL, detail_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS operation_events_entity ON operation_events(entity_type,entity_id,id);
+  CREATE TABLE IF NOT EXISTS order_receipts (
+    order_id TEXT PRIMARY KEY REFERENCES orders(id), cash_cents INTEGER NOT NULL DEFAULT 0,
+    card_cents INTEGER NOT NULL DEFAULT 0, snap_cents INTEGER NOT NULL DEFAULT 0,
+    reference TEXT NOT NULL DEFAULT '', recorded_by INTEGER NOT NULL REFERENCES users(id),
+    recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );`);
+  for (const [table, name, definition] of [
+    ['markets', 'schedule_required', 'INTEGER NOT NULL DEFAULT 0'],
+    ['orders', 'market_session_id', 'INTEGER REFERENCES market_sessions(id)'],
+    ['orders', 'pickup_code', "TEXT NOT NULL DEFAULT ''"],
+  ]) if (!db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === name))
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`);
+  for (const order of db.prepare("SELECT id FROM orders WHERE pickup_code=''").all())
+    db.prepare('UPDATE orders SET pickup_code=? WHERE id=?').run(String(randomInt(100000, 1000000)), order.id);
+}
+
+function migrateSnap(db) {
+  const fields = {
+    markets: [
+      ["snap_status", "TEXT NOT NULL DEFAULT 'unconfirmed' CHECK(snap_status IN ('unconfirmed','accepted','unavailable'))"],
+      ["snap_model", "TEXT NOT NULL DEFAULT 'unconfirmed' CHECK(snap_model IN ('unconfirmed','market_tokens','vendor_terminal'))"],
+      ["snap_verified_on", "TEXT NOT NULL DEFAULT ''"], ["snap_note", "TEXT NOT NULL DEFAULT ''"],
+    ],
+    market_vendors: [
+      ["snap_status", "TEXT NOT NULL DEFAULT 'unconfirmed' CHECK(snap_status IN ('unconfirmed','accepted','unavailable'))"],
+      ["snap_verified_on", "TEXT NOT NULL DEFAULT ''"], ["snap_note", "TEXT NOT NULL DEFAULT ''"],
+    ],
+    products: [["snap_eligibility", "TEXT NOT NULL DEFAULT 'unknown' CHECK(snap_eligibility IN ('eligible','ineligible','unknown'))"]],
+    orders: [
+      ["payment_method", "TEXT NOT NULL DEFAULT 'pay_at_pickup' CHECK(payment_method IN ('pay_at_pickup','snap_ebt'))"],
+      ["snap_eligible_cents", "INTEGER NOT NULL DEFAULT 0"],
+      ["other_payment_cents", "INTEGER NOT NULL DEFAULT 0"],
+      ["snap_plan_json", "TEXT NOT NULL DEFAULT '[]'"],
+    ],
+  };
+  for (const [table, definitions] of Object.entries(fields)) {
+    const columns = new Set(db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name));
+    for (const [name, definition] of definitions)
+      if (!columns.has(name)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`);
+  }
+}
+
+function migrateSchoolManagement(db) {
+  const users = db.prepare("SELECT sql FROM sqlite_master WHERE name='users'").get();
+  if (!users.sql.includes("'admin'")) {
+    // Rebuild the legacy CHECK constraint while preserving IDs and all references.
+    db.exec("PRAGMA foreign_keys = OFF");
+    try {
+      db.exec(`BEGIN IMMEDIATE;
+        CREATE TABLE users_next (
+          id INTEGER PRIMARY KEY, email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+          name TEXT NOT NULL, password_hash TEXT NOT NULL,
+          role TEXT NOT NULL CHECK(role IN ('client','retailer','admin'))
+        );
+        INSERT INTO users_next SELECT id,email,name,password_hash,role FROM users;
+        DROP TABLE users;
+        ALTER TABLE users_next RENAME TO users;
+        COMMIT;`);
+    } catch (error) {
+      if (db.isTransaction) db.exec("ROLLBACK");
+      throw error;
+    } finally {
+      db.exec("PRAGMA foreign_keys = ON");
+    }
+  }
+  const columns = new Set(db.prepare("PRAGMA table_info(markets)").all().map((c) => c.name));
+  for (const [name, definition] of [
+    ["active", "INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1))"],
+    ["preorders_enabled", "INTEGER NOT NULL DEFAULT 1 CHECK(preorders_enabled IN (0,1))"],
+    ["community", "TEXT NOT NULL DEFAULT ''"],
+    ["coverage_radius_km", "REAL NOT NULL DEFAULT 3 CHECK(coverage_radius_km > 0 AND coverage_radius_km <= 100)"],
+  ]) {
+    if (!columns.has(name)) db.exec(`ALTER TABLE markets ADD COLUMN ${name} ${definition}`);
+  }
 }
 
 function seed(db) {
@@ -96,7 +209,7 @@ function seed(db) {
       hashPassword("MarketDemo2026!"),
       "retailer",
     );
-    db.prepare("INSERT INTO markets VALUES (?,?,?,?,?,?,?,?)").run(
+    db.prepare("INSERT INTO markets (id,name,subtitle,address,latitude,longitude,hours,description) VALUES (?,?,?,?,?,?,?,?)").run(
       1,
       "Rutgers Gardens 社区市集",
       "让校园与在地农场相遇",

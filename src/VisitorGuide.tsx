@@ -41,7 +41,7 @@ export function PreorderSteps({
     <section className="preorder-guide" aria-labelledby="preorder-guide-title">
       <div className="section-heading">
         <div>
-          <span className="eyebrow">FROM YOUR SCREEN TO YOUR TABLE</span>
+          <span className="eyebrow">{t("FROM YOUR SCREEN TO YOUR TABLE")}</span>
           <h2 id="preorder-guide-title">{t("三步，把新鲜带回家。")}</h2>
         </div>
         {showMore && (
@@ -79,8 +79,8 @@ export function AboutMarket({
     <div className="about-market">
       <section className="about-intro">
         <div>
-          <span className="eyebrow">GOOD FOOD. GOOD NEIGHBORS.</span>
-          <h2>{t("一份好食物，")}<br />{t("也是一次好相遇")}<span>。</span>
+          <span className="eyebrow">{t("GOOD FOOD. GOOD NEIGHBORS.")}</span>
+          <h2>{t("一份好食物，\n也是一次好相遇")}<span>{t("。")}</span>
           </h2>
           <p>{t("青禾把蔬菜浏览、预购和市场信息放在一起。少一点来回寻找，多一点与社区、与食物的连接。")}</p>
           <PageLink
@@ -92,15 +92,15 @@ export function AboutMarket({
         </div>
         <div className="about-note">
           <Leaf size={36} />
-          <h3>{t("让每一份新鲜，")}<br />{t("都有清楚的来处。")}</h3>
+          <h3>{t("让每一份新鲜，\n都有清楚的来处。")}</h3>
           <p>{t("看清计价单位与库存，确认自提安排，再安心出发。")}</p>
-          <span>LOCAL FOOD. LOCAL GOOD.</span>
+          <span>{t("LOCAL FOOD. LOCAL GOOD.")}</span>
         </div>
       </section>
       <PreorderSteps navigate={navigate} showMore={false} />
       <div className="visitor-details">
         <section className="visitor-faq" aria-labelledby="visitor-faq-title">
-          <span className="eyebrow">A FEW THINGS TO KNOW</span>
+          <span className="eyebrow">{t("A FEW THINGS TO KNOW")}</span>
           <h2 id="visitor-faq-title">{t("来之前，你可能想知道")}</h2>
           {[
             [

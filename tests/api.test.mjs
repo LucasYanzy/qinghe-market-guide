@@ -53,6 +53,9 @@ test("seeded catalogue uses the Eastern business date; filters and market addres
   assert.equal(config.data.today, marketDay());
   const products = await request("/products");
   assert.equal(products.status, 200);
+  const pickupMarket = db.prepare("SELECT name,address FROM markets WHERE id=?").get(products.data[0].market_id);
+  assert.equal(products.data[0].market_name, pickupMarket.name);
+  assert.equal(products.data[0].market_address, pickupMarket.address);
   assert.equal(products.data.length, 8);
   assert.ok(products.data.every((p) => p.available_date === marketDay()));
   const leaves = await request(

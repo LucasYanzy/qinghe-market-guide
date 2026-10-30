@@ -92,7 +92,7 @@ test("提交时锁定内容和关闭操作，失败后保留输入并允许重�
 
 test("库存降低时提供明确提示和一键修正", async ({ page }) => {
   const cart = await openCart(page, 2);
-  await page.route("**/api/products", async (route) => {
+  await page.route("**/api/products?*", async (route) => {
     const response = await route.fetch();
     const products = await response.json();
     await route.fulfill({
@@ -111,7 +111,7 @@ test("库存降低时提供明确提示和一键修正", async ({ page }) => {
 
 test("已下架商品可移除，不阻塞后续浏览", async ({ page }) => {
   const cart = await openCart(page);
-  await page.route("**/api/products", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/products?*", (route) => route.fulfill({ json: [] }));
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(cart.getByText("商品已下架，请移除后继续预购。")).toBeVisible();
   await cart.getByRole("button", { name: "移除", exact: true }).click();
@@ -195,7 +195,7 @@ test("登录等待时不能切换角色或关闭，失败后保留邮箱", async
 
 test("商户保存期间锁定编辑弹窗，保存结果可重新读取", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "商户入口", exact: true }).click();
+  await page.getByRole("button", { name: "登录", exact: true }).click();
   await page.getByRole("button", { name: /商户端演示/ }).click();
   await page.getByRole("link", { name: "商品与库存", exact: true }).click();
   await page.getByRole("button", { name: "编辑", exact: true }).first().click();

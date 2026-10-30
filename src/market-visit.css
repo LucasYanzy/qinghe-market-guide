@@ -1,0 +1,131 @@
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.cart-submit { position: sticky; bottom: 0; z-index: 1; box-shadow: 0 -10px 15px #ffffffed; }
+.next-market-hero { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); border: 1px solid #dbe3cf; border-radius: 18px; overflow: hidden; margin: 0 0 30px; background: #edf2e5; }
+.next-market-main { padding: 32px 36px; background: radial-gradient(ellipse at top right, #f9f8e9, transparent 75%); }
+.next-market-main .eyebrow { color: #77895c; letter-spacing: 2px; }
+.next-market-label { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin-top: 22px; color: #526b3d; font-size: 13px; }
+.next-market-main h2 { font-size: clamp(27px, 3.2vw, 42px); line-height: 1.5; letter-spacing: -.6px; color: #304e32; margin: 7px 0 0; font-weight: 600; }
+.next-market-hours { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; font-size: clamp(25px, 3vw, 38px); font-weight: 400; color: #304e32; font-variant-numeric: tabular-nums; }
+.next-market-hours > span { color: #99ab87; }
+.next-market-hours small { font-size: 11px; color: #667959; font-weight: 400; }
+.next-market-main h3 { font-size: 16px; line-height: 1.6; color: #3e5436; margin: 20px 0 8px; }
+.visit-address { display: flex; align-items: flex-start; gap: 6px; font-size: 12px; line-height: 1.8; color: #64715b; overflow-wrap: anywhere; }
+.visit-address svg { flex-shrink: 0; margin-top: 3px; }
+.visit-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.visit-actions .button { min-height: 44px; white-space: normal; }
+.next-market-main .visit-actions { margin-top: 23px; }
+.visit-source { margin-top: 20px; font-size: 10px; line-height: 1.8; color: #69775f; }
+.visit-source a, .visit-planner-note a { display: inline-flex; align-items: center; gap: 3px; color: #3e633c; text-decoration: underline; text-underline-offset: 3px; margin-left: 5px; }
+.next-market-aside { background: #ffffff8c; padding: 32px 26px; border-left: 1px solid #dde5d2; display: flex; flex-direction: column; justify-content: center; }
+.next-market-aside-title { display: flex; justify-content: space-between; gap: 8px; color: #637652; font-size: 12px; margin-bottom: 15px; }
+.next-market-aside-title > span:last-child { font-variant-numeric: tabular-nums; color: #95a286; }
+.next-market-preview { display: flex; align-items: center; gap: 13px; border-top: 1px solid #e0e6d7; padding: 17px 0; }
+.next-market-preview:hover { color: #294c30; background: #eef3e6; }
+.visit-mini-date { background: #eaf0df; border-radius: 9px; width: 48px; min-width: 48px; display: grid; text-align: center; padding: 7px 4px; color: #4c6839; }
+.visit-mini-date strong { font-size: 23px; font-weight: 500; line-height: 1.2; }
+.visit-mini-date span { font-size: 10px; margin-top: 3px; }
+.next-market-preview > div:nth-child(2) { min-width: 0; flex: 1; }
+.next-market-preview b { display: block; font-size: 13px; line-height: 1.7; font-weight: 600; }
+.next-market-preview > div > span { display: block; font-size: 11px; line-height: 1.8; color: #718066; }
+.next-market-preview > svg { flex-shrink: 0; color: #8c9e7a; }
+.visit-all-link { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 15px 0; min-height: 44px; color: #3c603c; font-size: 12px; border-top: 1px solid #e0e6d7; }
+.visit-all-link:hover { text-decoration: underline; text-underline-offset: 4px; }
+.visit-season-note { display: flex; gap: 8px; align-items: center; padding-top: 14px; color: #819073; font-size: 10px; line-height: 1.8; }
+.visit-season-note svg { flex-shrink: 0; }
+.visit-last-season { font-size: 13px; color: #708063; margin: 20px 0; line-height: 1.9; }
+.visit-badge { display: inline-flex; align-items: center; gap: 5px; border-radius: 4px; font-size: 10px; padding: 5px 8px; background: #e7eddd; color: #4a6636; line-height: 1.5; }
+.visit-badge > span { width: 5px; height: 5px; background: currentColor; border-radius: 50%; }
+.visit-badge-open { background: #dcebd6; color: #345e2e; }
+.visit-badge-ended { background: #f0eee8; color: #7d786b; }
+.market-day-planner { border: 1px solid #dfe5d5; border-radius: 14px; background: #fffefa; padding: 26px; margin-bottom: 26px; }
+.visit-planner-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 18px; }
+.visit-planner-heading h2 { font-size: 23px; line-height: 1.6; color: #3e5634; margin: 8px 0; font-weight: 600; }
+.visit-planner-heading p { font-size: 12px; color: #75816a; line-height: 1.8; }
+.visit-date-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.visit-date-controls .button { min-height: 44px; }
+.visit-date-input { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid #dce2d1; border-radius: 7px; background: #fff; color: #6b7a59; min-height: 44px; }
+.visit-date-input input { border: 0; background: transparent; color: #4a603b; font: inherit; font-size: 14px; min-width: 0; }
+.visit-week-bar { display: flex; align-items: center; gap: 8px; margin: 24px 0; }
+.visit-week-bar > .icon-button { flex-shrink: 0; min-width: 36px; min-height: 44px; }
+.visit-week { flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.visit-week button { border: 1px solid transparent; border-radius: 10px; background: #f5f6ef; color: #6c795d; display: flex; align-items: center; flex-direction: column; padding: 11px 2px 9px; cursor: pointer; gap: 5px; min-height: 82px; }
+.visit-week button > span { font-size: 11px; }
+.visit-week button > strong { font-size: 15px; font-weight: 500; }
+.visit-week button > i { width: 5px; height: 5px; border-radius: 50%; }
+.visit-week button .has-market { background: #8caa6a; }
+.visit-week button[aria-current="date"] { border-color: #a8bb91; }
+.visit-week button[aria-pressed="true"] { background: #35563b; color: #fff; border-color: #35563b; }
+.visit-week button[aria-pressed="true"] .has-market { background: #d2dfbc; }
+.visit-week button:hover { box-shadow: inset 0 0 0 1px #7f9865; }
+.visit-results-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-bottom: 15px; border-bottom: 1px solid #e6e9dd; }
+.visit-results-heading h3 { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 14px; color: #455e3a; }
+.visit-results-heading h3 span { font-size: 11px; color: #7d896f; font-weight: 400; }
+.visit-results-heading label { display: flex; align-items: center; gap: 8px; color: #7b886e; font-size: 11px; }
+.visit-results-heading select { min-height: 44px; background: #fff; border: 1px solid #dce2d1; border-radius: 6px; color: #4b633c; padding: 8px; font: inherit; }
+.visit-event { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; padding: 22px 0 10px; }
+.visit-event-time { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; color: #70845c; }
+.visit-event-time > strong { font-size: 19px; color: #3b5737; white-space: nowrap; font-weight: 500; }
+.visit-event-place { flex: 1 1 200px; min-width: 0; }
+.visit-event h4 { font-size: 16px; line-height: 1.7; margin-bottom: 5px; color: #3d5336; }
+.visit-event + .visit-event { border-top: 1px solid #e6e9dd; margin-top: 10px; }
+.visit-no-events { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 24px 0 10px; color: #8c9d74; }
+.visit-no-events > div { flex: 1 1 200px; }
+.visit-no-events h4 { color: #556b45; font-size: 15px; }
+.visit-no-events p { color: #7e8972; font-size: 12px; line-height: 1.9; margin-top: 7px; }
+.visit-planner-note { margin-top: 22px; font-size: 11px; line-height: 1.9; color: #7c866f; }
+.market-directory-heading { margin: 34px 0 15px; }
+.market-directory-heading h2 { font-size: 20px; color: #405a35; }
+.market-directory-heading p { font-size: 12px; color: #7a886d; line-height: 1.8; margin-top: 8px; }
+.location-confirmed { background: #e8f0dc; color: #4d6e35; }
+.location-calendar-summary { background: #f2f5eb; border-radius: 9px; padding: 15px; margin-top: 16px; }
+.location-calendar-summary strong { display: block; color: #436132; font-size: 20px; font-weight: 500; margin: 5px 0; }
+.location-calendar-summary span, .location-calendar-summary small { font-size: 11px; color: #758569; line-height: 1.9; }
+.location-source-details { font-size: 11px; margin-top: 18px; color: #77866a; line-height: 1.9; }
+.location-source-details summary { cursor: pointer; padding: 8px 0; min-height: 40px; }
+.location-source-details p { margin: 6px 0; }
+.location-source-details a { display: inline-flex; align-items: center; gap: 4px; color: #45683b; text-decoration: underline; text-underline-offset: 3px; min-height: 36px; }
+.location-copy { min-height: 44px; }
+.market-official-footnote { margin-top: 24px; }
+.market-official-footnote .official-market-reference { margin-bottom: 0; }
+.market-quick-links { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; padding: 0 0 24px; font-size: 12px; color: #5d754b; }
+.market-quick-links a { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; }
+.market-quick-links a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.visit-week button:focus-visible, .next-market-preview:focus-visible, .visit-all-link:focus-visible { outline: 2px solid #345939; outline-offset: 3px; }
+@media (max-width: 1050px) {
+  .topbar .school-entry { display: none; }
+  .topbar .breadcrumb { min-width: 0; }
+  .topbar .breadcrumb strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .next-market-main { padding: 26px; }
+  .next-market-aside { padding: 26px 20px; }
+}
+@media (max-width: 680px) {
+  .topbar .today-label { display: none; }
+  .next-market-hero { grid-template-columns: minmax(0, 1fr); }
+  .next-market-main { padding: 24px; }
+  .next-market-aside { border-left: 0; border-top: 1px solid #dde5d2; padding: 20px 24px; }
+  .next-market-preview { padding: 13px 0; }
+  .next-market-label { margin-top: 16px; }
+  .next-market-main h2 { font-size: 31px; }
+  .next-market-hours { font-size: 30px; }
+  .market-day-planner { padding: 18px; }
+  .visit-week-bar { gap: 2px; margin: 20px -9px; }
+  .visit-week-bar > .icon-button { min-width: 28px; width: 28px; padding: 3px; }
+  .visit-week { gap: 3px; }
+  .visit-week button { padding: 9px 0; min-height: 78px; border-radius: 6px; }
+  .visit-week button > span { font-size: 10px; }
+  .visit-week button > strong { font-size: 12px; }
+  .visit-event { gap: 16px; }
+  .visit-event-time { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .visit-event-time > svg { display: none; }
+  .visit-event-place { flex-basis: 100%; }
+  .visit-results-heading select, .visit-date-input input { font-size: 16px; }
+  .visit-no-events { gap: 12px; }
+  .visit-no-events > svg { display: none; }
+}
+@media (max-width: 360px) {
+  .next-market-main, .next-market-aside { padding: 21px 18px; }
+  .next-market-main h2 { font-size: 27px; }
+  .market-day-planner { padding: 15px; }
+  .visit-week-bar { margin-left: -12px; margin-right: -12px; }
+  .visit-week button > strong { font-size: 11px; }
+}

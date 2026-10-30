@@ -7,14 +7,30 @@ export const pagePaths = {
   orders: "/orders",
   about: "/about",
   help: "/help",
+  vendor: "/vendor",
+  notifications: "/notifications",
   dashboard: "/retailer",
   inventory: "/retailer/inventory",
+  school: "/admin",
+  "school-screen": "/admin/screen",
+  "school-operations": "/admin/operations",
+  "school-markets": "/admin/markets",
+  "school-vendors": "/admin/vendors",
+  "school-impact": "/admin/impact",
+  "school-community": "/admin/community",
 } as const;
 export type Page = keyof typeof pagePaths;
 export type Route = Page | "not-found";
 
+const basePath = (import.meta.env?.BASE_URL ?? "/").replace(/\/$/, "");
+export function pageHref(page: Page): string {
+  return `${basePath}${pagePaths[page]}`;
+}
+
 function currentRoute(): Route {
-  const path = window.location.pathname.replace(/\/+$/, "") || "/";
+  const pathname = window.location.pathname;
+  const local = basePath && (pathname === basePath || pathname.startsWith(`${basePath}/`)) ? pathname.slice(basePath.length) : pathname;
+  const path = local.replace(/\/+$/, "") || "/";
   return (
     (Object.keys(pagePaths) as Page[]).find(
       (page) => pagePaths[page] === path,
@@ -25,7 +41,7 @@ function currentRoute(): Route {
 export function useNavigation() {
   const [page, setPage] = useState<Route>(currentRoute);
   const changePage = useCallback((next: Page, replace = false) => {
-    const url = pagePaths[next];
+    const url = pageHref(next);
     if (
       window.location.pathname !== url ||
       window.location.search ||
@@ -67,7 +83,7 @@ export function PageLink({
 }) {
   return (
     <a
-      href={pagePaths[page]}
+      href={pageHref(page)}
       className={className}
       aria-current={active ? "page" : undefined}
       onClick={(event) => {

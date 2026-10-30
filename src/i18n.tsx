@@ -6,12 +6,11 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { english } from "./translations/en";
+import { translate, type Language, type Message, type Parameters } from "./translations/translate";
 
-export type Language = "zh" | "en";
+export type { Language, Message } from "./translations/translate";
 const storageKey = "qinghe-language";
-type Parameters = Record<string, string | number>;
-type Translator = (text: string | null | undefined, values?: Parameters) => string;
+type Translator = (text: Message | null | undefined, values?: Parameters) => string;
 
 function readLanguage(): Language {
   try {
@@ -38,13 +37,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     }
   };
   const t = useMemo<Translator>(
-    () => (text, values = {}) => {
-      const source = text ?? "";
-      const translated = language === "en" ? (english[source] ?? source) : source;
-      return translated.replace(/\{(\w+)\}/g, (match, key: string) =>
-        Object.hasOwn(values, key) ? String(values[key]) : match,
-      );
-    },
+    () => (text, values) => translate(language, text, values),
     [language],
   );
   useEffect(() => {
@@ -52,8 +45,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     document.querySelector('meta[name="description"]')?.setAttribute(
       "content",
       language === "en"
-        ? "Rutgers Community Farmers Market: discover fresh vegetables, preorder for pickup, and explore markets and price trends."
-        : "Rutgers 社区农夫市集：发现当日新鲜蔬菜、预购自提、查看市场和价格趋势。",
+        ? "Rutgers farmers market dates, hours, addresses, directions, and calendar planning."
+        : "Rutgers 社区农夫市集：查询开市日期、营业时间、完整地址与导航，轻松安排市集出行。",
     );
   }, [language]);
   useEffect(() => {

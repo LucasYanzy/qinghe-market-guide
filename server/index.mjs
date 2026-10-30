@@ -1,27 +1,46 @@
 import { openDatabase } from "./db.mjs";
 import { createApp } from "./app.mjs";
+import { readConfig } from "./config.mjs";
 
-const demo = process.env.DEMO_MODE !== "false";
-const db = openDatabase(process.env.DATABASE_PATH ?? "./data/market.sqlite", {
-  demo,
-});
-const app = createApp(db, {
-  demo,
-  secureCookie: process.env.COOKIE_SECURE === "true",
-});
+const config = readConfig();
+const db = openDatabase(config.databasePath, { demo: config.demo });
+if (!config.demo && db.prepare("SELECT 1 FROM users WHERE email LIKE '%@qinghe.demo' LIMIT 1").get()) {
+  db.close();
+  throw new Error("This database contains demo accounts. Use a new DATABASE_PATH for production.");
+}
+const app = createApp(db, config);
 const server = app.listen(
-  Number(process.env.PORT ?? 3001),
-  process.env.HOST ?? "0.0.0.0",
+  config.port,
+  config.host,
   () => {
     console.log(
-      `Qinghe API listening on port ${server.address().port} (${demo ? "DEMO data" : "production data"}).`,
+      `Qinghe listening on port ${server.address().port} (${config.demo ? "DEMO data" : "production data"}).`,
     );
   },
 );
-for (const signal of ["SIGINT", "SIGTERM"])
+server.requestTimeout = 30000;
+server.headersTimeout = 15000;
+server.keepAliveTimeout = 5000;
+server.on("error", (error) => {
+  console.error(`HTTP server failed: ${error.code ?? "unknown"}`);
+  db.close();
+  process.exitCode = 1;
+});
+let closing = false;
+for (const signal of ["SIGINT", "SIGTERM"]) {
   process.on(signal, () => {
+    if (closing) return;
+    closing = true;
+    console.log(`${signal}: draining HTTP requests.`);
+    const deadline = setTimeout(() => {
+      server.closeAllConnections();
+    }, config.shutdownTimeoutMs);
+    deadline.unref();
     server.close(() => {
+      clearTimeout(deadline);
       db.close();
-      process.exit(0);
+      process.exitCode = 0;
     });
+    server.closeIdleConnections();
   });
+}

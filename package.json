@@ -8,13 +8,18 @@
   },
   "scripts": {
     "dev": "concurrently -k -n api,web \"npm:dev:api\" \"npm:dev:web\"",
-    "dev:api": "node --watch server/index.mjs",
+    "dev:api": "node --env-file-if-exists=.env --watch server/index.mjs",
     "dev:web": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
-    "start": "NODE_ENV=production node server/index.mjs",
+    "start": "NODE_ENV=production node --env-file-if-exists=.env server/index.mjs",
+    "setup:admin": "node scripts/setup-admin.mjs",
     "test": "node --test --test-concurrency=1 tests/*.test.mjs",
     "test:ui": "npm run build && playwright test",
-    "check": "npm run build && npm test"
+    "check": "npm run build && npm run build:public && npm test",
+    "build:public": "vite build --config vite.public.config.ts",
+    "preview:public": "vite preview --config vite.public.config.ts --host 127.0.0.1",
+    "backup": "node --env-file-if-exists=.env scripts/backup.mjs",
+    "test:public": "npm run build:public && playwright test --config playwright.public.config.ts"
   },
   "dependencies": {
     "express": "^5.1.0",

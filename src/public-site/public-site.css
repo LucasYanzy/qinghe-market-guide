@@ -1,0 +1,34 @@
+.public-site { min-height: 100vh; }
+.public-skip { position: fixed; top: -80px; left: 16px; z-index: 100; padding: 12px 18px; border-radius: 8px; color: white; background: var(--green); }
+.public-skip:focus { top: 12px; }
+.public-nav { display: flex; align-items: center; gap: 26px; margin-left: auto; margin-right: 26px; }
+.public-nav a { display: flex; align-items: center; gap: 8px; min-height: 44px; color: #75816e; font-size: 13px; }
+.public-nav a[aria-current] { color: var(--green); font-weight: 600; }
+.public-main { max-width: 1230px; margin: auto; padding: 44px 36px 70px; outline: none; }
+.public-heading { margin-bottom: 30px; }
+.public-heading h1 { font-size: clamp(26px, 3.4vw, 42px); font-weight: 500; line-height: 1.5; letter-spacing: -1px; margin: 10px 0 8px; }
+.public-heading > p { color: #7a8672; font-size: 13px; }
+.public-explore { display: grid; grid-template-columns: minmax(0, 2fr) minmax(230px, 1fr); gap: 22px; margin: 35px 0; }
+.public-feature { display: flex; align-items: center; justify-content: space-between; gap: 18px; background: #f0eadf; border-radius: 18px; padding: 34px; overflow: hidden; }
+.public-feature > div:first-child { max-width: 370px; }
+.public-feature h2 { white-space: pre-line; font-size: 30px; font-weight: 500; line-height: 1.5; margin: 15px 0; color: #415738; }
+.public-feature p { color: #7e806c; line-height: 1.9; font-size: 12px; margin-bottom: 20px; }
+.public-produce { position: relative; display: grid; grid-template-columns: 1fr 1fr; flex-shrink: 0; width: 190px; transform: rotate(-8deg); }
+.public-produce > :first-child { grid-column: span 2; justify-self: center; margin-bottom: -18px; }
+.public-feature-links { display: grid; gap: 14px; }
+.public-feature-links a { display: flex; align-items: center; gap: 14px; background: white; padding: 24px; border: 1px solid var(--border); border-radius: 14px; color: #687e55; }
+.public-feature-links strong { flex: 1; color: #415738; font-weight: 500; }
+.public-feature-links a:hover { border-color: #829b6c; }
+.public-note { display: flex; gap: 16px; padding: 26px; background: #edf1e7; border-radius: 14px; color: #60744f; line-height: 1.8; }
+.public-note > svg { flex-shrink: 0; margin-top: 3px; }
+.public-note p { font-size: 12px; color: #7b866f; margin: 6px 0; }
+.public-note a { display: inline-flex; gap: 5px; align-items: center; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
+.public-about { padding: 35px; max-width: 780px; margin: auto; line-height: 1.9; }
+.public-about h2 { font-weight: 500; margin: 18px 0; }
+.public-about p { color: #74806b; margin-bottom: 22px; }
+.public-footer { max-width: 1230px; margin: auto; padding: 28px 36px; }
+.public-footer > span > small { display: block; margin-top: 7px; line-height: 1.6; }
+.public-footer a { display: inline-flex; align-items: center; gap: 5px; }
+.public-mobile-nav { display: none; }
+@media (max-width: 900px) { .public-explore { grid-template-columns: 1fr; } .public-feature-links { grid-template-columns: repeat(3,minmax(0,1fr)); } .public-feature-links a { padding: 20px 14px; gap: 8px; font-size: 12px; } }
+@media (max-width: 600px) { .public-nav { display: none; } .public-main { padding: 28px 18px 35px; } .public-heading { margin-bottom: 24px; } .public-heading h1 { letter-spacing: -.5px; } .public-feature { padding: 24px; } .public-feature h2 { font-size: 25px; } .public-produce { width: 120px; margin-right: -40px; opacity: .7; } .public-feature-links { grid-template-columns: 1fr; } .public-feature-links a { padding: 22px; } .public-note { padding: 20px; } .public-footer { margin-bottom: 78px; padding: 24px 18px; gap: 18px; align-items: flex-start; } .public-footer > span { max-width: 65%; } .public-mobile-nav { display: grid; grid-template-columns: repeat(3,1fr); position: fixed; bottom: 0; left: 0; right: 0; padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); background: #fffffff5; backdrop-filter: blur(16px); border-top: 1px solid var(--border); z-index: 25; } .public-mobile-nav a { display: flex; flex-direction: column; gap: 5px; align-items: center; justify-content: center; min-height: 48px; font-size: 10px; color: #8d9882; } .public-mobile-nav a[aria-current] { color: #2e513c; font-weight: 600; } .public-about { padding: 24px; } }

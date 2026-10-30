@@ -1,0 +1,11 @@
+export const releaseEnglish: Record<string, string> = {
+  "线上预购开放了吗？": "Are online preorders open?",
+  "当前网站提供开市信息和到场指引，暂不接受线上预购。请到市场现场选购，并与商户确认供应和付款方式。": "This site offers market information and directions. Online preorders are not open. Shop at the market and confirm availability and payment methods with vendors.",
+  "出行前如何确认临时变更？": "How can I check last-minute changes?",
+  "这里的开市日历按已公布的营业季整理。临时天气调整和停市以市场运营方的最新公告为准，出行前请查看官方日程。": "The calendar follows the published market season. Check the organizer’s official schedule before traveling for weather changes or cancellations.",
+  "历史价格可以当作今天的售价吗？": "Can I use archive prices as today’s prices?",
+  "不可以。价格档案保留历史采价与来源限制，当天供应和价格以现场商户为准。": "No. The archive records historical observations and source limitations. Confirm today’s availability and prices with vendors at the market.",
+  "页面暂时无法加载，请重新加载后再试。": "This page could not load. Reload to try again.",
+  "重新加载页面": "Reload page",
+  "正在加载页面…": "Loading page…",
+};

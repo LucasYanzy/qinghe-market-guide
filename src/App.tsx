@@ -1,5 +1,8 @@
-import { LanguageSwitcher, useLanguage } from "./i18n";
+import { LanguageSwitcher, useLanguage, type Message } from "./i18n";
+import { matchesSearch, quantityUnit } from "./translations/translate";
+import { previewRecordEnglish, translatePreviewContent } from "./translations/preview";
 import {
+  lazy,
   useCallback,
   useEffect,
   useRef,
@@ -8,13 +11,12 @@ import {
   type ReactNode,
 } from "react";
 import {
-  ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
   BarChart3,
   Check,
   CheckCircle2,
-  ChevronDown,
+  ClipboardList,
   ChevronRight,
   ExternalLink,
   Leaf,
@@ -22,10 +24,12 @@ import {
   LogOut,
   MapPin,
   Menu,
+  Monitor,
   Minus,
   Package,
   Plus,
   Search,
+  School,
   ShoppingBag,
   SlidersHorizontal,
   Sprout,
@@ -36,57 +40,60 @@ import {
   Wallet,
   X,
 } from "lucide-react";
-import {
-  Area,
-  CartesianGrid,
-  ComposedChart,
-  Line,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { api, money, shortDate } from "./api";
+import { api, money } from "./api";
 import { BasketArt, Produce } from "./Produce";
 import MarketGuide, { HelpCenter } from "./MarketGuide";
-import guide from "../references/rutgers-market-guide.json";
+import { NextMarketHero } from "./MarketVisit";
+import { Inbox, VendorPortal } from "./WorkflowPortal";
+import { OrderAdjustmentPanel } from "./OrderAdjustment";
+import { SessionDirectory } from './SessionDirectory';
 import { officialMarketUrl } from "./marketReference";
-import ReferencePrices from "./ReferencePrices";
+import Stat from "./Stat";
+import { PageBoundary } from "./PageBoundary";
 import { PageLink, useNavigation, type Page } from "./navigation";
-import { AboutMarket, PreorderSteps } from "./VisitorGuide";
+import { AboutMarket } from "./VisitorGuide";
+import { VisitorHeader, VisitorFooter, visitorNav as clientNav } from "./VisitorNavigation";
+const SchoolAdmin = lazy(() => import("./SchoolAdmin"));
+const Prices = lazy(() => import("./Prices"));
+const SchoolScreen = lazy(() => import("./SchoolScreen"));
+import { SnapCheckout, SnapFoodLabel, SnapOrderPlan } from "./SnapProgram";
+import { PickupForm } from "./SchoolOperations";
+import { canRestoreShoppingDraft, readShoppingDraft, saveShoppingDraft, shoppingToday, type Cart, type CheckoutDraft } from "./shoppingDraft";
 import type {
   Config,
   Dashboard,
+  Market,
   Order,
   OrderStatus,
-  PriceData,
   Product,
   Role,
   User,
 } from "./types";
 
-type Cart = Record<number, number>;
-type CheckoutDraft = { slot: string; note: string };
 const statusLabels: Record<OrderStatus, string> = {
   pending: "待商户确认",
   confirmed: "待到场自提",
   completed: "已完成",
   cancelled: "已取消",
 };
-const clientNav = [
-  { id: "discover", label: "逛逛市集", icon: Store },
-  { id: "markets", label: "市场与导航", icon: MapPin },
-  { id: "prices", label: "价格观察", icon: BarChart3 },
-  { id: "orders", label: "我的预购", icon: ShoppingBag },
-  { id: "about", label: "关于青禾", icon: Leaf },
-  { id: "help", label: "帮助与食品援助", icon: Leaf },
-] as const;
 const retailerNav = [
   { id: "dashboard", label: "经营概览", icon: BarChart3 },
   { id: "inventory", label: "商品与库存", icon: Sprout },
   { id: "orders", label: "预购订单", icon: ShoppingBag },
   { id: "prices", label: "价格观察", icon: TrendingUp },
   { id: "help", label: "帮助与食品援助", icon: Leaf },
+  { id: "vendor", label: "商户服务", icon: Store },
+  { id: "notifications", label: "通知", icon: ClipboardList },
+] as const;
+const schoolNav = [
+  { id: "school-screen", label: "管理大屏", icon: Monitor },
+  { id: "school-operations", label: "现场运营", icon: ClipboardList },
+  { id: "school", label: "全盘概览", icon: BarChart3 },
+  { id: "school-markets", label: "市场设置", icon: SlidersHorizontal },
+  { id: "school-vendors", label: "商户总览", icon: Store },
+  { id: "school-impact", label: "社区影响", icon: Users },
+  { id: "school-community", label: "商户与运营", icon: ClipboardList },
+  { id: "notifications", label: "通知", icon: ClipboardList },
 ] as const;
 
 function Modal({
@@ -118,6 +125,11 @@ function Modal({
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !busy) onClose();
       if (e.key === "Tab") {
+        if (busy) {
+          e.preventDefault();
+          ref.current?.focus();
+          return;
+        }
         const focusable = Array.from(
           ref.current?.querySelectorAll<HTMLElement>(
             'button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href],[tabindex="0"]',
@@ -207,12 +219,21 @@ function Empty({
 function App() {
   const { t } = useLanguage();
   const [config, setConfig] = useState<Config>();
+  const [savedShopping] = useState(readShoppingDraft);
+  const [shoppingDate, setShoppingDate] = useState(() => {
+    const date=new URLSearchParams(window.location.search).get('date');
+    return date && /^\d{4}-\d{2}-\d{2}$/.test(date) && date>=shoppingToday() && !Number.isNaN(Date.parse(date)) && new Date(date).toISOString().slice(0,10)===date ? date : savedShopping?.date ?? shoppingToday();
+  });
+  const [shoppingMarket,setShoppingMarket]=useState(() => {const id=Number(new URLSearchParams(window.location.search).get('market'));return Number.isSafeInteger(id)&&id>0?String(id):'';});
+  const [shoppingMarkets,setShoppingMarkets]=useState<Market[]>([]);
+  const draftRestored = useRef(false);
+  const [draftReady, setDraftReady] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const { page, navigate: changePage, replacePage } = useNavigation();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [toast, setToast] = useState("");
+  const [loadError, setLoadError] = useState<Message>("");
+  const [toast, setToast] = useState<Message>("");
   const [authOpen, setAuthOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [cart, setCart] = useState<Cart>({});
@@ -230,8 +251,26 @@ function App() {
   const [category, setCategory] = useState("全部蔬菜");
   const [sort, setSort] = useState("recommended");
   const [inStock, setInStock] = useState(false);
+  const filterOptions = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const outside = (event: PointerEvent) => {
+      if (!filterOptions.current?.contains(event.target as Node)) filterOptions.current?.removeAttribute("open");
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && filterOptions.current?.open) {
+        filterOptions.current.open = false;
+        filterOptions.current.querySelector("summary")?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", escape); };
+  }, []);
   const retailer = user?.role === "retailer";
-  const notify = useCallback((message: string) => setToast(message), []);
+  const school = user?.role === "admin";
+  const manager = retailer || school;
+  const schoolPage = page === "school" || page.startsWith("school-");
+  const notify = useCallback((message: Message) => setToast(message), []);
   const refresh = useCallback(() => {
     setRevision((r) => r + 1);
   }, []);
@@ -239,31 +278,53 @@ function App() {
     setLoadError("");
     setLoading(true);
     try {
-      const [c, u, p] = await Promise.all([
+      const [c, u, p, markets] = await Promise.all([
         api<Config>("/config"),
         api<{ user: User | null }>("/auth/me"),
-        api<Product[]>("/products"),
+        api<Product[]>(`/products?date=${shoppingDate}${shoppingMarket?`&marketId=${shoppingMarket}`:''}`),
+        api<Market[]>('/markets'),
       ]);
       setConfig(c);
       setUser(u.user);
       setProducts(p);
+      setShoppingMarkets(markets);
+      if (!draftRestored.current) {
+        if (canRestoreShoppingDraft(savedShopping, u.user)) {
+          setCart(savedShopping!.cart);
+          setCheckout(savedShopping!.checkout);
+        }
+        draftRestored.current = true;
+        setDraftReady(true);
+      }
       if (u.user?.role === "retailer" && window.location.pathname === "/")
         replacePage("dashboard");
+      if (u.user?.role === "admin" && window.location.pathname === "/")
+        replacePage("school");
     } catch (e) {
-      setLoadError((e as Error).message);
+      setLoadError(e as Error);
     } finally {
       setLoading(false);
     }
-  }, [replacePage]);
+  }, [replacePage, shoppingDate, shoppingMarket, savedShopping]);
+  useEffect(() => {
+    if (draftReady) saveShoppingDraft(shoppingDate, cart, checkout, user);
+  }, [draftReady, shoppingDate, cart, checkout, user]);
   useEffect(() => {
     void load();
   }, [load]);
   useEffect(() => {
     if (revision)
-      api<Product[]>("/products")
+      api<Product[]>(`/products?date=${shoppingDate}${shoppingMarket?`&marketId=${shoppingMarket}`:''}`)
         .then(setProducts)
-        .catch((e) => notify(e.message));
-  }, [revision, notify]);
+        .catch((e) => notify(e as Error));
+  }, [revision, notify, shoppingDate,shoppingMarket]);
+  useEffect(()=>{
+    if(page!=='discover')return;
+    const url=new URL(window.location.href);
+    if(shoppingDate!==shoppingToday())url.searchParams.set('date',shoppingDate);else url.searchParams.delete('date');
+    if(shoppingMarket)url.searchParams.set('market',shoppingMarket);else url.searchParams.delete('market');
+    window.history.replaceState(window.history.state,'',url);
+  },[shoppingDate,shoppingMarket,page]);
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(""), 4500);
@@ -273,20 +334,27 @@ function App() {
   useEffect(() => {
     const onFocus = () => {
       api<Config>("/config")
-        .then(setConfig)
+        .then((next) => {
+          setConfig(next);
+          if (shoppingDate < next.today) {
+            setCart({});
+            setCheckout({ slot: "", note: "" });
+            setShoppingDate(next.today);
+          }
+        })
         .catch(() => {});
       refresh();
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [refresh]);
+  }, [refresh, shoppingDate]);
   const navigate = (next: Page) => {
     changePage(next);
     setMobileNav(false);
   };
   const onLogin = (next: User) => {
     setUser(next);
-    const resetCart = next.role === "retailer" || (user && user.id !== next.id);
+    const resetCart = next.role !== "client" || (user && user.id !== next.id);
     if (resetCart) {
       setCart({});
       setCheckout({ slot: "", note: "" });
@@ -294,13 +362,15 @@ function App() {
     setAuthOpen(false);
     setCartOpen(loginIntent === "cart" && !resetCart);
     navigate(
-      next.role === "retailer"
+      next.role === "admin"
+        ? schoolPage ? page as Page : "school"
+        : next.role === "retailer"
         ? page === "inventory"
           ? "inventory"
           : "dashboard"
         : loginIntent === "orders"
           ? "orders"
-          : page === "dashboard" || page === "inventory" || page === "not-found"
+          : page === "dashboard" || page === "inventory" || schoolPage || page === "not-found"
             ? "discover"
             : page,
     );
@@ -309,7 +379,7 @@ function App() {
     notify(
       loginIntent === "cart" && !resetCart
         ? "登录成功，请确认自提信息后提交预购"
-        : `欢迎回来，${next.name}`,
+        : { message: "欢迎回来，{name}", values: { name: next.role === "admin" || next.role === "retailer" || Object.hasOwn(previewRecordEnglish, next.name) ? { message: next.name } : next.name } },
     );
   };
   const logout = async () => {
@@ -321,28 +391,38 @@ function App() {
       navigate("discover");
       notify("已退出登录");
     } catch (e) {
-      notify((e as Error).message);
+      notify(e as Error);
     }
   };
   const add = (product: Product) => {
-    if (retailer) return;
+    if (manager) return;
     if ((cart[product.id] ?? 0) >= product.stock)
       return notify("已达到当前库存数量");
-    setCart((c) => ({ ...c, [product.id]: (c[product.id] ?? 0) + 1 }));
-    notify(`${product.name} 已加入购物袋`);
+    const existing=products.find(p=>(cart[p.id]??0)>0);
+    if(existing&&(existing.market_id!==product.market_id||existing.retailer_id!==product.retailer_id)) {
+      notify('每份购物袋限同一市场与商户，请先结算或清空购物袋再选择其他商户。');return;
+    }
+    setCart((c) => ({ ...c, [product.id]: Math.round(Math.min(product.stock,100,(c[product.id] ?? 0) + 1)*1000)/1000 }));
+    notify({ message: "{product} 已加入购物袋", values: { product: { message: product.name } } });
   };
   const cartCount = Object.values(cart).reduce((a, b) => a + b, 0);
+  const cartTotal = products.reduce((sum, product) => sum + Math.round(product.price_cents * (cart[product.id] ?? 0)), 0);
+  const reduceProduct = (id: number) => setCart((current) => {
+    const next = { ...current };
+    if ((next[id] ?? 0) <= 1) delete next[id]; else next[id]--;
+    return next;
+  });
   let visible = products.filter(
     (p) =>
       (category === "全部蔬菜" || p.category === category) &&
       (!inStock || p.stock > 0) &&
-      `${p.name}${p.farm}`.toLowerCase().includes(search.toLowerCase()),
+      matchesSearch(search, p.name, p.farm),
   );
   if (sort === "price-up")
     visible = [...visible].sort((a, b) => a.price_cents - b.price_cents);
   if (sort === "price-down")
     visible = [...visible].sort((a, b) => b.price_cents - a.price_cents);
-  const nav = retailer ? retailerNav : clientNav;
+  const nav = school ? schoolNav : retailer ? retailerNav : clientNav;
   const title = {
     discover: "逛逛市集",
     markets: "市场与导航",
@@ -350,14 +430,23 @@ function App() {
     orders: retailer ? "预购订单" : "我的预购",
     about: "关于青禾",
     help: "帮助与食品援助",
+    vendor: "商户服务",
+    notifications: "通知",
     dashboard: "经营概览",
     inventory: "商品与库存",
+    school: "全盘概览",
+    "school-screen": "管理大屏",
+    "school-operations": "现场运营",
+    "school-markets": "市场设置",
+    "school-vendors": "商户总览",
+    "school-impact": "社区影响",
+    "school-community": "商户与运营",
     "not-found": "页面未找到",
   }[page];
   useEffect(() => {
-    document.title = `${title} · 青禾 Rutgers 社区农夫市集`;
+    document.title = t("{page} · 青禾 Rutgers 社区农夫市集", { page: t(title) });
     setMobileNav(false);
-  }, [title, page]);
+  }, [title, page, t]);
   const closeAuth = useCallback(() => {
     setAuthOpen(false);
     if (loginIntent === "cart") setCartOpen(true);
@@ -384,19 +473,19 @@ function App() {
       </div>
     );
   return (
-    <div className={`app-shell ${retailer ? "retailer-site" : "visitor-site"}`}>
+    <div className={`app-shell ${school ? `school-site ${page === "school-screen" ? "school-screen-site" : ""}` : retailer ? "retailer-site" : "visitor-site"} ${cartCount ? "has-shopping-bag" : ""}`}>
       <a href="#main-content" className="skip-link">{t("跳到主要内容")}</a>
-      {mobileNav && (
+      {manager && mobileNav && (
         <button
           className="nav-scrim"
           onClick={() => setMobileNav(false)}
           aria-label={t("关闭导航")}
         />
       )}
-      <aside className={`sidebar ${mobileNav ? "sidebar-open" : ""}`}>
+      {manager && <aside className={`sidebar ${mobileNav ? "sidebar-open" : ""}`}>
         <PageLink
           className="brand"
-          page={retailer ? "dashboard" : "discover"}
+          page={school ? "school" : retailer ? "dashboard" : "discover"}
           navigate={navigate}
         >
           <span className="brand-symbol">
@@ -410,7 +499,7 @@ function App() {
         </PageLink>
         <div className="workspace-label">
           <span className="tiny-dot" />
-          {t(retailer ? "RETAILER · 商户工作台" : "CLIENT · 顾客空间")}
+          {t(school ? "UNIVERSITY · 学校管理方" : retailer ? "RETAILER · 商户工作台" : "CLIENT · 顾客空间")}
         </div>
         <nav aria-label={t("主导航")}>
           {nav.map((item) => (
@@ -422,7 +511,7 @@ function App() {
               navigate={navigate}
             >
               <item.icon size={20} />
-              {item.label}
+              {t(item.label)}
               {page === item.id && <span className="nav-active-dot" />}
             </PageLink>
           ))}
@@ -436,12 +525,12 @@ function App() {
           <span>LOCAL FOOD. LOCAL GOOD.</span>
         </div>
         <div className="sidebar-bottom">
-          <div className="avatar">{t(user ? user.name.slice(0, 1) : "青")}</div>
+          <div className="avatar">{t(user ? user.name : "青").slice(0, 1)}</div>
           <div>
             <strong>{t(user?.name ?? "欢迎来到青禾")}</strong>
             <small>
               {t(user
-                ? retailer
+                ? school ? "学校管理方" : retailer
                   ? "农场商户"
                   : "社区新鲜探索者"
                 : "登录，开启新鲜日常")}
@@ -455,9 +544,9 @@ function App() {
             {user ? <LogOut size={17} /> : <ChevronRight size={18} />}
           </button>
         </div>
-      </aside>
+      </aside>}
       <div className="main-shell">
-        <header className="topbar">
+        {!manager ? <VisitorHeader page={page} navigate={navigate} user={user} onLogin={() => setAuthOpen(true)} onLogout={() => void logout()} /> : <header className="topbar">
           <div className="breadcrumb">
             <button
               className="icon-button mobile-menu"
@@ -480,16 +569,16 @@ function App() {
             </span>
             <button className="role-switch" onClick={() => setAuthOpen(true)}>
               <Users size={16} />
-              {t(retailer ? "切换到顾客端" : "商户入口")}
+              {t("切换账号")}
               <ArrowUpRight size={14} />
             </button>
           </div>
-        </header>
-        <main id="main-content" tabIndex={-1}>
+        </header>}
+        <main id="main-content" tabIndex={-1}><PageBoundary>
           <div className="page-heading">
             <div>
               <div className="eyebrow">
-                {t(retailer
+                {t(school ? "A CAMPUS CONNECTED BY GOOD FOOD" : retailer
                   ? "GROW YOUR LOCAL BUSINESS"
                   : "A LITTLE FRESHNESS, EVERY DAY")}
               </div>
@@ -499,13 +588,15 @@ function App() {
               </h1>
               <p>
                 {t(page === "discover"
-                  ? "从附近的农场，到你的餐桌。发现这一季刚刚好的新鲜。"
+                  ? "先看开市时间与地点，再把当季新鲜带回家。"
+                  : schoolPage
+                    ? "连接学校、市场与商户，看见每一份新鲜带来的社区价值。"
                   : page === "dashboard"
                     ? "照顾好每一份收获，让新鲜被更多人看见。"
                     : page === "inventory"
                       ? "今日上架、价格与库存，在这里轻松管理。"
                       : page === "markets"
-                        ? "找到身边的市集，让新鲜离你更近一点。"
+                        ? "哪天开、几点开、在哪里，出发前一次看清。"
                         : page === "prices"
                           ? "看懂价格的变化，为每一次选择多一份参考。"
                           : page === "help"
@@ -515,7 +606,7 @@ function App() {
                               : "每一份期待，都值得新鲜抵达。")}
               </p>
             </div>
-            {!retailer && (
+            {!manager && (
               <button
                 className="button cart-button"
                 onClick={() => setCartOpen(true)}
@@ -526,73 +617,30 @@ function App() {
           </div>
           {config.demo && (
             <div className="demo-notice">
-              <span className="demo-badge">DEMO</span>{t(" ")}{t("市场目录已核对官网；商品、库存与预购为演示，官方页面的 2025 年日程不代表当前营业安排。")}{t(retailer && " 商户修改会影响当前演示商品与订单。")}
+              <span className="demo-badge">DEMO</span>{t(" ")}{t("开市日历与地址来自官方公开资料；商品、库存与预购为演示。")}{retailer && t(" 商户修改会影响当前演示商品与订单。")}
             </div>
           )}
           {page === "discover" && (
             <>
-              <section className="hero">
-                <div className="hero-copy">
-                  <div className="hero-kicker">
-                    <span />{t("在地生长 · 当季新鲜")}</div>
-                  <h2>{t("把田野的新鲜，")}<br />{t("带回你的餐桌")}<span>。</span>
-                  </h2>
-                  <p>{t("一份当季蔬菜，一点简单的幸福。")}<br />{t("提前预购，来市集把好味道带回家。")}</p>
-                  <div className="hero-actions">
-                    <a className="button primary" href="#today-produce">{t("挑选今日蔬菜")}<ArrowRight size={17} />
-                    </a>
-                    <PageLink
-                      className="hero-guide-link"
-                      page="about"
-                      navigate={navigate}
-                    >{t("了解预购流程")}<ChevronRight size={15} />
-                    </PageLink>
-                  </div>
-                  <div className="hero-footnote">
-                    <Sprout size={14} />{t("和社区一起，把日子过得更鲜活。")}</div>
-                </div>
-                <BasketArt />
-              </section>
-              <div className="benefits">
-                <div>
-                  <span className="benefit-icon">
-                    <Leaf size={22} />
-                  </span>
-                  <div>
-                    <strong>{t("当季采收")}</strong>
-                    <small>{t("看得见的新鲜与来处")}</small>
-                  </div>
-                </div>
-                <div>
-                  <span className="benefit-icon peach">
-                    <ShoppingBag size={22} />
-                  </span>
-                  <div>
-                    <strong>{t("线上预购")}</strong>
-                    <small>{t("选好新鲜，到场轻松取")}</small>
-                  </div>
-                </div>
-                <div>
-                  <span className="benefit-icon lilac">
-                    <TrendingUp size={22} />
-                  </span>
-                  <div>
-                    <strong>{t("价格透明")}</strong>
-                    <small>{t("历史走势，心中有数")}</small>
-                  </div>
-                </div>
+              <NextMarketHero navigate={navigate} />
+              <div className="shop-shortcuts">
+                <a href="#today-produce">{t("挑选今日蔬菜")}<ArrowRight size={16} /></a>
+                <PageLink page="about" navigate={navigate}>{t("了解预购流程")}<ChevronRight size={14} /></PageLink>
               </div>
               <div className="section-heading" id="today-produce">
                 <div>
                   <span className="eyebrow">FRESH FROM THE FARM</span>
-                  <h2>{t("今日新鲜上架")}{t(" ")}
+                  <h2>{shoppingDate===config.today?t("今日新鲜上架"):t("{date} 可预购商品",{date:shoppingDate})}{t(" ")}
                     <span className="subtle-count">
-                      {products.length}{t(" 款当季好物")}</span>
+                      {t("{count} 款当季好物", { count: products.length })}</span>
                   </h2>
                 </div>
                 <span className="harvest-tag">
-                  <span className="tiny-dot" />{t("今日可预购")}</span>
+                  <span className="tiny-dot" />{shoppingDate===config.today?t("今日可预购"):shoppingDate}</span>
               </div>
+              <label className="shopping-date-picker">{t("选择自提日期")}<input type="date" min={config.today} value={shoppingDate} onChange={(e) => { if (!e.target.value) return; if (cartCount && !window.confirm(t("更换自提日期会清空当前购物袋，是否继续？"))) return; setCart({}); setCheckout({ slot: "", note: "" }); setShoppingDate(e.target.value); }} /></label>
+              <label className="shopping-date-picker">{t("选择购物市场")}<select value={shoppingMarket} onChange={e=>{if(cartCount&&!window.confirm(t('切换市场会清空购物袋，是否继续？')))return;setCart({});setCheckout({slot:'',note:''});setShoppingMarket(e.target.value);}}><option value="">{t('全部市场')}</option>{shoppingMarkets.map(m=><option key={m.id} value={m.id}>{t(m.name)}</option>)}</select></label>
+              <SessionDirectory date={shoppingDate} marketId={shoppingMarket?Number(shoppingMarket):undefined} />
               <div className="product-toolbar">
                 <div
                   className="category-tabs"
@@ -628,28 +676,21 @@ function App() {
                       </button>
                     )}
                   </label>
-                  <label className="sort-select">
-                    <SlidersHorizontal size={15} />
-                    <select
-                      aria-label={t("商品排序")}
-                      value={sort}
-                      onChange={(e) => setSort(e.target.value)}
-                    >
-                      <option value="recommended">{t("推荐排序")}</option>
-                      <option value="price-up">{t("价格从低到高")}</option>
-                      <option value="price-down">{t("价格从高到低")}</option>
-                    </select>
-                  </label>
+                  <details className="product-filter-options" ref={filterOptions}>
+                    <summary data-active={sort !== "recommended" || inStock}><SlidersHorizontal size={16} />{t("筛选与排序")}{(sort !== "recommended" || inStock) && <span>•</span>}</summary>
+                    <div className="product-filter-panel">
+                      <label className="sort-select">{t("商品排序")}<select aria-label={t("商品排序")} value={sort} onChange={(event) => setSort(event.target.value)}>
+                        <option value="recommended">{t("推荐排序")}</option><option value="price-up">{t("价格从低到高")}</option><option value="price-down">{t("价格从高到低")}</option>
+                      </select></label>
+                      <label><input type="checkbox" checked={inStock} onChange={(event) => setInStock(event.target.checked)} />{t("仅看有库存")}</label>
+                      {(sort !== "recommended" || inStock) && <button className="text-button" onClick={() => { setSort("recommended"); setInStock(false); }}>{t("恢复默认")}</button>}
+                    </div>
+                  </details>
                 </div>
               </div>
               <div className="results-meta">
-                <span>{t("发现 ")}{visible.length}{t(" 款新鲜好物")}</span>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={inStock}
-                    onChange={(e) => setInStock(e.target.checked)}
-                  />{t(" ")}{t("仅看有库存")}</label>
+                <span>{t("发现 {count} 款新鲜好物", { count: visible.length })}</span>
+                {visible.length > 0 && (category !== "全部蔬菜" || search || sort !== "recommended" || inStock) && <button className="text-button" onClick={() => { setCategory("全部蔬菜"); setSearch(""); setSort("recommended"); setInStock(false); }}>{t("清除筛选")}</button>}
               </div>
               {visible.length ? (
                 <div className="product-grid">
@@ -659,6 +700,7 @@ function App() {
                       product={product}
                       quantity={cart[product.id] ?? 0}
                       onAdd={() => add(product)}
+                      onReduce={() => reduceProduct(product.id)}
                       onView={() => setDetail(product)}
                     />
                   ))}
@@ -667,7 +709,7 @@ function App() {
                 <Empty
                   icon={<Search />}
                   title={
-                    t(products.length ? "还没找到这份新鲜" : "今日暂未上架商品")
+                    t(products.length ? "还没找到这份新鲜" : "{date} 暂无可预购商品",{date:shoppingDate})
                   }
                   text={
                     t(products.length
@@ -682,6 +724,7 @@ function App() {
                         setSearch("");
                         setCategory("全部蔬菜");
                         setInStock(false);
+                        setSort("recommended");
                       }}
                     >
                       {t(products.length ? "清除筛选" : "查看市场目录")}
@@ -689,33 +732,12 @@ function App() {
                   }
                 />
               )}
-              {guide.locations[0] && (
-                <section className="market-strip">
-                  <div className="market-strip-icon">
-                    <Store size={30} />
-                  </div>
-                  <div>
-                    <span className="eyebrow">MEET US AT THE MARKET</span>
-                    <h3>{t("下次见面，就在市集。")}</h3>
-                    <p>
-                      {t(guide.locations[0].name)} · {t(guide.locations[0].address)}
-                    </p>
-                    {config.demo && (
-                      <p>{t("官方地址参考 · 当季营业安排请先向官方确认")}</p>
-                    )}
-                  </div>
-                  <button
-                    className="button secondary"
-                    onClick={() => navigate("markets")}
-                  >{t("查看市场与导航")}<ArrowUpRight size={17} />
-                  </button>
-                </section>
-              )}
-              <PreorderSteps navigate={navigate} />
             </>
           )}
           {page === "markets" && <MarketGuide />}
           {page === "help" && <HelpCenter />}
+          {page === "vendor" && <VendorPortal user={user} onLogin={()=>setAuthOpen(true)} onUser={next=>{setUser(next);if(next.role!=="client"){setCart({});setCheckout({slot:"",note:""});}refresh();}} />}
+          {page === "notifications" && <Inbox user={user} onLogin={()=>setAuthOpen(true)} navigate={navigate} />}
           {page === "prices" && (
             <Prices products={products} revision={revision} />
           )}
@@ -779,7 +801,18 @@ function App() {
               notify={notify}
             />
           )}
-          <footer className="site-footer">
+          {schoolPage && !school && <Empty
+            icon={<School />}
+            title={t("这里是学校管理工作台")}
+            text={t("请登录学校管理方账号，查看全盘统计、管理市场并了解社区影响。")}
+            action={<button className="button primary" onClick={() => setAuthOpen(true)}>
+              {t("学校管理方登录")}<ArrowRight size={16} />
+            </button>}
+          />}
+          {schoolPage && school && page === "school-screen" && <SchoolScreen demo={config.demo} />}
+          {schoolPage && school && page !== "school-screen" && <SchoolAdmin key={user.id} page={page as Page} demo={config.demo}
+            navigate={navigate} refresh={refresh} notify={notify} />}
+          {!manager ? <VisitorFooter navigate={navigate} onManage={() => setAuthOpen(true)} /> : <footer className="site-footer">
             <div className="footer-brand">
               <span>
                 <Leaf size={20} />
@@ -803,15 +836,22 @@ function App() {
               <PageLink page="about" navigate={navigate}>{t("关于青禾与常见问题")}</PageLink>
               <PageLink page="orders" navigate={navigate}>{t("查看我的预购")}</PageLink>
               <PageLink page="help" navigate={navigate}>{t("帮助与食品援助")}</PageLink>
+              <PageLink page="school" navigate={navigate}>{t("学校管理入口")}</PageLink>
               <a href={officialMarketUrl} target="_blank" rel="noreferrer">{t("Rutgers 官方市场信息")}<ExternalLink size={12} />
               </a>
             </nav>
-          </footer>
-        </main>
+          </footer>}
+        </PageBoundary></main>
       </div>
-      {!retailer && (
+      {!manager && cartCount > 0 && <div className="shopping-bag-dock" hidden={cartOpen || authOpen || !!detail}>
+        <button onClick={() => setCartOpen(true)} aria-label={t("查看购物袋，已选 {count} 件", { count: cartCount })}>
+          <ShoppingBag size={20} /><span><strong>{t("查看购物袋")}<span className="bag-dock-count">{cartCount}</span></strong><small>{t("核对商品与自提安排")}</small></span>
+          <b>{t(money(cartTotal))}</b><ChevronRight size={18} />
+        </button>
+      </div>}
+      {!manager && (
         <nav className="mobile-site-nav" aria-label={t("手机快捷导航")}>
-          {clientNav.slice(0, 4).map((item) => (
+          {clientNav.map((item) => (
             <PageLink
               key={item.id}
               page={item.id}
@@ -850,6 +890,7 @@ function App() {
           draft={checkout}
           onDraftChange={setCheckout}
           onClose={closeCart}
+          onShop={() => { setCartOpen(false); navigate("discover"); requestAnimationFrame(() => document.getElementById("today-produce")?.scrollIntoView()); }}
           onLogin={() => {
             setCartOpen(false);
             setLoginIntent("cart");
@@ -862,7 +903,7 @@ function App() {
             setCartOpen(false);
             refresh();
             navigate("orders");
-            notify(`预购成功 · ${order.id}`);
+            notify({ message: "预购成功 · {id}", values: { id: order.id } });
           }}
         />
       )}
@@ -879,12 +920,14 @@ function App() {
             <span className="eyebrow">{t(detail.farm)}</span>
             <h2>{t(detail.name)}</h2>
             <p>{t(detail.description)}</p>
+            <SnapFoodLabel eligibility={detail.snap_eligibility} />
+            <p className="helper-text">{t("食品资格不代表摊位接受 EBT，请在购物袋核对现场付款条件。")}</p>
             <div className="detail-meta">
               <strong>
                 {t(money(detail.price_cents))}
                 <small> / {t(detail.unit)}</small>
               </strong>
-              <span>{t("今日剩余 ")}{detail.stock} {t(detail.unit)}
+              <span>{t("今日剩余 {count} {unit}", { count: detail.stock, unit: { unit: detail.unit, count: detail.stock } })}
               </span>
             </div>
             <p className="helper-text">{t("称重类商品按标示单位预订；如需现场称重，最终金额请与商户确认。")}</p>
@@ -907,14 +950,17 @@ function ProductCard({
   product: p,
   quantity,
   onAdd,
+  onReduce,
   onView,
 }: {
   product: Product;
   quantity: number;
   onAdd: () => void;
+  onReduce: () => void;
   onView: () => void;
 }) {
   const { t } = useLanguage();
+  const addButton = useRef<HTMLButtonElement>(null);
   return (
     <article className="product-card">
       <button
@@ -940,24 +986,32 @@ function ProductCard({
           {t(p.name)}
         </button>
         <div className="product-description">
-          {t(p.description.split("。")[0])}
+          {t(p.description).split(/[。.!?]/)[0]}
         </div>
         <div className="product-bottom">
           <div>
             <strong>{t(money(p.price_cents))}</strong>
             <small> / {t(p.unit)}</small>
             <span className={`stock-label ${p.stock < 10 ? "low" : ""}`}>
-              {t(p.stock > 0 ? `剩余 ${p.stock} ${p.unit}` : "等待下一次采收")}
+              {p.stock > 0 ? t("剩余 {count} {unit}", { count: p.stock, unit: { unit: p.unit, count: p.stock } }) : t("等待下一次采收")}
             </span>
           </div>
+          <div className={`product-quantity ${quantity ? "is-selected" : ""}`}>
+          {quantity > 0 && <button className="product-reduce" aria-label={t("减少{0}", {0: t(p.name)})} onClick={() => {
+            onReduce();
+            if (quantity === 1) requestAnimationFrame(() => addButton.current?.focus());
+          }}><Minus size={15} /></button>}
+          {quantity > 0 && <span className="product-quantity-value" aria-label={t("已选 {count} 件", { count: quantity })}>{quantity}</span>}
           <button
             className={`add-button ${quantity ? "has-quantity" : ""}`}
+            ref={addButton}
             disabled={!p.stock || quantity >= p.stock}
             aria-label={t("将{0}加入购物袋", {0: t(p.name)})}
             onClick={onAdd}
           >
-            {quantity ? <span>{quantity}</span> : <Plus size={20} />}
+            <Plus size={20} />
           </button>
+          </div>
         </div>
       </div>
     </article>
@@ -981,7 +1035,7 @@ function AuthModal({
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Message>("");
   const submit = async (e?: FormEvent, role?: Role) => {
     e?.preventDefault();
     if (busy) return;
@@ -997,7 +1051,7 @@ function AuthModal({
       );
       onLogin(result.user);
     } catch (e) {
-      setError((e as Error).message);
+      setError(e as Error);
     } finally {
       setBusy(false);
     }
@@ -1015,7 +1069,7 @@ function AuthModal({
       </p>
       {demo && (
         <div className="demo-login">
-          <span className="eyebrow">{t("体验完整的双端流程")}</span>
+          <span className="eyebrow">{t("体验顾客、商户与学校管理方")}</span>
           <div>
             <button
               className="demo-account"
@@ -1037,12 +1091,18 @@ function AuthModal({
               <small>{t("管商品 · 处理订单")}</small>
               <ArrowRight size={16} />
             </button>
+            <button className="demo-account school-demo-account" disabled={busy} onClick={() => void submit(undefined, "admin")}>
+              <School size={22} />
+              <strong>{t("学校管理方演示")}</strong>
+              <small>{t("管市场 · 看全盘 · 社区影响")}</small>
+              <ArrowRight size={16} />
+            </button>
           </div>
           <p>{t("演示账号仅供体验，请勿填写真实个人信息。")}</p>
         </div>
       )}
       <div className="divider">
-        <span>{t("或使用邮箱")}{t(register ? "注册" : "登录")}</span>
+        <span>{t(register ? "或使用邮箱注册" : "或使用邮箱登录")}</span>
       </div>
       <form onSubmit={submit} className="form-stack">
         <fieldset className="form-fields form-stack" disabled={busy}>
@@ -1112,6 +1172,7 @@ function CartModal({
   config,
   user,
   onClose,
+  onShop,
   onLogin,
   update,
   onSuccess,
@@ -1123,6 +1184,7 @@ function CartModal({
   config: Config;
   user: User | null;
   onClose: () => void;
+  onShop: () => void;
   onLogin: () => void;
   update: (cart: Cart) => void;
   onSuccess: (order: Order) => void;
@@ -1130,52 +1192,63 @@ function CartModal({
   onDraftChange: (draft: CheckoutDraft) => void;
 }) {
   const { t } = useLanguage();
-  const slot = config.pickupSlots.includes(draft.slot)
-    ? draft.slot
-    : (config.pickupSlots[0] ?? "");
+  const firstProduct = products.find((p) => Object.hasOwn(cart, String(p.id)));
+  const pickupDate = firstProduct?.available_date ?? config.today;
+  const [options, setOptions] = useState<{ label: string; remaining: number | null }[]>([]);
+  const [optionsReady, setOptionsReady] = useState(false);
+  const [optionsError, setOptionsError] = useState(false);
+  const [optionsAttempt, setOptionsAttempt] = useState(0);
+  useEffect(() => {
+    let current = true; setOptionsReady(false); setOptionsError(false); setOptions([]);
+    if (!firstProduct) return;
+    api<{ slots: { label: string; remaining: number | null }[] }>(`/checkout/options?marketId=${firstProduct.market_id}&date=${pickupDate}`)
+      .then((result) => { if (current) { setOptions(result.slots.filter((s) => s.remaining !== 0)); setOptionsReady(true); } })
+      .catch(() => { if (current) { setOptionsError(true); setOptionsReady(true); } });
+    return () => { current = false; };
+  }, [firstProduct?.market_id, pickupDate, optionsAttempt]);
+  const slot = options.some((s) => s.label === draft.slot) ? draft.slot : (options[0]?.label ?? "");
   const { note } = draft;
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Message>("");
+  const [snapReady, setSnapReady] = useState(false);
   const entries = Object.entries(cart).map(([id, quantity]) => ({
     id: Number(id),
     product: products.find((p) => p.id === Number(id)),
     quantity,
   }));
   const total = entries.reduce(
-    (sum, item) => sum + (item.product?.price_cents ?? 0) * item.quantity,
+    (sum, item) => sum + Math.round((item.product?.price_cents ?? 0) * item.quantity),
     0,
   );
   const invalid = entries.some(
     (item) => !item.product || item.quantity > (item.product?.stock ?? 0),
-  );
+  ) || entries.some(item=>item.product && (item.product.market_id!==firstProduct?.market_id||item.product.retailer_id!==firstProduct?.retailer_id));
   const change = (id: number, quantity: number) => {
     const next = { ...cart };
     if (quantity <= 0) delete next[id];
-    else next[id] = quantity;
+    else next[id] = Math.round(quantity*1000)/1000;
     update(next);
     setError("");
   };
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (busy || invalid || !slot) return;
+    if (busy || invalid || !slot || (draft.paymentMethod === "snap_ebt" && !snapReady)) return;
     if (!user) return onLogin();
     setBusy(true);
     setError("");
     try {
+      const payload={items:Object.entries(cart).map(([id,quantity])=>({productId:Number(id),quantity})),pickupSlot:slot,note,paymentMethod:draft.paymentMethod??'pay_at_pickup'};
+      const fingerprint=JSON.stringify(payload);
+      const submissionKey=draft.submissionFingerprint===fingerprint&&draft.submissionKey?draft.submissionKey:crypto.randomUUID();
+      onDraftChange({...draft,submissionKey,submissionFingerprint:fingerprint});
       const order = await api<Order>("/orders", {
         method: "POST",
-        body: JSON.stringify({
-          items: Object.entries(cart).map(([id, quantity]) => ({
-            productId: Number(id),
-            quantity,
-          })),
-          pickupSlot: slot,
-          note,
-        }),
+        headers:{'Idempotency-Key':submissionKey},
+        body: fingerprint,
       });
       onSuccess(order);
     } catch (e) {
-      setError((e as Error).message);
+      setError(e as Error);
     } finally {
       setBusy(false);
     }
@@ -1187,7 +1260,7 @@ function CartModal({
           title={t("购物袋在等一份新鲜")}
           text={t("挑选喜欢的蔬菜，提前预购，到市集轻松取。")}
           action={
-            <button className="button primary" onClick={onClose}>{t("继续逛逛")}<ArrowRight size={16} />
+            <button className="button primary" onClick={onShop}>{t("继续逛逛")}<ArrowRight size={16} />
             </button>
           }
         />
@@ -1207,6 +1280,7 @@ function CartModal({
                         <small>
                           {t(money(p.price_cents))} / {t(p.unit)}
                         </small>
+                        <SnapFoodLabel eligibility={p.snap_eligibility} />
                         <div className="quantity-control">
                           <button
                             type="button"
@@ -1215,19 +1289,19 @@ function CartModal({
                           >
                             <Minus size={13} />
                           </button>
-                          <span>{quantity}</span>
+                          {p.unit==='磅'?<input className="weight-quantity" aria-label={t('预订磅数：{name}',{name:t(p.name)})} type="number" min="0.001" max={Math.min(p.stock,100)} step="0.001" value={quantity} onChange={e=>{const q=Number(e.target.value);if(Number.isFinite(q)&&q>0&&q<=Math.min(p.stock,100))change(p.id,q);}}/>:<span>{quantity}</span>}
                           <button
                             type="button"
                             aria-label={t("增加{0}", {0: t(p.name)})}
                             disabled={quantity >= p.stock}
-                            onClick={() => change(p.id, quantity + 1)}
+                            onClick={() => change(p.id, Math.min(p.stock,100,quantity + 1))}
                           >
                             <Plus size={13} />
                           </button>
                         </div>
                         {quantity > p.stock && (
                           <div className="stock-warning" role="status">
-                            <span>{t("当前仅剩 ")}{p.stock} {t(p.unit)}
+                            <span>{t("当前仅剩 {count} {unit}", { count: p.stock, unit: { unit: p.unit, count: p.stock } })}
                             </span>
                             <button
                               type="button"
@@ -1240,7 +1314,7 @@ function CartModal({
                         )}
                       </div>
                       <div className="cart-line-total">
-                        <strong>{t(money(p.price_cents * quantity))}</strong>
+                        <strong>{t(money(Math.round(p.price_cents * quantity)))}</strong>
                         <button
                           type="button"
                           aria-label={t("移除{0}", {0: t(p.name)})}
@@ -1264,15 +1338,19 @@ function CartModal({
                 <Store size={17} />
                 <strong>{t("市集自提 · 到场付款")}</strong>
               </div>
-              <p>{t(config.today)}{t(" · 美国东部时间")}</p>
+              <p>{t(firstProduct?.market_name)}{firstProduct?.market_name && " · "}{t(firstProduct?.farm)}</p>
+              {firstProduct?.market_address && <p>{t(firstProduct.market_address)}</p>}
+              <p>{pickupDate}{t(" · 美国东部时间")}</p>
               <label>{t("选择自提时段")}<select
                   value={slot}
+                  disabled={!options.length}
                   onChange={(e) =>
                     onDraftChange({ ...draft, slot: e.target.value })
                   }
                 >
-                  {config.pickupSlots.map((s) => (
-                    <option value={s} key={s}>{t(s)}</option>
+                  {!options.length && <option value="">{t(!optionsReady ? "正在加载自提时段…" : optionsError ? "自提时段加载失败" : "暂无可用自提时段")}</option>}
+                  {options.map((s) => (
+                    <option value={s.label} key={s.label}>{t(s.label)}{s.remaining !== null ? ` · ${t("剩余 {count} 个名额", { count: s.remaining })}` : ""}</option>
                   ))}
                 </select>
               </label>
@@ -1288,12 +1366,16 @@ function CartModal({
                 />
               </label>
             </div>
+            <SnapCheckout itemsKey={JSON.stringify(Object.entries(cart).map(([id, quantity]) => ({ productId: Number(id), quantity })))}
+              method={draft.paymentMethod ?? "pay_at_pickup"} onReady={setSnapReady}
+              onChange={(paymentMethod) => onDraftChange({ ...draft, paymentMethod })} />
             <div className="cart-total">
               <span>{t("预计合计 ")}<small>USD</small>
               </span>
               <strong>{t(money(total))}</strong>
             </div>
             <p className="helper-text">{t("预购会为你保留库存；订单确认后请按时自提。此版本不收取线上款项。价格以提交订单时的服务端报价为准。")}</p>
+            {user?.role==='client'&&draft.submissionKey&&<button type="button" className="button full-width" disabled={busy} onClick={async()=>{setBusy(true);setError('');try{onSuccess(await api<Order>(`/order-submissions/${encodeURIComponent(draft.submissionKey!)}`));}catch(e){setError(e as Error);}finally{setBusy(false);}}}>{t('检查上次提交结果')}</button>}
             {invalid && (
               <p className="form-error" role="alert">{t("商品或库存已变化，请按上方提示调整购物袋后提交。")}</p>
             )}
@@ -1302,12 +1384,13 @@ function CartModal({
                 {t(error)}
               </p>
             )}
-            {!slot && (
+            {optionsError && <div className="pickup-retry" role="alert"><span>{t("自提时段加载失败，已选商品和备注仍保留。")}</span><button type="button" className="text-button" onClick={() => setOptionsAttempt((attempt) => attempt + 1)}>{t("重新加载时段")}</button></div>}
+            {!slot && optionsReady && !optionsError && (
               <p className="form-error" role="alert">{t("当前暂无可用自提时段，请稍后再来。")}</p>
             )}
             <button
-              className="button primary full-width"
-              disabled={busy || invalid || !slot || user?.role === "retailer"}
+              className="button primary full-width cart-submit"
+              disabled={busy || invalid || !slot || (draft.paymentMethod === "snap_ebt" && !snapReady) || (!!user && user.role !== "client")}
             >
               {busy ? (
                 <LoaderCircle size={17} className="spin" />
@@ -1317,7 +1400,7 @@ function CartModal({
               {t(busy
                 ? "正在提交预购，请稍候…"
                 : user
-                  ? "确认预购"
+                  ? "Place preorder"
                   : "登录后预购")}
               <ArrowRight size={16} />
             </button>
@@ -1325,332 +1408,6 @@ function CartModal({
         </form>
       )}
     </Modal>
-  );
-}
-
-function Prices({
-  products,
-  revision,
-}: {
-  products: Product[];
-  revision: number;
-}) {
-  const { t } = useLanguage();
-  const [view, setView] = useState<"archive" | "forecast">("archive");
-  return (
-    <>
-      <div className="category-tabs price-view-tabs" aria-label={t("价格资料类型")}>
-        <button
-          className={view === "archive" ? "selected" : ""}
-          onClick={() => setView("archive")}
-        >{t("Externship 采价档案")}</button>
-        <button
-          className={view === "forecast" ? "selected" : ""}
-          onClick={() => setView("forecast")}
-        >{t("演示价格趋势与预测")}</button>
-      </div>
-      {view === "archive" ? (
-        <ReferencePrices />
-      ) : (
-        <ForecastPrices products={products} revision={revision} />
-      )}
-    </>
-  );
-}
-
-function ForecastPrices({
-  products,
-  revision,
-}: {
-  products: Product[];
-  revision: number;
-}) {
-  const { t } = useLanguage();
-  const [selected, setSelected] = useState(products[0]?.id ?? 0);
-  const [data, setData] = useState<PriceData>();
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    if (!selected) return;
-    let cancelled = false;
-    setBusy(true);
-    setError("");
-    api<PriceData>(`/products/${selected}/prices`)
-      .then((d) => {
-        if (!cancelled) setData(d);
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e.message);
-      })
-      .finally(() => {
-        if (!cancelled) setBusy(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selected, revision]);
-  if (!products.length)
-    return (
-      <Empty
-        icon={<BarChart3 />}
-        title={t("还没有可观察的价格")}
-        text={t("商品上架后，可以查看已记录的历史价格与预测。")}
-      />
-    );
-  const first = data?.history[0]?.price_cents ?? 0;
-  const latest = data?.history.at(-1)?.price_cents ?? 0;
-  const change = first ? ((latest - first) / first) * 100 : 0;
-  const chart: {
-    date: string;
-    actual?: number;
-    predicted?: number;
-    range?: [number, number];
-  }[] =
-    data?.history.map((h) => ({ date: h.date, actual: h.price_cents / 100 })) ??
-    [];
-  if (data?.forecast.points.length) {
-    chart[chart.length - 1] = {
-      ...chart[chart.length - 1],
-      predicted: latest / 100,
-    };
-    chart.push(
-      ...data.forecast.points.map((p) => ({
-        date: p.date,
-        predicted: p.price_cents / 100,
-        range: [p.low_cents / 100, p.high_cents / 100] as [number, number],
-      })),
-    );
-  }
-  return (
-    <>
-      <div className="price-toolbar">
-        <div className="price-selector">
-          <span>{t("选择观察蔬菜")}</span>
-          <select
-            aria-label={t("选择观察蔬菜")}
-            value={selected}
-            onChange={(e) => setSelected(Number(e.target.value))}
-          >
-            {products.map((p) => (
-              <option value={p.id} key={p.id}>
-                {t(p.name)}{t(" · 每")}{t(p.unit)}
-              </option>
-            ))}
-          </select>
-          <ChevronDown size={16} />
-        </div>
-        <span className="helper-text">{t("价格单位：美元（USD） / 商品标示单位")}</span>
-      </div>
-      {error ? (
-        <div className="error-panel" role="alert">
-          {t(error)}
-          <button
-            className="text-button"
-            onClick={() => setSelected(products[0].id)}
-          >{t("查看首个商品")}</button>
-        </div>
-      ) : busy ? (
-        <div className="loading-panel">
-          <LoaderCircle className="spin" />{t("正在分析价格记录…")}</div>
-      ) : (
-        data && (
-          <>
-            <div className="stat-grid price-stat-grid">
-              <Stat
-                label={t("当前售价")}
-                value={money(data.product.price_cents)}
-                note={t("每{0} · 最新记录 {1}", {0: t(data.product.unit), 1: t(shortDate(data.history.at(-1)?.date ?? ""))})}
-                icon={<Wallet />}
-              />
-              <Stat
-                label={t("历史期间变化")}
-                value={`${change > 0 ? "+" : ""}${change.toFixed(1)}%`}
-                note={t("对比 {0} 首条记录", {0: t(shortDate(data.history[0]?.date ?? ""))})}
-                icon={change > 0 ? <ArrowUpRight /> : <ArrowDownRight />}
-              />
-              <Stat
-                label={t("7 天后预测")}
-                value={
-                  data.forecast.points.length
-                    ? money(data.forecast.points.at(-1)!.price_cents)
-                    : "数据不足"
-                }
-                note={t("模型估算，不代表实际成交价")}
-                icon={<TrendingUp />}
-              />
-              <Stat
-                label={t("回测平均绝对误差")}
-                value={
-                  data.forecast.maeCents !== null
-                    ? money(data.forecast.maeCents)
-                    : "—"
-                }
-                note={t("{0} 条历史记录 · 滚动单步回测", {0: data.forecast.sampleSize})}
-                icon={<BarChart3 />}
-              />
-            </div>
-            <section className="panel chart-panel">
-              <div className="panel-heading">
-                <div>
-                  <span className="eyebrow">A CLEARER VIEW OF FRESHNESS</span>
-                  <h2>{t(data.product.name)}{t(" · 价格走势")}</h2>
-                </div>
-                <div className="chart-legend">
-                  <span>
-                    <i />{t("历史价格")}</span>
-                  <span>
-                    <i className="predicted" />{t("趋势预测")}</span>
-                </div>
-              </div>
-              <div className="chart-container">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart
-                    data={chart}
-                    margin={{ top: 20, right: 18, left: 0, bottom: 12 }}
-                  >
-                    <defs>
-                      <linearGradient
-                        id="priceFill"
-                        x1="0"
-                        y1="0"
-                        x2="0"
-                        y2="1"
-                      >
-                        <stop
-                          offset="0%"
-                          stopColor="#718b67"
-                          stopOpacity={0.2}
-                        />
-                        <stop
-                          offset="100%"
-                          stopColor="#718b67"
-                          stopOpacity={0}
-                        />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid
-                      vertical={false}
-                      stroke="#eceee6"
-                      strokeDasharray="4 4"
-                    />
-                    <XAxis
-                      dataKey="date"
-                      tickFormatter={shortDate}
-                      tick={{ fontSize: 11, fill: "#8a9084" }}
-                      axisLine={false}
-                      tickLine={false}
-                      minTickGap={35}
-                    />
-                    <YAxis
-                      tickFormatter={(v) => `$${v}`}
-                      tick={{ fontSize: 11, fill: "#8a9084" }}
-                      axisLine={false}
-                      tickLine={false}
-                      domain={["auto", "auto"]}
-                    />
-                    <Tooltip
-                      labelFormatter={(v) => `${v}`}
-                      formatter={(value, name) => [
-                        Array.isArray(value)
-                          ? `${money(Number(value[0]) * 100)} – ${money(Number(value[1]) * 100)}`
-                          : money(Number(value) * 100),
-                        name === "actual"
-                          ? t("历史价格")
-                          : name === "range"
-                            ? t("估计区间")
-                            : t("趋势预测"),
-                      ]}
-                      contentStyle={{
-                        borderRadius: 12,
-                        border: "1px solid #e6e9df",
-                        fontSize: 12,
-                      }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="range"
-                      fill="#e4c9a3"
-                      fillOpacity={0.25}
-                      stroke="none"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="actual"
-                      stroke="#53764f"
-                      strokeWidth={2.5}
-                      fill="url(#priceFill)"
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="predicted"
-                      stroke="#c7975a"
-                      strokeWidth={2.5}
-                      strokeDasharray="6 5"
-                      dot={false}
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="forecast-note">
-                <TrendingUp size={19} />
-                <div>
-                  <strong>{t(data.forecast.method)}</strong>
-                  <p>
-                    {t(data.forecast.message)}{t(" ")}{t("演示模式下的历史记录为生成的示例数据。")}</p>
-                </div>
-              </div>
-            </section>
-            <section className="panel forecast-table">
-              <div className="panel-heading">
-                <h3>{t("未来 7 天参考价格")}</h3>
-                <span className="muted">{t("含模型估计区间")}</span>
-              </div>
-              {data.forecast.points.length ? (
-                <div className="table-scroll">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>{t("日期")}</th>
-                        <th>{t("参考价格 / ")}{t(data.product.unit)}</th>
-                        <th>{t("估计区间")}</th>
-                        <th>{t("相对当前售价")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.forecast.points.map((p) => (
-                        <tr key={p.date}>
-                          <td>{t(p.date)}</td>
-                          <td>
-                            <strong>{t(money(p.price_cents))}</strong>
-                          </td>
-                          <td>
-                            {t(money(p.low_cents))} – {t(money(p.high_cents))}
-                          </td>
-                          <td>
-                            <span
-                              className={
-                                p.price_cents <= latest
-                                  ? "trend-down"
-                                  : "trend-up"
-                              }
-                            >
-                              {t(p.price_cents > latest ? "+" : "")}
-                              {t(money(p.price_cents - latest))}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <p className="helper-text">{t("积累至少 7 天的价格记录后显示预测结果。")}</p>
-              )}
-            </section>
-          </>
-        )
-      )}
-    </>
   );
 }
 
@@ -1665,7 +1422,7 @@ function Orders({
   user: User | null;
   revision: number;
   refresh: () => void;
-  notify: (s: string) => void;
+  notify: (s: Message) => void;
   onLogin: () => void;
   onShop: () => void;
 }) {
@@ -1673,7 +1430,7 @@ function Orders({
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Message>("");
   const [busy, setBusy] = useState("");
   const [cancelOrder, setCancelOrder] = useState<Order>();
   useEffect(() => {
@@ -1686,7 +1443,7 @@ function Orders({
         if (!cancelled) setOrders(d);
       })
       .catch((e) => {
-        if (!cancelled) setError(e.message);
+        if (!cancelled) setError(e as Error);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -1714,7 +1471,7 @@ function Orders({
             : "订单已完成",
       );
     } catch (e) {
-      notify((e as Error).message);
+      notify(e as Error);
     } finally {
       setBusy("");
     }
@@ -1803,7 +1560,7 @@ function Orders({
                     </span>
                     <span>
                       × {item.quantity}
-                      <strong>{t(money(item.price_cents * item.quantity))}</strong>
+                      <strong>{t(money(Math.round(item.price_cents * item.quantity)))}</strong>
                     </span>
                   </div>
                 ))}
@@ -1815,12 +1572,15 @@ function Orders({
                 </span>
                 <span className="order-client">
                   <Users size={15} />
-                  {o.client_name}
+                  {translatePreviewContent(o.client_name, t)}
                 </span>
               </div>
-              {o.note && <p className="order-note">{t("备注：")}{o.note}</p>}
+              {o.note && <p className="order-note">{t("备注：")}{translatePreviewContent(o.note, t)}</p>}
+              {user.role === "client" && o.pickup_code && ["pending", "confirmed"].includes(o.status) && <div className="customer-pickup-code"><span>{t("向现场工作人员出示取货码")}</span><strong>{o.pickup_code}</strong><small>{t("待确认订单请等待备货确认后再到场。")}</small></div>}
+              <SnapOrderPlan order={o} />
+              <OrderAdjustmentPanel order={o} customer={user.role==='client'} refresh={refresh} />
               <div className="order-card-bottom">
-                <span>{t("到场付款 · 共 ")}{o.items.reduce((a, i) => a + i.quantity, 0)}{t(" 件")}<strong>{t(money(o.total_cents))}</strong>
+                <span>{t("到场付款 · 共 {count} 件", { count: o.items.reduce((a, i) => a + i.quantity, 0) })}<strong>{t(money(o.total_cents))}</strong>
                 </span>
                 <div>
                   {(o.status === "pending" ||
@@ -1842,10 +1602,10 @@ function Orders({
                       ) : (
                         <Check size={16} />
                       )}
-                      {t(busy === o.id ? "正在确认…" : "确认预购")}
+                      {t(busy === o.id ? "正在确认…" : "Accept preorder")}
                     </button>
                   )}
-                  {user.role === "retailer" && o.status === "confirmed" && (
+                  {user.role === "retailer" && o.status === "confirmed" && !o.market_session_id && !o.adjustment && (
                     <button
                       className="button primary"
                       disabled={!!busy}
@@ -1861,13 +1621,14 @@ function Orders({
                   )}
                 </div>
               </div>
+              {user.role === "retailer" && o.status === "confirmed" && (!!o.market_session_id||!!o.adjustment) && o.adjustment?.status!=='proposed' && <PickupForm orderId={o.id} total={o.total_cents} snapLimit={o.payment_method === "snap_ebt" ? o.snap_eligible_cents : 0} busy={busy === o.id} submit={async (body) => { if (busy) return; setBusy(o.id); try { await api(`/orders/${o.id}/pickup`, { method: "POST", body: JSON.stringify(body) }); refresh(); notify("订单已完成"); } finally { setBusy(""); } }} />}
             </article>
           ))}
         </div>
       )}
       {cancelOrder && (
         <Modal title={t("取消这份预购？")} onClose={closeCancel} busy={!!busy}>
-          <p className="modal-intro">{t("订单 ")}{t(cancelOrder.id)}{t(" ")}{t("取消后，预留库存会自动归还。已取消订单无法恢复。")}</p>
+          <p className="modal-intro">{t("订单 {id} 取消后，预留库存会自动归还。已取消订单无法恢复。", { id: cancelOrder.id })}</p>
           <div className="modal-actions">
             <button
               className="button secondary"
@@ -1888,29 +1649,6 @@ function Orders({
   );
 }
 
-function Stat({
-  label,
-  value,
-  note,
-  icon,
-}: {
-  label: string;
-  value: string;
-  note: string;
-  icon: ReactNode;
-}) {
-  const { t } = useLanguage();
-  return (
-    <div className="stat-card">
-      <div className="stat-label">
-        {t(label)}
-        <span>{icon}</span>
-      </div>
-      <strong className="stat-value">{t(value)}</strong>
-      <p>{t(note)}</p>
-    </div>
-  );
-}
 function RetailDashboard({
   revision,
   navigate,
@@ -1918,11 +1656,11 @@ function RetailDashboard({
 }: {
   revision: number;
   navigate: (p: Page) => void;
-  notify: (s: string) => void;
+  notify: (s: Message) => void;
 }) {
   const { t } = useLanguage();
   const [data, setData] = useState<Dashboard>();
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Message>("");
   useEffect(() => {
     let cancelled = false;
     api<Dashboard>("/retailer/dashboard")
@@ -1930,7 +1668,7 @@ function RetailDashboard({
         if (!cancelled) setData(d);
       })
       .catch((e) => {
-        if (!cancelled) setError(e.message);
+        if (!cancelled) setError(e as Error);
       });
     return () => {
       cancelled = true;
@@ -1952,7 +1690,7 @@ function RetailDashboard({
       <section className="retailer-welcome">
         <div>
           <span className="eyebrow">GOOD FOOD STARTS WITH YOU</span>
-          <h2>{t("每一份用心，")}<br />{t("都有一张餐桌在等待。")}</h2>
+          <h2>{t("每一份用心，\n都有一张餐桌在等待。")}</h2>
           <p>{t("今天也一起，让社区的餐桌更丰富一点。")}</p>
           <button
             className="button primary"
@@ -2003,9 +1741,9 @@ function RetailDashboard({
                     <ShoppingBag size={18} />
                   </span>
                   <span>
-                    <strong>{o.client_name}</strong>
+                    <strong>{translatePreviewContent(o.client_name, t)}</strong>
                     <small>
-                      {t(o.id)} · {o.items.length}{t(" 款商品")}</small>
+                      {t("{id} · {count} 款商品", { id: o.id, count: o.items.length })}</small>
                   </span>
                   <span>
                     <strong>{t(money(o.total_cents))}</strong>
@@ -2037,7 +1775,7 @@ function RetailDashboard({
                 <Produce kind={p.art} />
                 <span>
                   <strong>{t(p.name)}</strong>
-                  <small>{t("剩余 ")}{p.stock} {t(p.unit)}
+                  <small>{t("剩余 {count} {unit}", { count: p.stock, unit: { unit: p.unit, count: p.stock } })}
                   </small>
                 </span>
                 <ArrowUpRight size={16} />
@@ -2073,14 +1811,15 @@ function Inventory({
   today: string;
   revision: number;
   refresh: () => void;
-  notify: (s: string) => void;
+  notify: (s: Message) => void;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [products, setProducts] = useState<Product[]>([]);
   const [editing, setEditing] = useState<Product | null>();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Message>("");
   const [search, setSearch] = useState("");
+  const [inventoryMarket, setInventoryMarket] = useState("all");
   useEffect(() => {
     let cancelled = false;
     setError("");
@@ -2089,7 +1828,7 @@ function Inventory({
         if (!cancelled) setProducts(d);
       })
       .catch((e) => {
-        if (!cancelled) setError(e.message);
+        if (!cancelled) setError(e as Error);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -2099,7 +1838,7 @@ function Inventory({
     };
   }, [revision]);
   const close = useCallback(() => setEditing(undefined), []);
-  const shown = products.filter((p) => p.name.includes(search));
+  const shown = products.filter((p) => matchesSearch(search, p.name) && (inventoryMarket === "all" || String(p.market_id) === inventoryMarket));
   return (
     <>
       <div className="inventory-toolbar">
@@ -2112,6 +1851,10 @@ function Inventory({
             onChange={(e) => setSearch(e.target.value)}
           />
         </label>
+        <select aria-label={t("筛选库存市场")} value={inventoryMarket} onChange={(e) => setInventoryMarket(e.target.value)}>
+          <option value="all">{t("全部市场")}</option>
+          {Array.from(new Map(products.map((p) => [p.market_id, p.market_name])).entries()).map(([id, name]) => <option key={id} value={id}>{name ? t(name) : id}</option>)}
+        </select>
         <button className="button primary" onClick={() => setEditing(null)}>
           <Plus size={17} />{t("上架新商品")}</button>
       </div>
@@ -2153,7 +1896,8 @@ function Inventory({
                         </div>
                         <div>
                           <strong>{t(p.name)}</strong>
-                          <small>{t(p.organic ? "有机种植" : "当季新鲜")}</small>
+                          <small>{t(p.market_name ?? (p.organic ? "有机种植" : "当季新鲜"))}</small>
+                          <SnapFoodLabel eligibility={p.snap_eligibility} />
                         </div>
                       </div>
                     </td>
@@ -2166,7 +1910,7 @@ function Inventory({
                       <span
                         className={p.stock < 10 ? "stock-low" : "stock-normal"}
                       >
-                        {p.stock} {t(p.unit)}
+                        {p.stock} {quantityUnit(language, p.unit, p.stock)}
                       </span>
                     </td>
                     <td>{t(p.available_date)}</td>
@@ -2233,8 +1977,22 @@ function ProductEditor({
   const [description, setDescription] = useState(p?.description ?? "");
   const [organic, setOrganic] = useState(!!p?.organic);
   const [active, setActive] = useState(p ? !!p.active : true);
+  const [snapEligibility, setSnapEligibility] = useState<Product["snap_eligibility"]>(p?.snap_eligibility ?? "unknown");
+  const [markets, setMarkets] = useState<Market[]>([]);
+  const [marketId, setMarketId] = useState(p?.market_id ?? 0);
+  const [marketsLoading, setMarketsLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Message>("");
+  useEffect(() => {
+    let current = true;
+    api<Market[]>("/retailer/markets").then((list) => {
+      if (!current) return;
+      setMarkets(list);
+      setMarketId((id) => id || list.find((m) => m.active)?.id || 0);
+    }).catch((e: Error) => { if (current) setError(e as Error); })
+      .finally(() => { if (current) setMarketsLoading(false); });
+    return () => { current = false; };
+  }, []);
   const save = async (e: FormEvent) => {
     e.preventDefault();
     if (busy) return;
@@ -2244,6 +2002,8 @@ function ProductEditor({
       await api(p ? `/retailer/products/${p.id}` : "/retailer/products", {
         method: p ? "PUT" : "POST",
         body: JSON.stringify({
+          market_id: marketId,
+          snap_eligibility: snapEligibility,
           name,
           category,
           art,
@@ -2258,7 +2018,7 @@ function ProductEditor({
       });
       onSaved();
     } catch (e) {
-      setError((e as Error).message);
+      setError(e as Error);
     } finally {
       setBusy(false);
     }
@@ -2271,10 +2031,21 @@ function ProductEditor({
     >
       <form onSubmit={save} className="form-stack">
         <fieldset className="form-fields form-stack" disabled={busy}>
+          <label>{t("所属运营市场")}<select aria-label={t("所属运营市场")} required value={marketId || ""} disabled={marketsLoading}
+            onChange={(e) => setMarketId(Number(e.target.value))}>
+            <option value="" disabled>{t(marketsLoading ? "正在读取入驻市场…" : "请选择入驻市场")}</option>
+            {p && !markets.some((m) => m.id === p.market_id) && <option value={p.market_id}>{t("原市场（已退出，仅可下架）")}</option>}
+            {markets.map((m) => <option key={m.id} value={m.id}>{t(m.name)}{!m.active ? ` · ${t("已停用")}` : ""}</option>)}
+          </select></label>
+          {!marketsLoading && !markets.length && <p className="helper-text">{t("请联系学校管理方分配入驻市场后再上架。")}</p>}
+          <label>{t("SNAP 食品资格标记")}<select aria-label={t("SNAP 食品资格标记")} value={snapEligibility} onChange={(e) => setSnapEligibility(e.target.value as Product["snap_eligibility"])}>
+            <option value="unknown">{t("待核实，不计入 SNAP 食品预估")}</option><option value="eligible">{t("合资格食品（按 USDA 规则核实）")}</option><option value="ineligible">{t("不适用 SNAP，需其他方式付款")}</option>
+          </select></label>
+          <p className="helper-text">{t("新鲜果蔬通常符合食品范围；资格标记不等于本市场或商户已获准接受 EBT。")}</p>
           <label>{t("商品名称")}<input
               required
               maxLength={50}
-              value={name}
+              value={t(name)}
               onChange={(e) => setName(e.target.value)}
               placeholder={t("例如：刚采收的田园番茄")}
             />
@@ -2331,7 +2102,7 @@ function ProductEditor({
                 type="number"
                 min="0"
                 max="10000"
-                step="1"
+                step={unit === "磅" ? "0.001" : "1"}
                 value={stock}
                 onChange={(e) => setStock(Number(e.target.value))}
               />
@@ -2347,7 +2118,7 @@ function ProductEditor({
           <label>{t("关于这份新鲜")}<textarea
               maxLength={500}
               rows={3}
-              value={description}
+              value={t(description)}
               onChange={(e) => setDescription(e.target.value)}
               placeholder={t("介绍产地、口感或推荐做法…")}
             />
