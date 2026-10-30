@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 export const pagePaths = {
   discover: "/",
+  demo: "/demo",
   markets: "/markets",
   prices: "/prices",
   orders: "/orders",

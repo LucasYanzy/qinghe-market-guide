@@ -425,6 +425,7 @@ function App() {
   const nav = school ? schoolNav : retailer ? retailerNav : clientNav;
   const title = {
     discover: "逛逛市集",
+    demo: "Demo",
     markets: "市场与导航",
     prices: "价格观察",
     orders: retailer ? "预购订单" : "我的预购",

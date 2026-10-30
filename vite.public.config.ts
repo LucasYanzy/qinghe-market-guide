@@ -11,7 +11,7 @@ export default defineConfig({
       const directory = resolve("dist-public");
       const html = await readFile(resolve(directory, "public-site.html"), "utf8");
       // Real documents allow refreshes and links opened in new tabs on Pages.
-      for (const page of ["", "markets", "prices", "help", "about", "orders", "vendor", "admin"]) {
+      for (const page of ["", "demo", "markets", "prices", "help", "about", "orders", "vendor", "admin"]) {
         await mkdir(resolve(directory, page), { recursive: true });
         await writeFile(resolve(directory, page, "index.html"), html);
       }
