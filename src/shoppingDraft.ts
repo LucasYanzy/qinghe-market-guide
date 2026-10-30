@@ -1,4 +1,4 @@
-import { readShoppingSession } from "./shoppingSession";
+import { readShoppingSession } from "./shoppingSession.ts";
 import type { User } from "./types";
 
 export type Cart = Record<number, number>;

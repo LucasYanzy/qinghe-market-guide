@@ -1,4 +1,6 @@
 export const releaseEnglish: Record<string, string> = {
+  "切换体验": "Switch role",
+  "免登录体验完整流程；订单、库存和管理操作仅影响当前标签页的演示数据。": "Explore the full workflow without signing in. Orders, stock and management changes affect only the sample data in this tab.",
   "线上预购开放了吗？": "Are online preorders open?",
   "当前网站提供开市信息和到场指引，暂不接受线上预购。请到市场现场选购，并与商户确认供应和付款方式。": "This site offers market information and directions. Online preorders are not open. Shop at the market and confirm availability and payment methods with vendors.",
   "出行前如何确认临时变更？": "How can I check last-minute changes?",

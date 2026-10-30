@@ -1,4 +1,4 @@
-name: Build public guide artifact
+name: Build interactive demo artifact
 on:
   push:
     branches: ["feat/public-release-architecture"]

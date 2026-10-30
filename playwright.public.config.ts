@@ -3,6 +3,7 @@ import { defineConfig } from "@playwright/test";
 const port = Number(process.env.PUBLIC_TEST_PORT ?? 4178);
 export default defineConfig({
   testDir: "./tests/public",
+  outputDir: "public-test-results",
   workers: 1,
   use: {
     baseURL: `http://127.0.0.1:${port}/qinghe-market-guide/`,

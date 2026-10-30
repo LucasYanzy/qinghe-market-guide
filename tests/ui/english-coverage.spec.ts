@@ -70,6 +70,7 @@ test('English product detail, bag, authentication, live notifications and API pa
   await page.getByRole('button', { name: 'Add to bag', exact: true }).click();
   await expect(page.getByRole('status')).toContainText(/added to your bag/);
   await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
+  await expect(page.getByRole('dialog')).not.toBeVisible();
   await page.getByRole('button', { name: /^Shopping bag/ }).click();
   await expectEnglish(page);
   await page.getByRole('button', { name: 'Sign in to preorder', exact: true }).click();

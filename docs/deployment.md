@@ -1,8 +1,8 @@
 # Publishing and operating Qinghe
 
-## Public market guide (GitHub Pages)
+## Interactive demo (GitHub Pages)
 
-The public guide is built from `public-site.html`, independently of the full application:
+The interactive public demo is built from `public-site.html`, with a separate browser runtime for the shared application:
 
 ```sh
 npm ci
@@ -10,11 +10,15 @@ npm run build:public
 npm run preview:public
 ```
 
-The default URL prefix is `/qinghe-market-guide/`. To use a custom domain or another prefix, set `PUBLIC_BASE_PATH` when building and rebuild. `dist-public/` is the complete Pages artifact. It has no API dependency; dates, navigation, the price archive and help work on static hosting. The `/demo/` route previews customer, vendor and university screens with synthetic sample data. Filtering and navigation work locally; real orders, accounts, payments and management writes are unavailable in this target. This static preview is the current public release; the backend is not publicly deployed.
+The default URL prefix is `/qinghe-market-guide/`. To use a custom domain or another prefix, set `PUBLIC_BASE_PATH` when building and rebuild. `dist-public/` is the complete Pages artifact, including SQLite WebAssembly. Serve `.wasm` assets as `application/wasm` (GitHub Pages does this automatically).
 
-Live guide: https://lucasyanzy.github.io/qinghe-market-guide/
+The public build uses the complete original interface and business routes. It starts as a sample customer without login; the toolbar switches to vendor and university roles. Direct `/admin/…` and `/retailer/…` links choose the corresponding sample role. Products, orders, fulfillment, assisted operations, market settings and statistics use a separate in-browser SQLite database for each tab. Refresh restores it from `sessionStorage`; Reset clears only that tab. With blocked browser storage, the page remains usable until refresh and displays a storage notice.
 
-The source repository remains private. GitHub Pages serves only built website files from the separate public repository `LucasYanzy/qinghe-market-guide`, with `main` and `/` as its publishing source. It contains no backend, database, environment files or original Git history.
+These actions affect sample data only. The public runtime neither accepts credentials nor sends real orders, payments or email. The Node build remains authenticated and is not deployed publicly. No Railway login is required for this demo.
+
+Live interactive demo: https://lucasyanzy.github.io/qinghe-market-guide/
+
+The source repository remains private. GitHub Pages serves only built website files from the separate public repository `LucasYanzy/qinghe-market-guide`, with `main` and `/` as its publishing source. It contains no operational database, environment files or original Git history. Bundled shared route definitions execute only inside the visitor’s browser.
 
 `.github/workflows/pages.yml` builds a private `public-market-guide` artifact from the source release branch. To update the live site, review the public build, copy `dist-public/` into the dedicated website checkout (preserving its `.git` and README), commit and push there. Its Pages branch deployment publishes that static commit automatically. The source CI token is not granted cross-repository permissions.
 
@@ -81,4 +85,4 @@ To roll back code, redeploy the previous commit or image. Back up before schema 
 
 ## What publication does not activate
 
-The project records in-person pickup and payment intentions. It does not process card payments or online EBT. Outbound email requires its own provider configuration and an explicit outbox command. The public guide is an independent community project, not an official Rutgers service; official announcements remain the authority for temporary closures.
+The project records in-person pickup and payment intentions. It does not process card payments or online EBT. Outbound email requires its own provider configuration and an explicit outbox command. Qinghe is an independent community project, not an official Rutgers service; official announcements remain the authority for temporary closures.

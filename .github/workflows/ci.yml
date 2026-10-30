@@ -32,6 +32,7 @@ jobs:
           name: browser-test-results
           path: |
             test-results/
+            public-test-results/
             playwright-report/
           retention-days: 7
   container:

@@ -1,5 +1,6 @@
 import { LanguageSwitcher, useLanguage, type Message } from "./i18n";
 import { matchesSearch, quantityUnit } from "./translations/translate";
+import { browserDemo, DemoToolbar, DemoRolePicker, switchDemoRole } from "./browser-demo/Controls";
 import { previewRecordEnglish, translatePreviewContent } from "./translations/preview";
 import {
   lazy,
@@ -54,7 +55,7 @@ import { SessionDirectory } from './SessionDirectory';
 import { officialMarketUrl } from "./marketReference";
 import Stat from "./Stat";
 import { PageBoundary } from "./PageBoundary";
-import { PageLink, useNavigation, type Page } from "./navigation";
+import { PageLink, pageHref, useNavigation, type Page } from "./navigation";
 import { AboutMarket } from "./VisitorGuide";
 import { VisitorHeader, VisitorFooter, visitorNav as clientNav } from "./VisitorNavigation";
 const SchoolAdmin = lazy(() => import("./SchoolAdmin"));
@@ -377,9 +378,10 @@ function App() {
         draftRestored.current = true;
         setDraftReady(true);
       }
-      if (u.user?.role === "retailer" && window.location.pathname === "/")
+      const atHome = window.location.pathname.replace(/\/$/, "") === pageHref("discover").replace(/\/$/, "");
+      if (u.user?.role === "retailer" && atHome)
         replacePage("dashboard");
-      if (u.user?.role === "admin" && window.location.pathname === "/")
+      if (u.user?.role === "admin" && atHome)
         replacePage("school");
     } catch (e) {
       setLoadError(e as Error);
@@ -423,7 +425,14 @@ function App() {
     return () => window.removeEventListener("focus", refresh);
   }, [refresh]);
   const navigate = (next: Page) => {
-    changePage(next);
+    const requiredRole = next === "school" || next.startsWith("school-") ? "admin"
+      : next === "dashboard" || next === "inventory" ? "retailer" : undefined;
+    if (browserDemo && requiredRole && user?.role !== requiredRole) {
+      void switchDemoRole(requiredRole).then((nextUser) => {
+        setUser(nextUser); setCart({}); setCheckout({ slot: "", note: "" });
+        changePage(next); refresh();
+      }).catch((error) => notify(error));
+    } else changePage(next);
     setMobileNav(false);
   };
   const onLogin = (next: User) => {
@@ -436,6 +445,7 @@ function App() {
       setCheckout({ slot: "", note: "" });
     }
     setAuthOpen(false);
+    setDetailId(undefined);
     setCartOpen(loginIntent === "cart" && !resetCart);
     const nextPage =
       next.role === "admin"
@@ -570,6 +580,8 @@ function App() {
       </div>
     );
   return (
+    <>
+    {browserDemo && <DemoToolbar user={user} onUser={onLogin} />}
     <div className={`app-shell ${school ? `school-site ${page === "school-screen" ? "school-screen-site" : ""}` : retailer ? "retailer-site" : "visitor-site"} ${cartCount ? "has-shopping-bag has-cart" : ""}`}>
       <a href="#main-content" className="skip-link">{t("跳到主要内容")}</a>
       {manager && mobileNav && (
@@ -637,15 +649,15 @@ function App() {
           </div>
           <button
             className="icon-button"
-            aria-label={t(user ? "退出登录" : "登录")}
-            onClick={() => { setMobileNav(false); if (user) void logout(); else setAuthOpen(true); }}
+            aria-label={t(browserDemo ? "切换体验" : user ? "退出登录" : "登录")}
+            onClick={() => { setMobileNav(false); if (user && !browserDemo) void logout(); else setAuthOpen(true); }}
           >
             {user ? <LogOut size={17} /> : <ChevronRight size={18} />}
           </button>
         </div>
       </aside>}
       <div className="main-shell" inert={mobileNav}>
-        {!manager ? <VisitorHeader page={page} navigate={navigate} user={user} onLogin={() => setAuthOpen(true)} onLogout={() => void logout()} /> : <header className="topbar">
+        {!manager ? <VisitorHeader page={page} navigate={navigate} user={user} onLogin={() => setAuthOpen(true)} onLogout={() => browserDemo ? setAuthOpen(true) : void logout()} /> : <header className="topbar">
           <div className="breadcrumb">
             <button
               aria-controls="market-navigation"
@@ -669,7 +681,7 @@ function App() {
             </span>
             <button className="role-switch" onClick={() => setAuthOpen(true)}>
               <Users size={16} />
-              {t("切换账号")}
+              {t(browserDemo ? "切换体验" : "切换账号")}
               <ArrowUpRight size={14} />
             </button>
           </div>
@@ -717,7 +729,7 @@ function App() {
           </div>
           {config.demo && (
             <div className="demo-notice">
-              <span className="demo-badge">{t("DEMO")}</span>{t(" ")}{t("开市日历与地址来自官方公开资料；商品、库存与预购为演示。")}{retailer && t(" 商户修改会影响当前演示商品与订单。")}
+              <span className="demo-badge">{t("DEMO")}</span>{t(" ")}{t(browserDemo ? "免登录体验完整流程；订单、库存和管理操作仅影响当前标签页的演示数据。" : "开市日历与地址来自官方公开资料；商品、库存与预购为演示。")}{retailer && t(" 商户修改会影响当前演示商品与订单。")}
             </div>
           )}
           {page === "discover" && (
@@ -850,6 +862,7 @@ function App() {
           {page === "about" && (
             <AboutMarket navigate={navigate} demo={config.demo} />
           )}
+          {page === "demo" && <AboutMarket navigate={navigate} demo={config.demo} />}
           {page === "not-found" && (
             <Empty
               icon={<MapPin />}
@@ -982,7 +995,7 @@ function App() {
           </button>
         </div>
       )}
-      {authOpen && (
+      {authOpen && (browserDemo ? <DemoRolePicker onClose={closeAuth} onUser={onLogin} /> :
         <AuthModal
           demo={config.demo}
           onClose={closeAuth}
@@ -1070,6 +1083,7 @@ function App() {
         </Modal>
       )}
     </div>
+    </>
   );
 }
 

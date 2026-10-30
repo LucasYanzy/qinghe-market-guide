@@ -1,11 +1,12 @@
 # Application architecture
 
-Qinghe has two deployment targets that share the market information, visual components and translations.
+Qinghe has two deployment targets sharing the full React interface, database schema, routes and business services. The current public target is an interactive demo with automatic sample identities; the Node target retains real session authentication.
 
 ```mermaid
 flowchart LR
   Visitor[Public visitors] --> Pages[GitHub Pages / public-site.html]
-  Pages --> Guide[Versioned market schedules and price archive]
+  Pages --> Browser[Browser SQLite / isolated sample data]
+  Browser --> Shared[Shared routes and business services]
   Customer[Customers / vendors / school staff] --> App[React application / index.html]
   App --> HTTP[Same-origin Express API]
   HTTP --> Auth[Session and role checks]
@@ -16,11 +17,13 @@ flowchart LR
 
 ## Frontend boundaries
 
-- `src/public-site/` is a standalone public entry. It can operate entirely on GitHub Pages, without an API or account. It offers verified dates, location navigation, historical price references, help resources and a read-only customer/vendor/university demo. Demo records in `demo-data.ts` are synthetic, with no API or operational writes. It does not accept orders or collect account information.
+- `src/public-site/` boots the complete app with `src/browser-demo/runtime.ts`. Each visitor gets independent sample identities and an isolated SQLite database in their tab. Orders, inventory edits, school settings, operations and reports remain functional; no credentials or remote API are needed.
+- `src/browser-demo/sqlite.ts` adapts the synchronous database interface to `sql.js`; the same migrations, seed and transactional services run in both targets. `router.ts` dispatches the existing route definitions without a network server. Vite aliases these platform boundaries only for the public build.
+- Demo mutations are serialized, persisted to `sessionStorage`, and reset from the toolbar. A storage failure leaves current interactions available and shows that refresh will reset them. No real customer data or operating database is included.
 - `src/App.tsx` composes the full application shell, authentication, shopping and role navigation. Price charts and school modules load on demand. `src/Prices.tsx` owns price analysis, and `src/Stat.tsx` is shared presentation.
 - `src/PageBoundary.tsx` handles loading and module failures with a user-visible recovery action.
 - `src/navigation.tsx` centralizes routes and handles a repository subpath through Vite's `BASE_URL`. Public builds emit a document for each available route, so refreshes and new tabs work on Pages.
-- `src/MarketVisit.tsx`, `src/MarketGuide.tsx`, `src/marketSchedule.ts` and `references/` own the public market guide. Backend session lookups are explicitly disabled in the public entry.
+- `src/MarketVisit.tsx`, `src/MarketGuide.tsx`, `src/marketSchedule.ts` and `references/` own the public market guide. Operational session lookups run against the local demo database in the public build.
 - `src/shoppingDraft.ts` stores only the current tab's dated choices, with account checks on restoration; prices and stock always reload. It supports future pickup dates and weighed quantities.
 - Browser tests use per-test temporary databases and random local ports through `tests/ui/isolated.ts`.
 - `src/api.ts` is the only general API transport. Components do not access the database or receive credentials from build-time environment variables.
@@ -41,10 +44,10 @@ The full app is a **single Node.js 24 process with one writable persistent disk*
 
 Hashed assets receive a year of immutable caching. HTML, account data and API responses use `no-store`. No database, real contact book, `.env`, backup or test artifact belongs in the public repository or Pages artifact.
 
-The public Pages artifact contains only the public site and versioned reference data. Backend configuration, the database and the authenticated application are not deployed there. Its reference information changes through reviewed source updates; it is not a live closure or inventory feed.
+The public Pages artifact contains the full demo application and versioned reference data. Node infrastructure, secrets and operational databases are not deployed there. The demo creates its sample database locally. Its reference information changes through reviewed source updates; it is not a live closure or inventory feed.
 
 ## Verification
 
 `npm run check` type-checks and builds the full application, builds the independent public website and runs the Node regression suite. Browser tests verify role workflows and responsive layouts. Deployment tests exercise exact origin checks behind a proxy, invalid configuration, deep links, cache headers and a WAL-safe database backup. GitHub Actions also builds and starts the Docker image using a named data volume.
 
-CI validates source and exports the guide artifact. The independent public website repository publishes only built files from its main branch; the original project history and source stay private. Deploying the full backend is a separate operation. A successful Pages deployment does not imply that online ordering is available.
+CI validates source and exports the interactive demo artifact. The independent public website repository publishes only built files from its main branch; the original project history and source stay private. Deploying the full backend is a separate operation. Demo preorders stay in the visitor’s tab and are not sent to real vendors.

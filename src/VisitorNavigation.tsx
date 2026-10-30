@@ -1,3 +1,4 @@
+import { browserDemo } from "./browser-demo/Controls";
 import { Bell, CircleHelp, Leaf, LogOut, MapPin, ShoppingBag, Store, UserRound } from "lucide-react";
 import { LanguageSwitcher, useLanguage } from "./i18n";
 import { PageLink, type Page, type Route } from "./navigation";
@@ -29,8 +30,8 @@ export function VisitorHeader({ page, navigate, user, onLogin, onLogout }: {
       {user && <PageLink page="notifications" navigate={navigate} className="visitor-notifications" active={page === "notifications"}><Bell size={18} /><span>{t("通知")}</span></PageLink>}
       <PageLink page="help" navigate={navigate} active={page === "help"} className="visitor-help-link"><CircleHelp size={19} /><span>{t("帮助")}</span></PageLink>
       <LanguageSwitcher />
-      <button className="visitor-account" onClick={user ? onLogout : onLogin} aria-label={t(user ? "退出登录" : "登录")} title={t(user?.name)}>
-        {user ? <LogOut size={17} /> : <UserRound size={17} />}<span>{t(user ? "退出" : "登录")}</span>
+      <button className="visitor-account" onClick={user ? onLogout : onLogin} aria-label={t(browserDemo ? "切换体验" : user ? "退出登录" : "登录")} title={t(user?.name)}>
+        {user ? <LogOut size={17} /> : <UserRound size={17} />}<span>{t(browserDemo ? "切换体验" : user ? "退出" : "登录")}</span>
       </button>
     </div>
   </header>;
@@ -45,7 +46,7 @@ export function VisitorFooter({ navigate, onManage }: { navigate: (page: Page) =
       <PageLink page="prices" navigate={navigate}>{t("价格观察")}</PageLink>
       <PageLink page="about" navigate={navigate}>{t("关于青禾")}</PageLink>
       <PageLink page="vendor" navigate={navigate}>{t("商户服务")}</PageLink>
-      <button onClick={onManage}>{t("商户与学校登录")}</button>
+      <button onClick={onManage}>{t(browserDemo ? "切换体验" : "商户与学校登录")}</button>
     </nav>
   </footer>;
 }

@@ -2,19 +2,19 @@
 
 独立的社区市集项目，包含公开市场导览与顾客、商户、学校三端完整应用。非 Rutgers 官方网站。
 
-- **公开只读 Demo 与导览站**：[市场时间、导航与资源](https://lucasyanzy.github.io/qinghe-market-guide/)。公开站采用 GitHub Pages，提供[顾客、商户、学校三端 Demo](https://lucasyanzy.github.io/qinghe-market-guide/demo/)、日历、地址导航、历史价格档案和帮助。Demo 使用合成示例，可切换身份、筛选和浏览；不开放真实登录、预购、付款或后台写入。完整应用仅供独立本地运行。
-- **架构说明**：[docs/architecture.md](docs/architecture.md)。公开站与完整应用使用独立入口，共享日程、组件和翻译；价格分析与学校模块按需加载。
-- **部署手册**：[docs/deployment.md](docs/deployment.md)。包含 Node 24、Docker / Railway、持久化卷、反向代理、备份恢复及回滚流程。
+- **公开免登录 Demo**：[直接打开完整应用](https://lucasyanzy.github.io/qinghe-market-guide/)。顾客可选购、预购和查看订单，商户可编辑商品、处理订单，学校可配置市场、代办现场运营和查看统计。顶部一键切换身份，无需账号或密码。每个标签页使用独立演示数据库，刷新保留，可重置；不会向真实商户发送订单或收取付款。
+- **架构说明**：[docs/architecture.md](docs/architecture.md)。公开 Demo 与完整应用使用独立运行入口，共享完整界面、日程、翻译、数据库结构、路由和业务逻辑；价格分析与学校模块按需加载。
+- **部署手册**：[docs/deployment.md](docs/deployment.md)。包含浏览器 Demo 发布、Node 24、Docker / Railway、持久化卷、反向代理、备份恢复及回滚流程。
 
 ```sh
 npm ci
 npm run dev           # 完整应用：前端 5173 / API 3001
 npm run check         # 双入口构建 + API、日历、权限与部署回归
-npm run test:public   # 公开站导航、路径、语言、手机布局
+npm run test:public   # 免登录下单、商户/学校操作、访客隔离与手机布局
 npm run test:ui       # 完整应用浏览器回归
 ```
 
-`npm run build:public` 生成独立的 `dist-public/`，无需 API；`npm run build` 生成完整应用的 `dist/`，与 Express API 同源运行。`.github/workflows/` 提供检查、容器启动验证和公开站构建产物。网站文件发布到独立的 `LucasYanzy/qinghe-market-guide` 仓库，原源码仓库继续保持私有。运行配置由 `server/config.mjs` 统一校验；生产环境必须显式指定持久化 `DATABASE_PATH`，默认关闭演示模式并启用安全 Cookie。本地 `npm run dev` 与 `npm start` 自动加载 `.env`，不要提交环境文件、运营数据库或备份。
+`npm run build:public` 生成独立的 `dist-public/`，在浏览器内运行 SQLite 与共享业务逻辑，无需远程 API；`npm run build` 生成完整应用的 `dist/`，与 Express API 同源运行。`.github/workflows/` 提供检查、容器启动验证和公开站构建产物。网站文件发布到独立的 `LucasYanzy/qinghe-market-guide` 仓库，原源码仓库继续保持私有。运行配置由 `server/config.mjs` 统一校验；生产环境必须显式指定持久化 `DATABASE_PATH`，默认关闭演示模式并启用安全 Cookie。本地 `npm run dev` 与 `npm start` 自动加载 `.env`，不要提交环境文件、运营数据库或备份。
 
 ---
 
@@ -37,7 +37,7 @@ npm run test:ui       # 完整应用浏览器回归
 | 网址 | 页面 |
 | --- | --- |
 | `/` | 最近开市时间与地点、导航和日历、演示商品与预购指南 |
-| `/demo` | 公开站的顾客、商户、学校只读展示（合成数据） |
+| `/demo` | 项目与流程说明；从顶部切换三种操作身份 |
 | `/markets` | 开市日历、按日期查市场、全部地址与导航 |
 | `/prices` | 历史采价档案与演示价格趋势 |
 | `/orders` | 我的预购；商户登录后显示所属商户订单 |
@@ -51,7 +51,7 @@ npm run test:ui       # 完整应用浏览器回归
 | `/admin/impact` | 社区实际参与与可展开的规划示意图 |
 | `/admin/operations` | 学校服务台：代办商户、场次、备货清单、取货核验与收款登记 |
 
-以上运营路径属于完整应用，不在公开站开放。
+公开 Demo 也提供以上路径，直接进入学校或商户链接会自动切换演示身份；正式 Node 应用仍由服务端验证账号和角色。
 
 页面支持直接访问、刷新、浏览器前进后退及新标签页打开。当前标签页通过 sessionStorage 保留当天的购物袋、自提日期、时段和备注，刷新后恢复，重新读取最新价格与库存；关闭标签页、退出或切换账号、跨日后不恢复旧选择。登录恢复后仍需明确确认下单。商户页需要商户账号，直接访问会先显示登录入口；服务端继续校验所有商户操作权限。未知网址显示返回首页入口。
 
@@ -214,7 +214,7 @@ npm run build
 npm start
 ```
 
-这会启动单个提供页面和 API 的 Node 服务，不等于发布公网网站。对外部署需要支持 Node.js 24 和持久化磁盘的托管环境；将 `DATABASE_PATH` 指向持久化目录，构建命令使用 `npm ci && npm run build`，启动命令使用 `npm start`。HTTPS 部署时按下方配置设置 `COOKIE_SECURE=true`。公开导览使用 GitHub Pages；完整应用的部署配置和持久化要求见 `docs/deployment.md`。
+这会启动单个提供页面和 API 的 Node 服务，不等于发布公网网站。对外部署需要支持 Node.js 24 和持久化磁盘的托管环境；将 `DATABASE_PATH` 指向持久化目录，构建命令使用 `npm ci && npm run build`，启动命令使用 `npm start`。HTTPS 部署时按下方配置设置 `COOKIE_SECURE=true`。免登录完整 Demo 使用 GitHub Pages；完整应用的部署配置和持久化要求见 `docs/deployment.md`。
 
 ## 结构
 
