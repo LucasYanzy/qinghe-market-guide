@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
+import { test } from "./isolated";
 import { readFile } from "node:fs/promises";
 const credentials = { password: "MarketDemo2026!" };
 async function login(page: Page, role = "admin") {

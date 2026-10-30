@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from "./isolated";
 async function login(page: Page, role = 'admin') { expect((await page.request.post('/api/auth/login', { data: { email: `${role}@qinghe.demo`, password: 'MarketDemo2026!' } })).ok()).toBe(true); }
 
 test('管理大屏按市场展示真实指标，可刷新、恢复和直达待办及场次', async ({ page }) => {

@@ -48,7 +48,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         ? "Rutgers farmers market dates, hours, addresses, directions, and calendar planning."
         : "Rutgers 社区农夫市集：查询开市日期、营业时间、完整地址与导航，轻松安排市集出行。",
     );
-  }, [language]);
+  }, [language, t]);
   useEffect(() => {
     const sync = (event: StorageEvent) => {
       if (event.key === storageKey || event.key === null) updateLanguage(readLanguage());

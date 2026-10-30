@@ -10,7 +10,7 @@ npm run build:public
 npm run preview:public
 ```
 
-The default URL prefix is `/qinghe-market-guide/`. To use a custom domain or another prefix, set `PUBLIC_BASE_PATH` when building and rebuild. `dist-public/` is the complete Pages artifact. It has no API dependency; dates, navigation, the price archive and help work on static hosting. Real orders and accounts are unavailable in this target.
+The default URL prefix is `/qinghe-market-guide/`. To use a custom domain or another prefix, set `PUBLIC_BASE_PATH` when building and rebuild. `dist-public/` is the complete Pages artifact. It has no API dependency; dates, navigation, the price archive and help work on static hosting. The `/demo/` route previews customer, vendor and university screens with synthetic sample data. Filtering and navigation work locally; real orders, accounts, payments and management writes are unavailable in this target. This static preview is the current public release; the backend is not publicly deployed.
 
 Live guide: https://lucasyanzy.github.io/qinghe-market-guide/
 

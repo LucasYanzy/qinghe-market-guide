@@ -1,3 +1,4 @@
+import { readShoppingSession } from "./shoppingSession";
 import type { User } from "./types";
 
 export type Cart = Record<number, number>;
@@ -27,7 +28,14 @@ export function parseShoppingDraft(raw: string | null, today = shoppingToday()):
 }
 
 export function readShoppingDraft() {
-  try { return parseShoppingDraft(sessionStorage.getItem(storageKey)); } catch { return; }
+  try {
+    const current = sessionStorage.getItem(storageKey);
+    if (current !== null) return parseShoppingDraft(current);
+    const legacy = readShoppingSession();
+    if (!legacy) return;
+    return parseShoppingDraft(JSON.stringify({ version: 1, savedOn: legacy.date, date: legacy.date,
+      owner: legacy.ownerId, cart: legacy.cart, checkout: legacy.checkout }));
+  } catch { return; }
 }
 
 export function canRestoreShoppingDraft(saved: ShoppingDraft | undefined, user: User | null) {
@@ -36,7 +44,10 @@ export function canRestoreShoppingDraft(saved: ShoppingDraft | undefined, user: 
 
 export function saveShoppingDraft(date: string, cart: Cart, checkout: CheckoutDraft, user: User | null) {
   try {
-    if (user && user.role !== "client") { sessionStorage.removeItem(storageKey); return; }
+    sessionStorage.removeItem("qinghe-shopping-session-v1");
+    if ((user && user.role !== "client") || (!Object.keys(cart).length && !checkout.slot && !checkout.note)) {
+      sessionStorage.removeItem(storageKey); return;
+    }
     sessionStorage.setItem(storageKey, JSON.stringify({ version: 1, savedOn: shoppingToday(), date, owner: user?.id ?? null, cart, checkout }));
   } catch { /* Shopping continues when browser storage is unavailable. */ }
 }

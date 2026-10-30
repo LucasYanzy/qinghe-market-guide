@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "./isolated";
 
 test("商品卡片直接加减，手机购物袋入口随时可用，移除最后一件后键盘焦点保留", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 844 });

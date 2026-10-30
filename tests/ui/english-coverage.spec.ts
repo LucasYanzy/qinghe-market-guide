@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from "./isolated";
 import { readFile } from 'node:fs/promises';
 
 // Scan rendered content as well as accessible labels and editable seed data.

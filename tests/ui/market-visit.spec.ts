@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "./isolated";
 
 test.beforeEach(async ({ page }) => {
   await page.clock.install({ time: new Date("2026-10-29T12:00:00-04:00") });

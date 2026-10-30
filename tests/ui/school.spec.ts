@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "./isolated";
 
 const login = { email: "admin@qinghe.demo", password: "MarketDemo2026!" };
 

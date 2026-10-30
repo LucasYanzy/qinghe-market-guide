@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "./isolated";
 
 test("访客只保留三个主入口，辅助链接和统一登录仍可访问", async ({ page }) => {
   await page.goto("/");

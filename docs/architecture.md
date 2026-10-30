@@ -16,11 +16,13 @@ flowchart LR
 
 ## Frontend boundaries
 
-- `src/public-site/` is a standalone public entry. It can operate entirely on GitHub Pages, without an API or account. It offers verified dates, location navigation, historical price references and help resources. It does not accept orders or collect account information.
+- `src/public-site/` is a standalone public entry. It can operate entirely on GitHub Pages, without an API or account. It offers verified dates, location navigation, historical price references, help resources and a read-only customer/vendor/university demo. Demo records in `demo-data.ts` are synthetic, with no API or operational writes. It does not accept orders or collect account information.
 - `src/App.tsx` composes the full application shell, authentication, shopping and role navigation. Price charts and school modules load on demand. `src/Prices.tsx` owns price analysis, and `src/Stat.tsx` is shared presentation.
 - `src/PageBoundary.tsx` handles loading and module failures with a user-visible recovery action.
 - `src/navigation.tsx` centralizes routes and handles a repository subpath through Vite's `BASE_URL`. Public builds emit a document for each available route, so refreshes and new tabs work on Pages.
 - `src/MarketVisit.tsx`, `src/MarketGuide.tsx`, `src/marketSchedule.ts` and `references/` own the public market guide. Backend session lookups are explicitly disabled in the public entry.
+- `src/shoppingDraft.ts` stores only the current tab's dated choices, with account checks on restoration; prices and stock always reload. It supports future pickup dates and weighed quantities.
+- Browser tests use per-test temporary databases and random local ports through `tests/ui/isolated.ts`.
 - `src/api.ts` is the only general API transport. Components do not access the database or receive credentials from build-time environment variables.
 
 ## Backend boundaries

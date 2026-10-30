@@ -1,9 +1,11 @@
 import type { Parameters } from "./translations/translate";
 
-class ApiError extends Error {
+export class ApiError extends Error {
+  status: number;
   values: Parameters;
-  constructor(message: string, values: Record<string, string | number> = {}) {
+  constructor(status: number, message: string, values: Record<string, string | number> = {}) {
     super(message);
+    this.status = status;
     this.values = Object.fromEntries(
       Object.entries(values).map(([key, value]) => [
         key,
@@ -31,6 +33,7 @@ export async function api<T>(
   });
   if (!response.ok)
     throw new ApiError(
+      response.status,
       data.messageKey ?? data.error ?? "网络请求失败，请稍后重试。",
       data.values,
     );

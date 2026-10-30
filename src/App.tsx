@@ -5,9 +5,12 @@ import {
   lazy,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type FormEvent,
+  type Dispatch,
+  type SetStateAction,
   type ReactNode,
 } from "react";
 import {
@@ -36,11 +39,12 @@ import {
   Store,
   TrendingUp,
   Truck,
+  Undo2,
   Users,
   Wallet,
   X,
 } from "lucide-react";
-import { api, money } from "./api";
+import { api, ApiError, money } from "./api";
 import { BasketArt, Produce } from "./Produce";
 import MarketGuide, { HelpCenter } from "./MarketGuide";
 import { NextMarketHero } from "./MarketVisit";
@@ -59,6 +63,8 @@ const SchoolScreen = lazy(() => import("./SchoolScreen"));
 import { SnapCheckout, SnapFoodLabel, SnapOrderPlan } from "./SnapProgram";
 import { PickupForm } from "./SchoolOperations";
 import { canRestoreShoppingDraft, readShoppingDraft, saveShoppingDraft, shoppingToday, type Cart, type CheckoutDraft } from "./shoppingDraft";
+import { MotionGrid, ScrollActions, usePageMotion } from "./motion";
+import { useCartFeedback } from "./cartFeedback";
 import type {
   Config,
   Dashboard,
@@ -70,6 +76,7 @@ import type {
   User,
 } from "./types";
 
+const maxQuantity = (product: Product) => Math.min(product.stock, 100);
 const statusLabels: Record<OrderStatus, string> = {
   pending: "待商户确认",
   confirmed: "待到场自提",
@@ -111,19 +118,30 @@ function Modal({
 }) {
   const { t } = useLanguage();
   const ref = useRef<HTMLDivElement>(null);
+  const [closing, setClosing] = useState(false);
+  const requestClose = useCallback(() => {
+    if (busy || closing) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) onClose();
+    else setClosing(true);
+  }, [busy, closing, onClose]);
+  useEffect(() => {
+    if (!closing) return;
+    const timer = window.setTimeout(onClose, 150);
+    return () => window.clearTimeout(timer);
+  }, [closing, onClose]);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     const original = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    ref.current?.focus();
+    ref.current?.focus({ preventScroll: true });
     return () => {
       document.body.style.overflow = original;
-      if (previous?.isConnected) previous.focus();
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
     };
   }, []);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !busy) onClose();
+      if (e.key === "Escape") requestClose();
       if (e.key === "Tab") {
         if (busy) {
           e.preventDefault();
@@ -145,7 +163,10 @@ function Modal({
         }
         const first = focusable[0],
           last = focusable[focusable.length - 1];
-        if (
+        if (!ref.current?.contains(document.activeElement)) {
+          e.preventDefault();
+          (e.shiftKey ? last : first).focus();
+        } else if (
           e.shiftKey &&
           (document.activeElement === first ||
             document.activeElement === ref.current)
@@ -162,12 +183,12 @@ function Modal({
     return () => {
       document.removeEventListener("keydown", key);
     };
-  }, [onClose, busy]);
+  }, [requestClose, busy]);
   return (
     <div
-      className="modal-backdrop"
+      className={`modal-backdrop ${closing ? "is-closing" : ""}`}
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget && !busy) onClose();
+        if (e.target === e.currentTarget) requestClose();
       }}
     >
       <div
@@ -183,7 +204,7 @@ function Modal({
           <h2>{t(title)}</h2>
           <button
             className="icon-button"
-            onClick={onClose}
+            onClick={requestClose}
             aria-label={t("关闭弹窗")}
             disabled={busy}
           >
@@ -217,7 +238,7 @@ function Empty({
   );
 }
 function App() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [config, setConfig] = useState<Config>();
   const [savedShopping] = useState(readShoppingDraft);
   const [shoppingDate, setShoppingDate] = useState(() => {
@@ -233,10 +254,12 @@ function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<Message>("");
-  const [toast, setToast] = useState<Message>("");
+  const [toast, setToast] = useState<{ message: Message; id: number } | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [cart, setCart] = useState<Cart>({});
+  const cartOwnerId = useRef<number | null>(null);
+  const shopRequested = useRef(false);
   const [checkout, setCheckout] = useState<CheckoutDraft>({
     slot: "",
     note: "",
@@ -245,7 +268,8 @@ function App() {
     null,
   );
   const [mobileNav, setMobileNav] = useState(false);
-  const [detail, setDetail] = useState<Product>();
+  const [detailId, setDetailId] = useState<number>();
+  const detail = products.find((product) => product.id === detailId);
   const [revision, setRevision] = useState(0);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("全部蔬菜");
@@ -270,10 +294,66 @@ function App() {
   const school = user?.role === "admin";
   const manager = retailer || school;
   const schoolPage = page === "school" || page.startsWith("school-");
-  const notify = useCallback((message: Message) => setToast(message), []);
+  const cartCount = Object.values(cart).reduce((sum, quantity) => sum + quantity, 0);
+  const notify = useCallback((message: Message) => {
+    setToast((previous) => ({ message, id: (previous?.id ?? 0) + 1 }));
+  }, []);
+  const mainRef = usePageMotion(page, !loading && !!config);
+  const animateCart = useCartFeedback(`${page}:${cartOpen}:${authOpen}:${detailId ?? ""}`, cartCount);
+  const sidebarRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!mobileNav) return;
+    const sidebar = sidebarRef.current;
+    if (!sidebar) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const controls = () => Array.from(sidebar.querySelectorAll<HTMLElement>('a[href], button:not(:disabled)'))
+      .filter((element) => element.getClientRects().length > 0);
+    controls()[0]?.focus();
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMobileNav(false);
+      }
+      if (event.key === "Tab") {
+        const elements = controls();
+        const first = elements[0], last = elements[elements.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault(); last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault(); first?.focus();
+        }
+      }
+    };
+    const breakpoint = window.matchMedia("(min-width: 761px)");
+    const resize = () => { if (breakpoint.matches) setMobileNav(false); };
+    document.addEventListener("keydown", keydown);
+    breakpoint.addEventListener("change", resize);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.removeEventListener("keydown", keydown);
+      breakpoint.removeEventListener("change", resize);
+      if (previous?.isConnected) previous.focus();
+    };
+  }, [mobileNav]);
   const refresh = useCallback(() => {
     setRevision((r) => r + 1);
   }, []);
+  const reloadListings = useCallback(async () => {
+    const [nextConfig, nextProducts] = await Promise.all([
+      api<Config>("/config"),
+      api<Product[]>(shoppingDate === shoppingToday() && !shoppingMarket ? "/products" : `/products?date=${shoppingDate}${shoppingMarket ? `&marketId=${shoppingMarket}` : ""}`),
+    ]);
+    if (shoppingDate < nextConfig.today) {
+      setCart({});
+      setCheckout({ slot: "", note: "" });
+      notify("市集日期已更新，请重新选择商品和自提时段。");
+    }
+    if (shoppingDate < nextConfig.today) setShoppingDate(nextConfig.today);
+    setConfig(nextConfig);
+    setProducts(nextProducts);
+  }, [notify, shoppingDate, shoppingMarket]);
   const load = useCallback(async () => {
     setLoadError("");
     setLoading(true);
@@ -281,11 +361,12 @@ function App() {
       const [c, u, p, markets] = await Promise.all([
         api<Config>("/config"),
         api<{ user: User | null }>("/auth/me"),
-        api<Product[]>(`/products?date=${shoppingDate}${shoppingMarket?`&marketId=${shoppingMarket}`:''}`),
+        api<Product[]>(shoppingDate === shoppingToday() && !shoppingMarket ? "/products" : `/products?date=${shoppingDate}${shoppingMarket ? `&marketId=${shoppingMarket}` : ""}`),
         api<Market[]>('/markets'),
       ]);
       setConfig(c);
       setUser(u.user);
+      cartOwnerId.current = u.user?.role === "client" ? u.user.id : null;
       setProducts(p);
       setShoppingMarkets(markets);
       if (!draftRestored.current) {
@@ -313,11 +394,17 @@ function App() {
     void load();
   }, [load]);
   useEffect(() => {
+    if (loading || page !== "discover" || !shopRequested.current) return;
+    const target = document.getElementById("today-produce");
+    if (!target) return;
+    shopRequested.current = false;
+    target.scrollIntoView({ block: "start", behavior: "instant" });
+    target.focus({ preventScroll: true });
+  }, [loading, page]);
+  useEffect(() => {
     if (revision)
-      api<Product[]>(`/products?date=${shoppingDate}${shoppingMarket?`&marketId=${shoppingMarket}`:''}`)
-        .then(setProducts)
-        .catch((e) => notify(e as Error));
-  }, [revision, notify, shoppingDate,shoppingMarket]);
+      void reloadListings().catch((e) => notify(e));
+  }, [revision, notify, reloadListings]);
   useEffect(()=>{
     if(page!=='discover')return;
     const url=new URL(window.location.href);
@@ -327,41 +414,30 @@ function App() {
   },[shoppingDate,shoppingMarket,page]);
   useEffect(() => {
     if (!toast) return;
-    const timer = setTimeout(() => setToast(""), 4500);
+    const timer = setTimeout(() => setToast(null), 4500);
     return () => clearTimeout(timer);
   }, [toast]);
-  // Refresh the business date and listings when a long-running tab regains focus.
+  // Revalidate stock, prices and the business date when this tab regains focus.
   useEffect(() => {
-    const onFocus = () => {
-      api<Config>("/config")
-        .then((next) => {
-          setConfig(next);
-          if (shoppingDate < next.today) {
-            setCart({});
-            setCheckout({ slot: "", note: "" });
-            setShoppingDate(next.today);
-          }
-        })
-        .catch(() => {});
-      refresh();
-    };
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [refresh, shoppingDate]);
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
+  }, [refresh]);
   const navigate = (next: Page) => {
     changePage(next);
     setMobileNav(false);
   };
   const onLogin = (next: User) => {
     setUser(next);
-    const resetCart = next.role !== "client" || (user && user.id !== next.id);
+    const resetCart = next.role !== "client" ||
+      (cartOwnerId.current !== null && cartOwnerId.current !== next.id);
+    cartOwnerId.current = next.role === "client" ? next.id : null;
     if (resetCart) {
       setCart({});
       setCheckout({ slot: "", note: "" });
     }
     setAuthOpen(false);
     setCartOpen(loginIntent === "cart" && !resetCart);
-    navigate(
+    const nextPage =
       next.role === "admin"
         ? schoolPage ? page as Page : "school"
         : next.role === "retailer"
@@ -372,8 +448,9 @@ function App() {
           ? "orders"
           : page === "dashboard" || page === "inventory" || schoolPage || page === "not-found"
             ? "discover"
-            : page,
-    );
+            : page;
+    if (nextPage !== page) navigate(nextPage);
+    else setMobileNav(false);
     setLoginIntent(null);
     refresh();
     notify(
@@ -386,6 +463,7 @@ function App() {
     try {
       await api("/auth/logout", { method: "POST" });
       setUser(null);
+      cartOwnerId.current = null;
       setCart({});
       setCheckout({ slot: "", note: "" });
       navigate("discover");
@@ -394,24 +472,35 @@ function App() {
       notify(e as Error);
     }
   };
-  const add = (product: Product) => {
+  const add = (product: Product, source: HTMLElement) => {
     if (manager) return;
-    if ((cart[product.id] ?? 0) >= product.stock)
-      return notify("已达到当前库存数量");
-    const existing=products.find(p=>(cart[p.id]??0)>0);
-    if(existing&&(existing.market_id!==product.market_id||existing.retailer_id!==product.retailer_id)) {
-      notify('每份购物袋限同一市场与商户，请先结算或清空购物袋再选择其他商户。');return;
+    const current = products.find((item) => item.id === product.id);
+    if (!current || !current.stock) return notify("这份商品暂不可购，请选择其他新鲜。");
+    const existing = products.find((item) => (cart[item.id] ?? 0) > 0);
+    if (existing && (existing.market_id !== current.market_id || existing.retailer_id !== current.retailer_id)) {
+      notify("每份购物袋限同一市场与商户，请先结算或清空购物袋再选择其他商户。"); return;
     }
-    setCart((c) => ({ ...c, [product.id]: Math.round(Math.min(product.stock,100,(c[product.id] ?? 0) + 1)*1000)/1000 }));
+    const limit = maxQuantity(current);
+    if ((cart[current.id] ?? 0) >= limit)
+      return notify("已达到可购数量");
+    animateCart(source);
+    setCart((c) => (c[current.id] ?? 0) >= limit ? c : {
+      ...c, [current.id]: Math.round(Math.min(limit, (c[current.id] ?? 0) + 1) * 1000) / 1000,
+    });
     notify({ message: "{product} 已加入购物袋", values: { product: { message: product.name } } });
   };
-  const cartCount = Object.values(cart).reduce((a, b) => a + b, 0);
-  const cartTotal = products.reduce((sum, product) => sum + Math.round(product.price_cents * (cart[product.id] ?? 0)), 0);
-  const reduceProduct = (id: number) => setCart((current) => {
-    const next = { ...current };
-    if ((next[id] ?? 0) <= 1) delete next[id]; else next[id]--;
-    return next;
-  });
+  const remove = (product: Product) => {
+    setCart((current) => {
+      const next = { ...current };
+      if ((next[product.id] ?? 0) <= 1) delete next[product.id];
+      else next[product.id]--;
+      return next;
+    });
+  };
+  const cartTotal = products.reduce((total, product) => total + Math.round(product.price_cents * (cart[product.id] ?? 0)), 0);
+  const resetFilters = () => {
+    setSearch(""); setCategory("全部蔬菜"); setInStock(false); setSort("recommended");
+  };
   let visible = products.filter(
     (p) =>
       (category === "全部蔬菜" || p.category === category) &&
@@ -454,7 +543,14 @@ function App() {
     setLoginIntent(null);
   }, [loginIntent]);
   const closeCart = useCallback(() => setCartOpen(false), []);
-  const closeDetail = useCallback(() => setDetail(undefined), []);
+  const closeDetail = useCallback(() => setDetailId(undefined), []);
+  const continueShopping = () => {
+    setCartOpen(false);
+    if (page !== "discover") {
+      shopRequested.current = true;
+      navigate("discover");
+    }
+  };
   if (loading)
     return (
       <div className="boot-screen">
@@ -474,7 +570,7 @@ function App() {
       </div>
     );
   return (
-    <div className={`app-shell ${school ? `school-site ${page === "school-screen" ? "school-screen-site" : ""}` : retailer ? "retailer-site" : "visitor-site"} ${cartCount ? "has-shopping-bag" : ""}`}>
+    <div className={`app-shell ${school ? `school-site ${page === "school-screen" ? "school-screen-site" : ""}` : retailer ? "retailer-site" : "visitor-site"} ${cartCount ? "has-shopping-bag has-cart" : ""}`}>
       <a href="#main-content" className="skip-link">{t("跳到主要内容")}</a>
       {manager && mobileNav && (
         <button
@@ -483,7 +579,9 @@ function App() {
           aria-label={t("关闭导航")}
         />
       )}
-      {manager && <aside className={`sidebar ${mobileNav ? "sidebar-open" : ""}`}>
+      {manager && <aside ref={sidebarRef} id="market-navigation" className={`sidebar ${mobileNav ? "sidebar-open" : ""}`}
+        role={mobileNav ? "dialog" : undefined} aria-modal={mobileNav || undefined} aria-label={t("主导航")}>
+        <button className="icon-button nav-close" aria-label={t("关闭导航")} onClick={() => setMobileNav(false)}><X size={18} /></button>
         <PageLink
           className="brand"
           page={school ? "school" : retailer ? "dashboard" : "discover"}
@@ -493,9 +591,9 @@ function App() {
             <Leaf size={25} />
           </span>
           <span>
-            <b>{t("青禾")}<span className="brand-english">QINGHE</span>
+            <b>{t("青禾")}{language === "zh" && <span className="brand-english" lang="en">QINGHE</span>}
             </b>
-            <small>RUTGERS FARMERS MARKET</small>
+            <small>{t("RUTGERS FARMERS MARKET")}</small>
           </span>
         </PageLink>
         <div className="workspace-label">
@@ -523,7 +621,7 @@ function App() {
           </span>
           <h4>{t("好食物，连接好邻里。")}</h4>
           <p>{t("支持在地农场")}<br />{t("让每一口新鲜都有来处。")}</p>
-          <span>LOCAL FOOD. LOCAL GOOD.</span>
+          <span>{t("LOCAL FOOD. LOCAL GOOD.")}</span>
         </div>
         <div className="sidebar-bottom">
           <div className="avatar">{t(user ? user.name : "青").slice(0, 1)}</div>
@@ -540,16 +638,17 @@ function App() {
           <button
             className="icon-button"
             aria-label={t(user ? "退出登录" : "登录")}
-            onClick={() => (user ? void logout() : setAuthOpen(true))}
+            onClick={() => { setMobileNav(false); if (user) void logout(); else setAuthOpen(true); }}
           >
             {user ? <LogOut size={17} /> : <ChevronRight size={18} />}
           </button>
         </div>
       </aside>}
-      <div className="main-shell">
+      <div className="main-shell" inert={mobileNav}>
         {!manager ? <VisitorHeader page={page} navigate={navigate} user={user} onLogin={() => setAuthOpen(true)} onLogout={() => void logout()} /> : <header className="topbar">
           <div className="breadcrumb">
             <button
+              aria-controls="market-navigation"
               className="icon-button mobile-menu"
               onClick={() => setMobileNav(true)}
               aria-label={t("打开导航")}
@@ -575,7 +674,7 @@ function App() {
             </button>
           </div>
         </header>}
-        <main id="main-content" tabIndex={-1}><PageBoundary>
+        <main ref={mainRef} id="main-content" tabIndex={-1}><PageBoundary>
           <div className="page-heading">
             <div>
               <div className="eyebrow">
@@ -584,8 +683,8 @@ function App() {
                   : "A LITTLE FRESHNESS, EVERY DAY")}
               </div>
               <h1>
-                {t(page === "discover" ? "今天，也要好好吃饭。" : title)}
-                <span className="heading-dot">.</span>
+                {t(page === "discover" ? "今天，也要好好吃饭。" : title).replace(/[。.]+$/, "")}
+                <span className="heading-dot">{t("。")}</span>
               </h1>
               <p>
                 {t(page === "discover"
@@ -612,13 +711,13 @@ function App() {
                 className="button cart-button"
                 onClick={() => setCartOpen(true)}
               >
-                <ShoppingBag size={18} />{t("购物袋")}<span className="count-pill">{cartCount}</span>
+                <span className="cart-target" data-cart-target><ShoppingBag size={18} /></span>{t("购物袋")}<span key={cartCount} className="count-pill quantity-pop">{cartCount}</span>
               </button>
             )}
           </div>
           {config.demo && (
             <div className="demo-notice">
-              <span className="demo-badge">DEMO</span>{t(" ")}{t("开市日历与地址来自官方公开资料；商品、库存与预购为演示。")}{retailer && t(" 商户修改会影响当前演示商品与订单。")}
+              <span className="demo-badge">{t("DEMO")}</span>{t(" ")}{t("开市日历与地址来自官方公开资料；商品、库存与预购为演示。")}{retailer && t(" 商户修改会影响当前演示商品与订单。")}
             </div>
           )}
           {page === "discover" && (
@@ -628,9 +727,9 @@ function App() {
                 <a href="#today-produce">{t("挑选今日蔬菜")}<ArrowRight size={16} /></a>
                 <PageLink page="about" navigate={navigate}>{t("了解预购流程")}<ChevronRight size={14} /></PageLink>
               </div>
-              <div className="section-heading" id="today-produce">
+              <div className="section-heading" id="today-produce" tabIndex={-1}>
                 <div>
-                  <span className="eyebrow">FRESH FROM THE FARM</span>
+                  <span className="eyebrow">{t("FRESH FROM THE FARM")}</span>
                   <h2>{shoppingDate===config.today?t("今日新鲜上架"):t("{date} 可预购商品",{date:shoppingDate})}{t(" ")}
                     <span className="subtle-count">
                       {t("{count} 款当季好物", { count: products.length })}</span>
@@ -690,22 +789,31 @@ function App() {
                 </div>
               </div>
               <div className="results-meta">
-                <span>{t("发现 {count} 款新鲜好物", { count: visible.length })}</span>
+                <span aria-live="polite" aria-atomic="true">{t("发现 {count} 款新鲜好物", { count: visible.length })}</span>
                 {visible.length > 0 && (category !== "全部蔬菜" || search || sort !== "recommended" || inStock) && <button className="text-button" onClick={() => { setCategory("全部蔬菜"); setSearch(""); setSort("recommended"); setInStock(false); }}>{t("清除筛选")}</button>}
               </div>
+              {(category !== "全部蔬菜" || search || inStock || sort !== "recommended") && (
+                <div className="active-filters" role="group" aria-label={t("当前筛选条件")}>
+                  {category !== "全部蔬菜" && <button className="filter-chip" onClick={() => setCategory("全部蔬菜")} aria-label={t("移除分类筛选")}><span>{t(category)}</span><X size={12} /></button>}
+                  {search && <button className="filter-chip" onClick={() => setSearch("")} aria-label={t("清除搜索")}><Search size={12} /><span>{search}</span><X size={12} /></button>}
+                  {inStock && <button className="filter-chip" onClick={() => setInStock(false)} aria-label={t("移除库存筛选")}><span>{t("仅看有库存")}</span><X size={12} /></button>}
+                  {sort !== "recommended" && <button className="filter-chip" onClick={() => setSort("recommended")} aria-label={t("恢复推荐排序")}><span>{t(sort === "price-up" ? "价格从低到高" : "价格从高到低")}</span><X size={12} /></button>}
+                  <button className="clear-filters" onClick={resetFilters}>{t("重置全部")}</button>
+                </div>
+              )}
               {visible.length ? (
-                <div className="product-grid">
+                <MotionGrid layoutKey={visible.map((product) => product.id).join(",")}>
                   {visible.map((product) => (
                     <ProductCard
                       key={product.id}
                       product={product}
                       quantity={cart[product.id] ?? 0}
-                      onAdd={() => add(product)}
-                      onReduce={() => reduceProduct(product.id)}
-                      onView={() => setDetail(product)}
+                      onAdd={(source) => add(product, source)}
+                      onRemove={() => remove(product)}
+                      onView={() => setDetailId(product.id)}
                     />
                   ))}
-                </div>
+                </MotionGrid>
               ) : (
                 <Empty
                   icon={<Search />}
@@ -722,10 +830,7 @@ function App() {
                       className="button secondary"
                       onClick={() => {
                         if (!products.length) return navigate("markets");
-                        setSearch("");
-                        setCategory("全部蔬菜");
-                        setInStock(false);
-                        setSort("recommended");
+                        resetFilters();
                       }}
                     >
                       {t(products.length ? "清除筛选" : "查看市场目录")}
@@ -776,15 +881,17 @@ function App() {
           )}
           {page === "orders" && (
             <Orders
+              key={user?.id ?? "guest"}
               user={user}
               revision={revision}
               refresh={refresh}
               notify={notify}
               onLogin={() => {
+                setUser(null);
                 setLoginIntent("orders");
                 setAuthOpen(true);
               }}
-              onShop={() => navigate("discover")}
+              onShop={continueShopping}
             />
           )}
           {page === "dashboard" && retailer && (
@@ -844,14 +951,14 @@ function App() {
           </footer>}
         </PageBoundary></main>
       </div>
-      {!manager && cartCount > 0 && <div className="shopping-bag-dock" hidden={cartOpen || authOpen || !!detail}>
-        <button onClick={() => setCartOpen(true)} aria-label={t("查看购物袋，已选 {count} 件", { count: cartCount })}>
-          <ShoppingBag size={20} /><span><strong>{t("查看购物袋")}<span className="bag-dock-count">{cartCount}</span></strong><small>{t("核对商品与自提安排")}</small></span>
+      {!manager && cartCount > 0 && <div className="shopping-bag-dock" hidden={cartOpen || authOpen || !!detailId}>
+        <button className="basket-dock" onClick={() => setCartOpen(true)} aria-label={t("查看购物袋，已选 {count} 件", { count: cartCount })}>
+          <span className="cart-target" data-cart-target><ShoppingBag size={20} /></span><span><strong>{t("查看购物袋")}<span className="bag-dock-count">{cartCount}</span></strong><small>{t("核对商品与自提安排")}</small></span>
           <b>{t(money(cartTotal))}</b><ChevronRight size={18} />
         </button>
       </div>}
       {!manager && (
-        <nav className="mobile-site-nav" aria-label={t("手机快捷导航")}>
+        <nav className="mobile-site-nav" aria-label={t("手机快捷导航")} inert={mobileNav}>
           {clientNav.map((item) => (
             <PageLink
               key={item.id}
@@ -865,11 +972,12 @@ function App() {
           ))}
         </nav>
       )}
+      <ScrollActions inert={mobileNav} count={0} total={money(cartTotal)} onCart={() => setCartOpen(true)} page={page} retailer={manager} />
       {toast && (
-        <div className="toast" role="status">
+        <div className="toast" role="status" key={toast.id}>
           <CheckCircle2 size={19} />
-          {t(toast)}
-          <button aria-label={t("关闭提示")} onClick={() => setToast("")}>
+          {t(toast.message)}
+          <button aria-label={t("关闭提示")} onClick={() => setToast(null)}>
             <X size={16} />
           </button>
         </div>
@@ -891,13 +999,15 @@ function App() {
           draft={checkout}
           onDraftChange={setCheckout}
           onClose={closeCart}
-          onShop={() => { setCartOpen(false); navigate("discover"); requestAnimationFrame(() => document.getElementById("today-produce")?.scrollIntoView()); }}
           onLogin={() => {
+            setUser(null);
             setCartOpen(false);
             setLoginIntent("cart");
             setAuthOpen(true);
           }}
           update={setCart}
+          onShop={continueShopping}
+          onRefreshListings={reloadListings}
           onSuccess={(order) => {
             setCart({});
             setCheckout({ slot: "", note: "" });
@@ -908,8 +1018,9 @@ function App() {
           }}
         />
       )}
-      {detail && (
+      {detailId !== undefined && (
         <Modal title={t("这份新鲜的故事")} onClose={closeDetail}>
+          {detail ? <>
           <div className={`detail-art art-bg-${detail.art}`}>
             <Produce kind={detail.art} />
             {detail.organic === 1 && (
@@ -932,15 +1043,30 @@ function App() {
               </span>
             </div>
             <p className="helper-text">{t("称重类商品按标示单位预订；如需现场称重，最终金额请与商户确认。")}</p>
-            <button
-              className="button primary full-width"
-              disabled={!detail.stock || retailer}
-              onClick={() => add(detail)}
-            >
-              <ShoppingBag size={17} />
-              {t(detail.stock ? "加入购物袋" : "今日已售罄")}
-            </button>
+            <div className="detail-cart-actions">
+              <button
+                className="button primary"
+                disabled={!detail.stock || retailer || (cart[detail.id] ?? 0) >= maxQuantity(detail)}
+                onClick={(event) => add(detail, event.currentTarget)}
+              >
+                <Plus size={17} />
+                {t(!detail.stock ? "今日已售罄" : (cart[detail.id] ?? 0) >= maxQuantity(detail) ? "已达到可购数量" : "加入购物袋")}
+              </button>
+              {!retailer && <button className="button secondary" aria-label={t("购物袋")} onClick={() => {
+                setDetailId(undefined);
+                setCartOpen(true);
+              }}>
+                <span className="cart-target" data-cart-target><ShoppingBag size={18} /></span>
+                <span key={cartCount} className="count-pill quantity-pop">{cartCount}</span>
+              </button>}
+            </div>
           </div>
+          </> : <Empty
+            icon={<Sprout />}
+            title={t("这份新鲜暂时下架了")}
+            text={t("商品信息已更新，继续看看其他当季蔬菜吧。")}
+            action={<button className="button primary" onClick={closeDetail}>{t("继续逛逛")}<ArrowRight size={16} /></button>}
+          />}
         </Modal>
       )}
     </div>
@@ -951,19 +1077,19 @@ function ProductCard({
   product: p,
   quantity,
   onAdd,
-  onReduce,
+  onRemove,
   onView,
 }: {
   product: Product;
   quantity: number;
-  onAdd: () => void;
-  onReduce: () => void;
+  onAdd: (source: HTMLButtonElement) => void;
+  onRemove: () => void;
   onView: () => void;
 }) {
-  const { t } = useLanguage();
-  const addButton = useRef<HTMLButtonElement>(null);
+  const { t, language } = useLanguage();
+  const addRef = useRef<HTMLButtonElement>(null);
   return (
-    <article className="product-card">
+    <article className={`product-card ${quantity ? "product-selected" : ""}`} data-product-id={p.id}>
       <button
         className={`product-image art-bg-${p.art}`}
         onClick={onView}
@@ -994,24 +1120,21 @@ function ProductCard({
             <strong>{t(money(p.price_cents))}</strong>
             <small> / {t(p.unit)}</small>
             <span className={`stock-label ${p.stock < 10 ? "low" : ""}`}>
-              {p.stock > 0 ? t("剩余 {count} {unit}", { count: p.stock, unit: { unit: p.unit, count: p.stock } }) : t("等待下一次采收")}
+              {p.stock > 0 ? t("剩余 {count} {unit}", { count: p.stock, unit: quantityUnit(language, p.unit, p.stock) }) : t("等待下一次采收")}
             </span>
           </div>
-          <div className={`product-quantity ${quantity ? "is-selected" : ""}`}>
-          {quantity > 0 && <button className="product-reduce" aria-label={t("减少{0}", {0: t(p.name)})} onClick={() => {
-            onReduce();
-            if (quantity === 1) requestAnimationFrame(() => addButton.current?.focus());
-          }}><Minus size={15} /></button>}
-          {quantity > 0 && <span className="product-quantity-value" aria-label={t("已选 {count} 件", { count: quantity })}>{quantity}</span>}
-          <button
-            className={`add-button ${quantity ? "has-quantity" : ""}`}
-            ref={addButton}
-            disabled={!p.stock || quantity >= p.stock}
-            aria-label={t("将{0}加入购物袋", {0: t(p.name)})}
-            onClick={onAdd}
-          >
-            <Plus size={20} />
-          </button>
+          <div className={quantity ? "product-quantity is-selected" : "product-add"}>
+            {quantity > 0 && <>
+              <button className="add-button remove-button" onClick={() => { if (quantity === 1) addRef.current?.focus(); onRemove(); }} aria-label={t("减少{0}", { 0: t(p.name) })}><Minus size={15} /></button>
+              <span className="product-quantity-value" aria-live="polite" aria-atomic="true"><span className="quantity-pop" key={quantity}>{quantity}</span></span>
+            </>}
+            <button
+              ref={addRef}
+              className={`add-button ${quantity ? "has-quantity" : ""}`}
+              disabled={!p.stock || quantity >= maxQuantity(p)}
+              aria-label={t("将{0}加入购物袋", {0: t(p.name)})}
+              onClick={(event) => onAdd(event.currentTarget)}
+            ><Plus size={quantity ? 15 : 20} /></button>
           </div>
         </div>
       </div>
@@ -1146,7 +1269,7 @@ function AuthModal({
           )}
           <button className="button primary full-width" disabled={busy}>
             {busy ? <LoaderCircle size={17} className="spin" /> : null}
-            {t(busy ? "正在连接账号…" : register ? "创建顾客账号" : "登录")}
+            {t(busy ? (register ? "正在创建账号…" : "正在连接账号…") : register ? "创建顾客账号" : "登录")}
             <ArrowRight size={16} />
           </button>
         </fieldset>
@@ -1173,26 +1296,28 @@ function CartModal({
   config,
   user,
   onClose,
-  onShop,
   onLogin,
   update,
   onSuccess,
   draft,
   onDraftChange,
+  onShop,
+  onRefreshListings,
 }: {
   cart: Cart;
   products: Product[];
   config: Config;
   user: User | null;
   onClose: () => void;
-  onShop: () => void;
   onLogin: () => void;
-  update: (cart: Cart) => void;
+  update: Dispatch<SetStateAction<Cart>>;
   onSuccess: (order: Order) => void;
   draft: CheckoutDraft;
   onDraftChange: (draft: CheckoutDraft) => void;
+  onShop: () => void;
+  onRefreshListings: () => Promise<void>;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const firstProduct = products.find((p) => Object.hasOwn(cart, String(p.id)));
   const pickupDate = firstProduct?.available_date ?? config.today;
   const [options, setOptions] = useState<{ label: string; remaining: number | null }[]>([]);
@@ -1212,6 +1337,61 @@ function CartModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<Message>("");
   const [snapReady, setSnapReady] = useState(false);
+  const submitting = useRef(false);
+  type RemovedItem = { id: number; quantity: number; name: string; date: string };
+  const [removed, setRemoved] = useState<RemovedItem>();
+  const removedRef = useRef<RemovedItem | undefined>(undefined);
+  const [undoNotice, setUndoNotice] = useState<Message>("");
+  const previousCart = useRef({ cart, date: pickupDate });
+  const undoButton = useRef<HTMLButtonElement>(null);
+  const cartList = useRef<HTMLDivElement>(null);
+  const restoreFocus = useRef<number | undefined>(undefined);
+  useLayoutEffect(() => {
+    const previous = previousCart.current;
+    previousCart.current = { cart, date: pickupDate };
+    if (previous.date !== pickupDate) {
+      removedRef.current = undefined;
+      setRemoved(undefined);
+      setUndoNotice("");
+      return;
+    }
+    const id = Object.keys(previous.cart).map(Number).find((key) => previous.cart[key] && !cart[key]);
+    if (id !== undefined) {
+      const product = products.find((item) => item.id === id);
+      const entry = product && product.stock > 0
+        ? { id, quantity: previous.cart[id], name: product.name, date: pickupDate }
+        : undefined;
+      removedRef.current = entry;
+      setRemoved(entry);
+      setUndoNotice("");
+    }
+    if (restoreFocus.current !== undefined) {
+      const button = cartList.current?.querySelector<HTMLButtonElement>(`[data-cart-item="${restoreFocus.current}"] button:not(:disabled)`);
+      button?.focus({ preventScroll: true });
+      restoreFocus.current = undefined;
+    }
+  }, [cart, pickupDate, products]);
+  useLayoutEffect(() => {
+    if (removed) undoButton.current?.focus({ preventScroll: true });
+  }, [removed]);
+  const undoRemoval = () => {
+    const entry = removedRef.current;
+    if (busy || !entry) return;
+    removedRef.current = undefined;
+    setRemoved(undefined);
+    const product = products.find((item) => item.id === entry.id);
+    if (entry.date !== pickupDate || !product || !product.stock) {
+      setUndoNotice("这份商品暂不可购，请选择其他新鲜。");
+      return;
+    }
+    const limit = maxQuantity(product);
+    update((current) => ({ ...current, [entry.id]: Math.min(limit, (current[entry.id] ?? 0) + entry.quantity) }));
+    restoreFocus.current = entry.id;
+    setUndoNotice(entry.quantity > limit
+      ? "库存已变化，已按可购数量恢复。"
+      : { message: "已恢复 {product}", values: { product: { message: product.name } } });
+    setError("");
+  };
   const entries = Object.entries(cart).map(([id, quantity]) => ({
     id: Number(id),
     product: products.find((p) => p.id === Number(id)),
@@ -1222,19 +1402,33 @@ function CartModal({
     0,
   );
   const invalid = entries.some(
-    (item) => !item.product || item.quantity > (item.product?.stock ?? 0),
-  ) || entries.some(item=>item.product && (item.product.market_id!==firstProduct?.market_id||item.product.retailer_id!==firstProduct?.retailer_id));
+    (item) => !item.product || item.quantity > maxQuantity(item.product),
+  ) || entries.some(item => item.product && (item.product.market_id !== firstProduct?.market_id || item.product.retailer_id !== firstProduct?.retailer_id));
   const change = (id: number, quantity: number) => {
-    const next = { ...cart };
-    if (quantity <= 0) delete next[id];
-    else next[id] = Math.round(quantity*1000)/1000;
-    update(next);
+    update((current) => {
+      const next = { ...current };
+      if (quantity <= 0) delete next[id];
+      else next[id] = Math.round(quantity * 1000) / 1000;
+      return next;
+    });
+    setError("");
+  };
+  const adjust = (product: Product, delta: number) => {
+    update((current) => {
+      const quantity = Math.round(Math.min(maxQuantity(product), (current[product.id] ?? 0) + delta) * 1000) / 1000;
+      if (delta > 0 && quantity > maxQuantity(product)) return current;
+      const next = { ...current };
+      if (quantity <= 0) delete next[product.id];
+      else next[product.id] = quantity;
+      return next;
+    });
     setError("");
   };
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (busy || invalid || !slot || (draft.paymentMethod === "snap_ebt" && !snapReady)) return;
+    if (submitting.current || invalid || !slot || !entries.length || (draft.paymentMethod === "snap_ebt" && !snapReady)) return;
     if (!user) return onLogin();
+    submitting.current = true;
     setBusy(true);
     setError("");
     try {
@@ -1249,13 +1443,27 @@ function CartModal({
       });
       onSuccess(order);
     } catch (e) {
+      if (e instanceof ApiError && e.status === 401) {
+        onLogin();
+        return;
+      }
       setError(e as Error);
+      if (e instanceof ApiError && e.status === 409) {
+        await onRefreshListings().catch(() => {});
+      }
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   };
   return (
     <Modal title={t("我的新鲜购物袋")} onClose={onClose} busy={busy}>
+      {removed && <div className="cart-undo" role="status">
+        <Undo2 size={17} />
+        <span>{t("已移除 {product}", { product: { message: removed.name } })}</span>
+        <button ref={undoButton} type="button" className="text-button" disabled={busy} onClick={undoRemoval}>{t("撤销")}</button>
+      </div>}
+      {undoNotice && <p className="cart-undo-notice" role="status">{t(undoNotice)}</p>}
       {!entries.length ? (
         <Empty
           title={t("购物袋在等一份新鲜")}
@@ -1268,9 +1476,13 @@ function CartModal({
       ) : (
         <form onSubmit={submit}>
           <fieldset className="form-fields" disabled={busy}>
-            <div className="cart-list">
+            <div className="cart-continue">
+              <span>{t("已选 {count} 件", { count: entries.reduce((sum, item) => sum + item.quantity, 0) })}</span>
+              <button className="text-button" type="button" onClick={onShop}>{t("继续选购")}<ArrowRight size={14} /></button>
+            </div>
+            <div className="cart-list" ref={cartList}>
               {entries.map(({ id, product: p, quantity }) => (
-                <div className="cart-item" key={id}>
+                <div className="cart-item" key={id} data-cart-item={id}>
                   {p ? (
                     <>
                       <div className={`cart-art art-bg-${p.art}`}>
@@ -1286,28 +1498,28 @@ function CartModal({
                           <button
                             type="button"
                             aria-label={t("减少{0}", {0: t(p.name)})}
-                            onClick={() => change(p.id, quantity - 1)}
+                            onClick={() => adjust(p, -1)}
                           >
                             <Minus size={13} />
                           </button>
-                          {p.unit==='磅'?<input className="weight-quantity" aria-label={t('预订磅数：{name}',{name:t(p.name)})} type="number" min="0.001" max={Math.min(p.stock,100)} step="0.001" value={quantity} onChange={e=>{const q=Number(e.target.value);if(Number.isFinite(q)&&q>0&&q<=Math.min(p.stock,100))change(p.id,q);}}/>:<span>{quantity}</span>}
+                          {p.unit==='磅'?<><span className="sr-only">{quantity}</span><input className="weight-quantity" aria-label={t('预订磅数：{name}',{name:t(p.name)})} type="number" min="0.001" max={Math.min(p.stock,100)} step="0.001" value={quantity} onChange={e=>{const q=Number(e.target.value);if(Number.isFinite(q)&&q>0&&q<=Math.min(p.stock,100))change(p.id,q);}}/></>:<span>{quantity}</span>}
                           <button
                             type="button"
                             aria-label={t("增加{0}", {0: t(p.name)})}
-                            disabled={quantity >= p.stock}
-                            onClick={() => change(p.id, Math.min(p.stock,100,quantity + 1))}
+                            disabled={quantity >= maxQuantity(p)}
+                            onClick={() => adjust(p, 1)}
                           >
                             <Plus size={13} />
                           </button>
                         </div>
-                        {quantity > p.stock && (
+                        {quantity > maxQuantity(p) && (
                           <div className="stock-warning" role="status">
-                            <span>{t("当前仅剩 {count} {unit}", { count: p.stock, unit: { unit: p.unit, count: p.stock } })}
+                            <span>{t(p.stock <= 100 ? "当前仅剩 {count} {unit}" : "当前最多可购 {count} {unit}", { count: maxQuantity(p), unit: quantityUnit(language, p.unit, maxQuantity(p)) })}
                             </span>
                             <button
                               type="button"
                               className="text-button"
-                              onClick={() => change(p.id, p.stock)}
+                              onClick={() => change(p.id, maxQuantity(p))}
                             >
                               {t(p.stock > 0 ? "调整至可购数量" : "移除售罄商品")}
                             </button>
@@ -1315,7 +1527,7 @@ function CartModal({
                         )}
                       </div>
                       <div className="cart-line-total">
-                        <strong>{t(money(Math.round(p.price_cents * quantity)))}</strong>
+                        <strong><span className="value-update" key={p.price_cents * quantity}>{t(money(Math.round(p.price_cents * quantity)))}</span></strong>
                         <button
                           type="button"
                           aria-label={t("移除{0}", {0: t(p.name)})}
@@ -1373,7 +1585,7 @@ function CartModal({
             <div className="cart-total">
               <span>{t("预计合计 ")}<small>USD</small>
               </span>
-              <strong>{t(money(total))}</strong>
+              <strong><span className="value-update" key={total}>{t(money(total))}</span></strong>
             </div>
             <p className="helper-text">{t("预购会为你保留库存；订单确认后请按时自提。此版本不收取线上款项。价格以提交订单时的服务端报价为准。")}</p>
             {user?.role==='client'&&draft.submissionKey&&<button type="button" className="button full-width" disabled={busy} onClick={async()=>{setBusy(true);setError('');try{onSuccess(await api<Order>(`/order-submissions/${encodeURIComponent(draft.submissionKey!)}`));}catch(e){setError(e as Error);}finally{setBusy(false);}}}>{t('检查上次提交结果')}</button>}
@@ -1433,18 +1645,24 @@ function Orders({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Message>("");
   const [busy, setBusy] = useState("");
+  const updating = useRef(false);
   const [cancelOrder, setCancelOrder] = useState<Order>();
+  const [cancelError, setCancelError] = useState<Message>("");
+  const hasLoaded = useRef(false);
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    setLoading(true);
+    setLoading(!hasLoaded.current);
     setError("");
     api<Order[]>("/orders")
       .then((d) => {
-        if (!cancelled) setOrders(d);
+        if (!cancelled) {
+          setOrders(d);
+          hasLoaded.current = true;
+        }
       })
       .catch((e) => {
-        if (!cancelled) setError(e as Error);
+        if (!cancelled) setError(e);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -1453,15 +1671,21 @@ function Orders({
       cancelled = true;
     };
   }, [user, revision]);
-  const closeCancel = useCallback(() => setCancelOrder(undefined), []);
+  const closeCancel = useCallback(() => {
+    setCancelOrder(undefined);
+    setCancelError("");
+  }, []);
   const update = async (order: Order, status: OrderStatus) => {
-    if (busy) return;
+    if (updating.current) return;
+    updating.current = true;
     setBusy(order.id);
+    setCancelError("");
     try {
-      await api(`/orders/${order.id}/status`, {
+      const updated = await api<Order>(`/orders/${order.id}/status`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
       });
+      setOrders((current) => current.map((item) => item.id === updated.id ? updated : item));
       setCancelOrder(undefined);
       refresh();
       notify(
@@ -1472,8 +1696,17 @@ function Orders({
             : "订单已完成",
       );
     } catch (e) {
-      notify(e as Error);
+      if (e instanceof ApiError && e.status === 401) {
+        closeCancel();
+        onLogin();
+      } else if (e instanceof ApiError && e.status === 409) {
+        closeCancel();
+        refresh();
+        notify(e);
+      } else if (status === "cancelled") setCancelError(e as Error);
+      else notify(e as Error);
     } finally {
+      updating.current = false;
       setBusy("");
     }
   };
@@ -1491,9 +1724,13 @@ function Orders({
   const visible = orders.filter((o) => filter === "all" || o.status === filter);
   return (
     <>
+      {user.role === "client" && orders.length > 0 && <div className="order-shopping-link">
+        <button className="text-button" onClick={onShop}>{t("继续选购")}<ArrowRight size={15} /></button>
+      </div>}
       <div className="order-tabs category-tabs">
         <button
           className={filter === "all" ? "selected" : ""}
+          aria-pressed={filter === "all"}
           onClick={() => setFilter("all")}
         >{t("全部订单 ")}<span>{orders.length}</span>
         </button>
@@ -1501,6 +1738,7 @@ function Orders({
           <button
             key={key}
             className={filter === key ? "selected" : ""}
+            aria-pressed={filter === key}
             onClick={() => setFilter(key)}
           >
             {t(label)} <span>{orders.filter((o) => o.status === key).length}</span>
@@ -1513,18 +1751,22 @@ function Orders({
       ) : error ? (
         <div className="error-panel" role="alert">
           {t(error)}
-          <button className="text-button" onClick={refresh}>{t("重新加载")}</button>
+          {error instanceof ApiError && error.status === 401
+            ? <button className="text-button" onClick={onLogin}>{t("登录 / 注册")}</button>
+            : <button className="text-button" onClick={refresh}>{t("重新加载")}</button>}
         </div>
       ) : !visible.length ? (
         <Empty
           title={t(filter === "all" ? "还没有新鲜预购" : "这个状态下还没有订单")}
           text={
-            t(user.role === "client"
+            t(filter !== "all"
+              ? "试试查看全部订单，找到其他状态的预购。"
+              : user.role === "client"
               ? "去看看今日的蔬菜，为下一餐挑一点新鲜。"
               : "顾客提交预购后，你可以在这里确认订单并安排自提。")
           }
           action={
-            user.role === "client" ? (
+            filter !== "all" ? <button className="button secondary" onClick={() => setFilter("all")}>{t("查看全部订单")}<ArrowRight size={16} /></button> : user.role === "client" ? (
               <button className="button primary" onClick={onShop}>{t("逛逛今日市集")}<ArrowRight size={16} />
               </button>
             ) : undefined
@@ -1550,6 +1792,16 @@ function Orders({
                   {t(statusLabels[o.status])}
                 </span>
               </div>
+              {user.role === "client" && <p className={`order-next-step status-${o.status}`}>
+                <CheckCircle2 size={16} />
+                {t(o.status === "pending"
+                  ? "预购已提交，等待商户确认；确认后再按自提时段到场。"
+                  : o.status === "confirmed"
+                    ? "商户已确认，请按约定时段自提并到场付款。"
+                    : o.status === "completed"
+                      ? "已完成自提，感谢你支持本地农场。"
+                      : "预购已取消，无需到场；可以重新挑选蔬菜。")}
+              </p>}
               <div className="order-items">
                 {o.items.map((item) => (
                   <div key={item.product_id}>
@@ -1589,7 +1841,7 @@ function Orders({
                     <button
                       className="button subtle"
                       disabled={!!busy}
-                      onClick={() => setCancelOrder(o)}
+                      onClick={() => { setCancelError(""); setCancelOrder(o); }}
                     >{t("取消订单")}</button>
                   )}
                   {user.role === "retailer" && o.status === "pending" && (
@@ -1630,6 +1882,7 @@ function Orders({
       {cancelOrder && (
         <Modal title={t("取消这份预购？")} onClose={closeCancel} busy={!!busy}>
           <p className="modal-intro">{t("订单 {id} 取消后，预留库存会自动归还。已取消订单无法恢复。", { id: cancelOrder.id })}</p>
+          {cancelError && <p className="form-error" role="alert">{t(cancelError)}</p>}
           <div className="modal-actions">
             <button
               className="button secondary"
@@ -1659,7 +1912,7 @@ function RetailDashboard({
   navigate: (p: Page) => void;
   notify: (s: Message) => void;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [data, setData] = useState<Dashboard>();
   const [error, setError] = useState<Message>("");
   useEffect(() => {
@@ -1669,7 +1922,7 @@ function RetailDashboard({
         if (!cancelled) setData(d);
       })
       .catch((e) => {
-        if (!cancelled) setError(e as Error);
+        if (!cancelled) setError(e);
       });
     return () => {
       cancelled = true;
@@ -1690,7 +1943,7 @@ function RetailDashboard({
     <>
       <section className="retailer-welcome">
         <div>
-          <span className="eyebrow">GOOD FOOD STARTS WITH YOU</span>
+          <span className="eyebrow">{t("GOOD FOOD STARTS WITH YOU")}</span>
           <h2>{t("每一份用心，\n都有一张餐桌在等待。")}</h2>
           <p>{t("今天也一起，让社区的餐桌更丰富一点。")}</p>
           <button
@@ -1764,7 +2017,7 @@ function RetailDashboard({
         <section className="panel">
           <div className="panel-heading">
             <h3>{t("库存小提醒")}</h3>
-            <span className="eyebrow">STOCK WATCH</span>
+            <span className="eyebrow">{t("STOCK WATCH")}</span>
           </div>
           {data.lowStock.length ? (
             data.lowStock.map((p) => (
@@ -1776,7 +2029,7 @@ function RetailDashboard({
                 <Produce kind={p.art} />
                 <span>
                   <strong>{t(p.name)}</strong>
-                  <small>{t("剩余 {count} {unit}", { count: p.stock, unit: { unit: p.unit, count: p.stock } })}
+                  <small>{t("剩余 {count} {unit}", { count: p.stock, unit: quantityUnit(language, p.unit, p.stock) })}
                   </small>
                 </span>
                 <ArrowUpRight size={16} />
@@ -1829,7 +2082,7 @@ function Inventory({
         if (!cancelled) setProducts(d);
       })
       .catch((e) => {
-        if (!cancelled) setError(e as Error);
+        if (!cancelled) setError(e);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

@@ -1,4 +1,5 @@
 import { useLanguage } from "./i18n";
+import { matchesSearch } from "./translations/translate";
 import { useEffect, useState } from "react";
 import { ArrowUpRight, Check, Clock3, Copy, ExternalLink, Leaf, Mail, MapPin, Navigation, Phone, Search, ShoppingBag, Store, X } from "lucide-react";
 import guide from "../references/rutgers-market-guide.json";
@@ -12,7 +13,7 @@ export function OfficialSource() {
     <section className="official-market-reference">
       <div className="official-reference-icon"><Store size={25} /></div>
       <div className="official-reference-copy">
-        <span className="eyebrow">RUTGERS · OFFICIAL INFORMATION</span>
+        <span className="eyebrow">{t("RUTGERS · OFFICIAL INFORMATION")}</span>
         <h2>{t(guide.name)}</h2>
         <p>{t("营业季、地址与例外休市日期按运营方官网整理。核对日期：{date}", { date: guide.checkedOn })}</p>
         <small>{t(guide.scheduleNotice)}</small>
@@ -31,7 +32,7 @@ export default function MarketGuide({ liveSessions = true }: { liveSessions?: bo
   const [copied, setCopied] = useState("");
   const [error, setError] = useState("");
   const locations = guide.locations.filter((location) => (area === "全部地点" || location.area === area) &&
-    `${location.name} ${t(location.name)} ${location.address} ${location.area} ${t(location.area)}`.toLowerCase().includes(search.trim().toLowerCase()));
+    matchesSearch(search, location.name, location.address, location.area));
   useEffect(() => {
     if (!copied) return;
     const timer = setTimeout(() => setCopied(""), 3000);

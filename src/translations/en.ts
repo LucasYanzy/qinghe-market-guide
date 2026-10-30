@@ -9,7 +9,10 @@ import { simpleEnglish } from "./simple.ts";
 
 import { releaseEnglish } from "./release.ts";
 
+import { continuityEnglish } from "./continuity.ts";
+
 export const english: Record<string, string> = {
+  ...continuityEnglish,
   ...releaseEnglish,
   ...workflowEnglish,
   ...commonEnglish,

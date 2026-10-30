@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
+import { test } from "./isolated";
 const password = "MarketDemo2026!";
 async function login(page: Page, role: string) {
   const response = await page.request.post("/api/auth/login", { data: { email: `${role}@qinghe.demo`, password } });
