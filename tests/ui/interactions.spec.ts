@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
+import { test } from "./isolated";
 
 const cartTitle = "我的新鲜购物袋";
 async function openCart(page: Page, quantity = 1) {

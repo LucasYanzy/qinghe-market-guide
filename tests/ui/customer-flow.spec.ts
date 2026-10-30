@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
+import { test } from "./isolated";
 import type { Order, Product } from "../../src/types";
 
 const bag = (page: Page) => page.getByRole("dialog", { name: "我的新鲜购物袋", exact: true });
@@ -100,6 +101,8 @@ test("从页面下方登录结账后继续选购，保留浏览位置和备注",
   await expect(bag(page).getByRole("textbox")).toHaveValue("继续选购时保留");
   await bag(page).getByRole("button", { name: "继续选购", exact: true }).click();
   await expect(page).toHaveURL("/");
+  await expect(page.locator("#today-produce")).toBeInViewport();
+  await expect(page.locator("#today-produce")).toBeFocused();
   await expect(addTomato(page)).toBeVisible();
 });
 

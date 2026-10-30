@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "./isolated";
 
 test("商品卡片增减与购物袋同步，归零后可重新添加", async ({ page }) => {
   await page.goto("/");
