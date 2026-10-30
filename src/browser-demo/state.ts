@@ -6,7 +6,7 @@ export function reportStorage(available: boolean) {
 }
 export function clearDemo() {
   try {
-    for (const key of [demoStorageKey, "qinghe-demo-role", "qinghe-shopping-draft", "qinghe-shopping-session-v1"])
+    for (const key of [demoStorageKey, "qinghe-demo-role", "qinghe-demo-user", "qinghe-shopping-draft", "qinghe-shopping-session-v1"])
       sessionStorage.removeItem(key);
   } catch { /* A new page still starts fresh when storage is blocked. */ }
 }

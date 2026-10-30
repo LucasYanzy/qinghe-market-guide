@@ -150,3 +150,28 @@ test("school operations, idempotent booking, validation rollback and pickup work
   await page.reload();
   expect((await demoApi(page, `/admin/operations?date=${date}&marketId=${marketId}`)).data.orders[0].status).toBe("completed");
 });
+
+test("approved vendor applications preserve the same person's customer and vendor roles without login", async ({ page }) => {
+  await page.goto("./");
+  await expect(toolbar(page)).toBeVisible();
+  const customer = (await demoApi(page, "/auth/me")).data.user;
+  expect((await demoApi(page, "/auth/role", "POST", { role: "admin" })).status).toBe(403);
+  const marketId = (await demoApi(page, "/markets")).data.find((market: { active: number }) => market.active).id;
+  const application = await demoApi(page, "/vendor/applications", "POST", {
+    marketId, businessName: "Demo applicant farm", contactName: "Sample farmer", phone: "", description: "Local sample produce",
+  });
+  expect(application.status).toBe(201);
+  await demoApi(page, "/demo/role", "POST", { role: "admin" });
+  expect((await demoApi(page, `/admin/applications/${application.data.id}`, "PATCH", { status: "approved", note: "Demo review", version: 0 })).status).toBe(200);
+  await demoApi(page, "/demo/role", "POST", { role: "client" });
+  const approved = (await demoApi(page, "/auth/me")).data.user;
+  expect(approved.id).toBe(customer.id);
+  expect(approved.roles.sort()).toEqual(["client", "retailer"]);
+  const switched = await demoApi(page, "/auth/role", "POST", { role: "retailer" });
+  expect(switched.status).toBe(200);
+  expect(switched.data.user.id).toBe(customer.id);
+  await page.goto("retailer/inventory/");
+  await expect(toolbar(page).getByRole("button", { name: "商户", exact: true })).toHaveAttribute("aria-pressed", "true");
+  expect((await demoApi(page, "/auth/me")).data.user.id).toBe(customer.id);
+  expect((await demoApi(page, "/auth/role", "POST", { role: "client" })).data.user.id).toBe(customer.id);
+});

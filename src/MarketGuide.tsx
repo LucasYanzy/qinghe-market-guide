@@ -1,4 +1,5 @@
 import { useLanguage } from "./i18n";
+import { browserDemo } from "./browser-demo/Controls";
 import { matchesSearch } from "./translations/translate";
 import { useEffect, useState } from "react";
 import { ArrowUpRight, Check, Clock3, Copy, ExternalLink, Leaf, Mail, MapPin, Navigation, Phone, Search, ShoppingBag, Store, X } from "lucide-react";
@@ -111,7 +112,7 @@ const faqs = [
   ],
   [
     "如何预购与取货？",
-    "顾客登录后选择商品、数量与演示自提时段。提交后库存会预留，等待商户确认；到场后出示订单编号。当前预购仅供流程演示，请勿按演示订单实际出行。",
+    browserDemo ? "直接选择商品、数量与演示自提时段，无需登录。提交后可切换商户身份确认，再体验到场取货流程。演示订单不会发给真实商户。" : "顾客登录后选择商品、数量与演示自提时段。提交后库存会预留，等待商户确认；到场后出示订单编号。当前预购仅供流程演示，请勿按演示订单实际出行。",
   ],
   [
     "需要在线支付吗？可以使用 Market Bucks 吗？",

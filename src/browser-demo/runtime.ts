@@ -8,7 +8,9 @@ import { initializeSqlite, persistDemo } from "./sqlite";
 import type { Role, User } from "../types";
 
 let currentRole: Role = "client";
+let currentUserId = 0;
 const roleKey = "qinghe-demo-role";
+const userKey = "qinghe-demo-user";
 export function demoRole() { return currentRole; }
 export async function initializeDemo() {
   await initializeSqlite();
@@ -16,14 +18,22 @@ export async function initializeDemo() {
   try {
     const saved = sessionStorage.getItem(roleKey);
     if (saved === "retailer" || saved === "admin") currentRole = saved;
+    currentUserId = Number(sessionStorage.getItem(userKey)) || 0;
   } catch { /* The default customer role works without browser storage. */ }
   const localPath = location.pathname.slice(import.meta.env.BASE_URL.replace(/\/$/, "").length);
-  if (localPath.startsWith("/admin")) currentRole = "admin";
-  if (localPath.startsWith("/retailer")) currentRole = "retailer";
-  const userFor = (role: Role): User => {
-    const user = db.prepare("SELECT id,name,email,role FROM users WHERE email=?").get(`${role}@qinghe.demo`);
-    return { ...user, roles: [role] };
+  if (localPath.startsWith("/admin")) { currentRole = "admin"; currentUserId = 0; }
+  if (localPath.startsWith("/retailer") && currentRole !== "retailer") { currentRole = "retailer"; currentUserId = 0; }
+  const userFor = (role: Role, id = currentUserId): User => {
+    const user = (id ? db.prepare("SELECT id,name,email,role FROM users WHERE id=?").get(id) : undefined)
+      ?? db.prepare("SELECT id,name,email,role FROM users WHERE email=?").get(`${role}@qinghe.demo`);
+    const roles: Role[] = [...new Set<Role>([user.role, ...db.prepare("SELECT role FROM user_roles WHERE user_id=?").all(user.id).map((entry: { role: Role }) => entry.role)])];
+    return { ...user, role, roles };
   };
+  const saveIdentity = () => {
+    currentUserId = userFor(currentRole).id;
+    try { sessionStorage.setItem(roleKey, currentRole); sessionStorage.setItem(userKey, String(currentUserId)); } catch { /* Role switches still work in memory. */ }
+  };
+  saveIdentity();
   const app = createApp(db);
   const originalFetch = window.fetch.bind(window);
   let queue = Promise.resolve();
@@ -44,11 +54,18 @@ export async function initializeDemo() {
       if (url.pathname === "/api/demo/role" && request.method === "POST") {
         if (!["client", "retailer", "admin"].includes(body.role)) return Response.json({ error: "Invalid demo role" }, { status: 400 });
         currentRole = body.role;
-        try { sessionStorage.setItem(roleKey, currentRole); } catch { /* Current role still switches. */ }
+        currentUserId = 0;
+        saveIdentity();
         return Response.json({ user: userFor(currentRole) });
       }
       // No credentials or authentication are accepted by this browser-only target.
       if (url.pathname === "/api/auth/me") return Response.json({ user: userFor(currentRole) });
+      if (url.pathname === "/api/auth/role" && request.method === "POST") {
+        if (!userFor(currentRole).roles?.includes(body.role)) return Response.json({ error: "当前账号无权进行此操作。" }, { status: 403 });
+        currentRole = body.role;
+        saveIdentity();
+        return Response.json({ user: userFor(currentRole) });
+      }
       if (url.pathname.startsWith("/api/auth/")) return Response.json({ error: "Use the demo role selector." }, { status: 400 });
       const headers = Object.fromEntries(request.headers);
       const req = { method: request.method, path: url.pathname, query: Object.fromEntries(url.searchParams),

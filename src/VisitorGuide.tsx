@@ -1,4 +1,5 @@
 import { useLanguage } from "./i18n";
+import { browserDemo } from "./browser-demo/Controls";
 import {
   ArrowRight,
   CheckCircle2,
@@ -20,7 +21,7 @@ const steps = [
   {
     icon: ShoppingBag,
     title: "选好时段，提交预购",
-    text: "登录顾客账号，确认自提时段与备注。提交后，在「我的预购」查看商户确认状态。",
+    text: browserDemo ? "直接确认自提时段与备注。提交后，在「我的预购」查看商户确认状态，无需登录。" : "登录顾客账号，确认自提时段与备注。提交后，在「我的预购」查看商户确认状态。",
   },
   {
     icon: Store,
@@ -105,7 +106,7 @@ export function AboutMarket({
           {[
             [
               "需要先注册才能浏览吗？",
-              "不需要。可以直接浏览商品、市场信息和历史采价资料；提交预购及查看个人订单时需要登录顾客账号。",
+              browserDemo ? "无需注册或登录。直接选购、提交演示预购，也可以从顶部切换商户和学校身份。" : "不需要。可以直接浏览商品、市场信息和历史采价资料；提交预购及查看个人订单时需要登录顾客账号。",
             ],
             [
               "预购需要在线付款吗？",
