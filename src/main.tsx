@@ -5,6 +5,7 @@ import { LanguageProvider } from "./i18n";
 import "./styles.css";
 import "./website.css";
 import "./motion.css";
+import "./pointer.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

@@ -87,29 +87,53 @@ export function MotionGrid({ children, layoutKey }: { children: ReactNode; layou
 
 export function InteractiveHero({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLElement>(null);
-  const frame = useRef(0);
-  useEffect(() => () => cancelAnimationFrame(frame.current), []);
+  useEffect(() => {
+    const hero = ref.current;
+    if (!hero) return;
+    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const mouse = window.matchMedia("(any-hover: hover) and (any-pointer: fine)");
+    let frame = 0;
+    let point = { x: 0, y: 0 };
+    const reset = () => {
+      cancelAnimationFrame(frame);
+      frame = 0;
+      hero.style.removeProperty("--art-x");
+      hero.style.removeProperty("--art-y");
+    };
+    const move = (event: PointerEvent) => {
+      if (event.pointerType !== "mouse" || event.buttons || preference.matches || !mouse.matches) return;
+      point = { x: event.clientX, y: event.clientY };
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        const rect = hero.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        const x = ((point.x - rect.left) / rect.width - 0.5) * 14;
+        const y = ((point.y - rect.top) / rect.height - 0.5) * 10;
+        hero.style.setProperty("--art-x", `${Math.max(-7, Math.min(7, x))}px`);
+        hero.style.setProperty("--art-y", `${Math.max(-5, Math.min(5, y))}px`);
+      });
+    };
+    hero.addEventListener("pointermove", move, { passive: true });
+    hero.addEventListener("pointerleave", reset);
+    hero.addEventListener("pointerdown", reset);
+    window.addEventListener("blur", reset);
+    window.addEventListener("resize", reset, { passive: true });
+    preference.addEventListener("change", reset);
+    mouse.addEventListener("change", reset);
+    return () => {
+      reset();
+      hero.removeEventListener("pointermove", move);
+      hero.removeEventListener("pointerleave", reset);
+      hero.removeEventListener("pointerdown", reset);
+      window.removeEventListener("blur", reset);
+      window.removeEventListener("resize", reset);
+      preference.removeEventListener("change", reset);
+      mouse.removeEventListener("change", reset);
+    };
+  }, []);
   return (
-    <section
-      ref={ref}
-      className="hero"
-      onPointerMove={(event) => {
-        if (event.pointerType !== "mouse" || reducedMotion()) return;
-        const rect = event.currentTarget.getBoundingClientRect();
-        const x = ((event.clientX - rect.left) / rect.width - 0.5) * 14;
-        const y = ((event.clientY - rect.top) / rect.height - 0.5) * 10;
-        cancelAnimationFrame(frame.current);
-        frame.current = requestAnimationFrame(() => {
-          ref.current?.style.setProperty("--art-x", `${x}px`);
-          ref.current?.style.setProperty("--art-y", `${y}px`);
-        });
-      }}
-      onPointerLeave={() => {
-        cancelAnimationFrame(frame.current);
-        ref.current?.style.setProperty("--art-x", "0px");
-        ref.current?.style.setProperty("--art-y", "0px");
-      }}
-    >{children}</section>
+    <section ref={ref} className="hero">{children}</section>
   );
 }
 

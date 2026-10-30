@@ -6,6 +6,7 @@ import { initializeDemo } from "../browser-demo/runtime";
 import "../styles.css";
 import "../website.css";
 import "../motion.css";
+import "../pointer.css";
 
 const root = ReactDOM.createRoot(document.getElementById("root")!);
 function start() {
