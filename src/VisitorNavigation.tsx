@@ -1,4 +1,4 @@
-import { CircleHelp, Leaf, LogOut, MapPin, ShoppingBag, Store, UserRound } from "lucide-react";
+import { Bell, CircleHelp, Leaf, LogOut, MapPin, ShoppingBag, Store, UserRound } from "lucide-react";
 import { LanguageSwitcher, useLanguage } from "./i18n";
 import { PageLink, type Page, type Route } from "./navigation";
 import type { User } from "./types";
@@ -16,7 +16,7 @@ export function VisitorHeader({ page, navigate, user, onLogin, onLogout }: {
   onLogin: () => void; onLogout: () => void;
 }) {
   const { t } = useLanguage();
-  return <header className="visitor-header">
+  return <header className={`visitor-header${user ? " visitor-header-signed-in" : ""}`}>
     <PageLink page="discover" navigate={navigate} className="visitor-brand" >
       <span><Leaf size={23} /></span><strong>{t("青禾")}<small>QINGHE</small></strong>
     </PageLink>
@@ -26,7 +26,7 @@ export function VisitorHeader({ page, navigate, user, onLogin, onLogout }: {
       </PageLink>)}
     </nav>
     <div className="visitor-header-actions">
-      {user && <PageLink page="notifications" navigate={navigate}>{t("通知")}</PageLink>}
+      {user && <PageLink page="notifications" navigate={navigate} className="visitor-notifications" active={page === "notifications"}><Bell size={18} /><span>{t("通知")}</span></PageLink>}
       <PageLink page="help" navigate={navigate} active={page === "help"} className="visitor-help-link"><CircleHelp size={19} /><span>{t("帮助")}</span></PageLink>
       <LanguageSwitcher />
       <button className="visitor-account" onClick={user ? onLogout : onLogin} aria-label={t(user ? "退出登录" : "登录")} title={t(user?.name)}>

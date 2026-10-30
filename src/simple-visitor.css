@@ -124,3 +124,14 @@
   .visitor-account { min-width: 40px; }
   .visitor-site main { padding-left: 15px; padding-right: 15px; }
 }
+
+.visitor-notifications { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 40px; min-height: 44px; color: #607054; font-size: 12px; }
+.visitor-notifications[aria-current="page"] { color: #2e5334; background: #eaf0df; border-radius: 6px; }
+@media (max-width: 1000px) { .visitor-notifications > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } }
+@media (max-width: 760px) {
+  .visitor-header-signed-in .visitor-account > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .visitor-header-signed-in .visitor-account { min-width: 40px; }
+}
+@media (max-width: 360px) {
+  .visitor-header-signed-in .visitor-brand > strong { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
