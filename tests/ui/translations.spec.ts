@@ -7,15 +7,18 @@ async function expectEnglish(page: Page) {
     while (walker.nextNode()) {
       const element = walker.currentNode.parentElement;
       const text = walker.currentNode.textContent?.trim() ?? '';
-      // Native language choice, bilingual archive names, and original customer content are intentional.
-      if (!element || element.closest('[lang="zh-CN"], .sidebar-bottom strong, .avatar, .order-client, .order-note, .recent-orders strong, textarea, script, style') || !element.checkVisibility()) continue;
-      if (/\p{Script=Han}/u.test(text) && !['林同学', '保留我的备注', '商户交互测试：当季采收'].includes(text)) found.push(text);
+      // Native language choice and original customer content are intentional.
+      if (!element || element.closest('[lang="zh-CN"], .order-note, textarea, script, style') || !element.checkVisibility()) continue;
+      if (/\p{Script=Han}/u.test(text) && !['林同学', '林', '保留我的备注', '商户交互测试：当季采收'].includes(text)) found.push(text);
     }
-    for (const element of document.querySelectorAll('[aria-label], [placeholder], [title]')) {
-      if (element.closest('[lang="zh-CN"]')) continue;
+    for (const element of document.querySelectorAll('[aria-label], [placeholder], [title], input, textarea')) {
+      if (element.closest('[lang="zh-CN"]') || !element.checkVisibility()) continue;
       for (const attribute of ['aria-label', 'placeholder', 'title']) {
         const value = element.getAttribute(attribute) ?? '';
         if (/\p{Script=Han}/u.test(value)) found.push(`${attribute}: ${value}`);
+      }
+      if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+        if (!['checkbox', 'radio', 'hidden'].includes(element.type) && /\p{Script=Han}/u.test(element.value) && !['林同学', '保留我的备注', '商户交互测试：当季采收'].includes(element.value)) found.push(`value: ${element.value}`);
       }
     }
     return found;

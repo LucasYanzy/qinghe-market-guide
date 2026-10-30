@@ -380,7 +380,7 @@ function App() {
     notify(
       loginIntent === "cart" && !resetCart
         ? "登录成功，请确认自提信息后提交预购"
-        : { message: "欢迎回来，{name}", values: { name: next.name } },
+        : { message: "欢迎回来，{name}", values: { name: next.role === "retailer" ? { message: next.name } : next.name } },
     );
   };
   const logout = async () => {
@@ -531,9 +531,9 @@ function App() {
           <span>{t("LOCAL FOOD. LOCAL GOOD.")}</span>
         </div>
         <div className="sidebar-bottom">
-          <div className="avatar">{user ? user.name.slice(0, 1) : t("青")}</div>
+          <div className="avatar">{t(user ? user.name : "青").slice(0, 1)}</div>
           <div>
-            <strong>{user?.name ?? t("欢迎来到青禾")}</strong>
+            <strong>{t(user?.name ?? "欢迎来到青禾")}</strong>
             <small>
               {t(user
                 ? retailer
@@ -2480,7 +2480,7 @@ function ProductEditor({
           <label>{t("商品名称")}<input
               required
               maxLength={50}
-              value={name}
+              value={t(name)}
               onChange={(e) => setName(e.target.value)}
               placeholder={t("例如：刚采收的田园番茄")}
             />
@@ -2553,7 +2553,7 @@ function ProductEditor({
           <label>{t("关于这份新鲜")}<textarea
               maxLength={500}
               rows={3}
-              value={description}
+              value={t(description)}
               onChange={(e) => setDescription(e.target.value)}
               placeholder={t("介绍产地、口感或推荐做法…")}
             />

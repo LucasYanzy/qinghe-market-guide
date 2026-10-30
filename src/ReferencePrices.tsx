@@ -67,9 +67,9 @@ export default function ReferencePrices() {
                 <tr key={item.id}>
                   <td>
                     <strong>{language === "en" ? item.english_name : item.name}</strong>
-                    <small className="reference-english" lang={language === "en" ? "zh-CN" : "en"}>
-                      {language === "en" ? item.name : item.english_name}
-                    </small>
+                    {language === "zh" && <small className="reference-english" lang="en">
+                      {item.english_name}
+                    </small>}
                   </td>
                   <td>
                     <strong>{t(money(item.listed_price_cents))}</strong>
