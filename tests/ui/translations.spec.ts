@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from "./isolated";
 
 async function expectEnglish(page: Page) {
   const untranslated = await page.evaluate(() => {

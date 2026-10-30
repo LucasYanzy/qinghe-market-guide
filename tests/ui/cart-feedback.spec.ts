@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "./isolated";
 
 test("绿色小圆飞入首次出现的购物袋，落点有接收反馈且圆点自动清理", async ({ page }) => {
   await page.goto("/");

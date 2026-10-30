@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "./isolated";
 
 test("网站页面支持直接访问、刷新和页面标题", async ({ page }) => {
   for (const [path, title] of [

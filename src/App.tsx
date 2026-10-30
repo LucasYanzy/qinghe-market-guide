@@ -3,6 +3,7 @@ import { matchesSearch, quantityUnit } from "./translations/translate";
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type FormEvent,
@@ -35,6 +36,7 @@ import {
   Store,
   TrendingUp,
   Truck,
+  Undo2,
   Users,
   Wallet,
   X,
@@ -59,6 +61,7 @@ import { PageLink, useNavigation, type Page } from "./navigation";
 import { AboutMarket, PreorderSteps } from "./VisitorGuide";
 import { InteractiveHero, MotionGrid, ScrollActions, usePageMotion } from "./motion";
 import { useCartFeedback } from "./cartFeedback";
+import { readShoppingSession, saveShoppingSession, type Cart, type CheckoutDraft } from "./shoppingSession";
 import type {
   Config,
   Dashboard,
@@ -70,8 +73,6 @@ import type {
   User,
 } from "./types";
 
-type Cart = Record<number, number>;
-type CheckoutDraft = { slot: string; note: string };
 const maxQuantity = (product: Product) => Math.min(product.stock, 100);
 const statusLabels: Record<OrderStatus, string> = {
   pending: "待商户确认",
@@ -237,6 +238,8 @@ function App() {
   const [cartOpen, setCartOpen] = useState(false);
   const [cart, setCart] = useState<Cart>({});
   const cartOwnerId = useRef<number | null>(null);
+  const shoppingDate = useRef("");
+  const shopRequested = useRef(false);
   const [checkout, setCheckout] = useState<CheckoutDraft>({
     slot: "",
     note: "",
@@ -304,9 +307,15 @@ function App() {
       api<Config>("/config"),
       api<Product[]>("/products"),
     ]);
+    if (shoppingDate.current && shoppingDate.current !== nextConfig.today) {
+      setCart({});
+      setCheckout({ slot: "", note: "" });
+      notify("市集日期已更新，请重新选择商品和自提时段。");
+    }
+    shoppingDate.current = nextConfig.today;
     setConfig(nextConfig);
     setProducts(nextProducts);
-  }, []);
+  }, [notify]);
   const load = useCallback(async () => {
     setLoadError("");
     setLoading(true);
@@ -316,6 +325,12 @@ function App() {
         api<{ user: User | null }>("/auth/me"),
         api<Product[]>("/products"),
       ]);
+      const saved = readShoppingSession();
+      const restore = saved && saved.date === c.today && u.user?.role !== "retailer" &&
+        (saved.ownerId === null || saved.ownerId === u.user?.id);
+      setCart(restore ? saved.cart : {});
+      setCheckout(restore ? saved.checkout : { slot: "", note: "" });
+      shoppingDate.current = c.today;
       setConfig(c);
       setUser(u.user);
       cartOwnerId.current = u.user?.role === "client" ? u.user.id : null;
@@ -331,6 +346,20 @@ function App() {
   useEffect(() => {
     void load();
   }, [load]);
+  useEffect(() => {
+    if (loading || !config) return;
+    saveShoppingSession(retailer ? null : {
+      version: 1, date: shoppingDate.current, ownerId: cartOwnerId.current, cart, checkout,
+    });
+  }, [loading, config, retailer, cart, checkout, user]);
+  useEffect(() => {
+    if (loading || page !== "discover" || !shopRequested.current) return;
+    const target = document.getElementById("today-produce");
+    if (!target) return;
+    shopRequested.current = false;
+    target.scrollIntoView({ block: "start", behavior: "instant" });
+    target.focus({ preventScroll: true });
+  }, [loading, page]);
   useEffect(() => {
     if (revision)
       void reloadListings().catch((e) => notify(e));
@@ -456,7 +485,10 @@ function App() {
   const closeDetail = useCallback(() => setDetailId(undefined), []);
   const continueShopping = () => {
     setCartOpen(false);
-    if (page !== "discover") navigate("discover");
+    if (page !== "discover") {
+      shopRequested.current = true;
+      navigate("discover");
+    }
   };
   if (loading)
     return (
@@ -678,7 +710,7 @@ function App() {
                   </div>
                 </div>
               </div>
-              <div className="section-heading" id="today-produce">
+              <div className="section-heading" id="today-produce" tabIndex={-1}>
                 <div>
                   <span className="eyebrow">{t("FRESH FROM THE FARM")}</span>
                   <h2>{t("今日新鲜上架")}{t(" ")}
@@ -867,7 +899,7 @@ function App() {
                 setLoginIntent("orders");
                 setAuthOpen(true);
               }}
-              onShop={() => navigate("discover")}
+              onShop={continueShopping}
             />
           )}
           {page === "dashboard" && retailer && (
@@ -1275,6 +1307,60 @@ function CartModal({
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
   const [error, setError] = useState<Message>("");
+  type RemovedItem = { id: number; quantity: number; name: string; date: string };
+  const [removed, setRemoved] = useState<RemovedItem>();
+  const removedRef = useRef<RemovedItem | undefined>(undefined);
+  const [undoNotice, setUndoNotice] = useState<Message>("");
+  const previousCart = useRef({ cart, date: config.today });
+  const undoButton = useRef<HTMLButtonElement>(null);
+  const cartList = useRef<HTMLDivElement>(null);
+  const restoreFocus = useRef<number | undefined>(undefined);
+  useLayoutEffect(() => {
+    const previous = previousCart.current;
+    previousCart.current = { cart, date: config.today };
+    if (previous.date !== config.today) {
+      removedRef.current = undefined;
+      setRemoved(undefined);
+      setUndoNotice("");
+      return;
+    }
+    const id = Object.keys(previous.cart).map(Number).find((key) => previous.cart[key] && !cart[key]);
+    if (id !== undefined) {
+      const product = products.find((item) => item.id === id);
+      const entry = product && product.stock > 0
+        ? { id, quantity: previous.cart[id], name: product.name, date: config.today }
+        : undefined;
+      removedRef.current = entry;
+      setRemoved(entry);
+      setUndoNotice("");
+    }
+    if (restoreFocus.current !== undefined) {
+      const button = cartList.current?.querySelector<HTMLButtonElement>(`[data-cart-item="${restoreFocus.current}"] button:not(:disabled)`);
+      button?.focus({ preventScroll: true });
+      restoreFocus.current = undefined;
+    }
+  }, [cart, config.today, products]);
+  useLayoutEffect(() => {
+    if (removed) undoButton.current?.focus({ preventScroll: true });
+  }, [removed]);
+  const undoRemoval = () => {
+    const entry = removedRef.current;
+    if (busy || !entry) return;
+    removedRef.current = undefined;
+    setRemoved(undefined);
+    const product = products.find((item) => item.id === entry.id);
+    if (entry.date !== config.today || !product || !product.stock) {
+      setUndoNotice("这份商品暂不可购，请选择其他新鲜。");
+      return;
+    }
+    const limit = maxQuantity(product);
+    update((current) => ({ ...current, [entry.id]: Math.min(limit, (current[entry.id] ?? 0) + entry.quantity) }));
+    restoreFocus.current = entry.id;
+    setUndoNotice(entry.quantity > limit
+      ? "库存已变化，已按可购数量恢复。"
+      : { message: "已恢复 {product}", values: { product: { message: product.name } } });
+    setError("");
+  };
   const entries = Object.entries(cart).map(([id, quantity]) => ({
     id: Number(id),
     product: products.find((p) => p.id === Number(id)),
@@ -1343,6 +1429,12 @@ function CartModal({
   };
   return (
     <Modal title={t("我的新鲜购物袋")} onClose={onClose} busy={busy}>
+      {removed && <div className="cart-undo" role="status">
+        <Undo2 size={17} />
+        <span>{t("已移除 {product}", { product: { message: removed.name } })}</span>
+        <button ref={undoButton} type="button" className="text-button" disabled={busy} onClick={undoRemoval}>{t("撤销")}</button>
+      </div>}
+      {undoNotice && <p className="cart-undo-notice" role="status">{t(undoNotice)}</p>}
       {!entries.length ? (
         <Empty
           title={t("购物袋在等一份新鲜")}
@@ -1359,9 +1451,9 @@ function CartModal({
               <span>{t("已选 {count} 件", { count: entries.reduce((sum, item) => sum + item.quantity, 0) })}</span>
               <button className="text-button" type="button" onClick={onShop}>{t("继续选购")}<ArrowRight size={14} /></button>
             </div>
-            <div className="cart-list">
+            <div className="cart-list" ref={cartList}>
               {entries.map(({ id, product: p, quantity }) => (
-                <div className="cart-item" key={id}>
+                <div className="cart-item" key={id} data-cart-item={id}>
                   {p ? (
                     <>
                       <div className={`cart-art art-bg-${p.art}`}>
