@@ -61,6 +61,7 @@ import { PageLink, useNavigation, type Page } from "./navigation";
 import { AboutMarket, PreorderSteps } from "./VisitorGuide";
 import { InteractiveHero, MotionGrid, ScrollActions, usePageMotion } from "./motion";
 import { useCartFeedback } from "./cartFeedback";
+import { usePointerFeedback } from "./pointerFeedback";
 import { readShoppingSession, saveShoppingSession, type Cart, type CheckoutDraft } from "./shoppingSession";
 import type {
   Config,
@@ -111,6 +112,7 @@ function Modal({
 }) {
   const { t } = useLanguage();
   const ref = useRef<HTMLDivElement>(null);
+  const backdropPress = useRef<{ id: number; x: number; y: number } | null>(null);
   const [closing, setClosing] = useState(false);
   const requestClose = useCallback(() => {
     if (busy || closing) return;
@@ -175,9 +177,22 @@ function Modal({
   return (
     <div
       className={`modal-backdrop ${closing ? "is-closing" : ""}`}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) requestClose();
+      onPointerDown={(e) => {
+        backdropPress.current = e.target === e.currentTarget && e.button === 0 && e.isPrimary
+          ? { id: e.pointerId, x: e.clientX, y: e.clientY } : null;
       }}
+      onPointerUp={(e) => {
+        const press = backdropPress.current;
+        backdropPress.current = null;
+        if (press?.id === e.pointerId && e.button === 0 && e.target === e.currentTarget &&
+          Math.hypot(e.clientX - press.x, e.clientY - press.y) <= 6) requestClose();
+      }}
+      onPointerMove={(e) => {
+        const press = backdropPress.current;
+        if (press?.id === e.pointerId && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 6)
+          backdropPress.current = null;
+      }}
+      onPointerCancel={() => { backdropPress.current = null; }}
     >
       <div
         className={`modal ${wide ? "modal-wide" : ""}`}
@@ -252,6 +267,7 @@ function App() {
   const detail = products.find((product) => product.id === detailId);
   const [revision, setRevision] = useState(0);
   const [search, setSearch] = useState("");
+  const searchInput = useRef<HTMLInputElement>(null);
   const [category, setCategory] = useState("全部蔬菜");
   const [sort, setSort] = useState("recommended");
   const [inStock, setInStock] = useState(false);
@@ -262,6 +278,7 @@ function App() {
   }, []);
   const mainRef = usePageMotion(page, !loading && !!config);
   const animateCart = useCartFeedback(`${page}:${cartOpen}:${authOpen}:${detailId ?? ""}`, cartCount);
+  usePointerFeedback(`${page}:${cartOpen}:${authOpen}:${detailId ?? ""}:${mobileNav}`);
   const sidebarRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!mobileNav) return;
@@ -742,6 +759,7 @@ function App() {
                   <label className="search-field">
                     <Search size={17} />
                     <input
+                      ref={searchInput}
                       aria-label={t("搜索蔬菜或农场")}
                       placeholder={t("找找你喜欢的蔬菜…")}
                       value={search}
@@ -750,7 +768,10 @@ function App() {
                     {search && (
                       <button
                         aria-label={t("清除搜索")}
-                        onClick={() => setSearch("")}
+                        onClick={() => {
+                          setSearch("");
+                          searchInput.current?.focus({ preventScroll: true });
+                        }}
                       >
                         <X size={14} />
                       </button>

@@ -377,14 +377,11 @@ main {
     background 0.2s,
     transform 0.2s;
 }
-.button:not(:disabled):hover {
-  transform: translateY(-1px);
-}
 .primary {
   background: var(--green);
   color: #fff;
 }
-.primary:hover {
+.primary:not(:disabled):hover {
   background: var(--green-dark);
 }
 .secondary {
@@ -392,7 +389,7 @@ main {
   border-color: #dce2d3;
   color: #5d6f50;
 }
-.secondary:hover {
+.secondary:not(:disabled):hover {
   background: #f3f5ee;
 }
 .subtle {
@@ -823,11 +820,7 @@ main {
   background: #fff;
   transition:
     box-shadow 0.2s,
-    transform 0.2s;
-}
-.product-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 9px 20px #30492b09;
+    border-color 0.2s;
 }
 .product-image {
   position: relative;
@@ -847,8 +840,10 @@ main {
   margin: 12px auto;
   transition: transform 0.35s;
 }
-.product-image:hover > .produce-art {
-  transform: scale(1.07) rotate(-4deg);
+@media (hover: hover) and (pointer: fine) {
+  .product-image:hover > .produce-art {
+    transform: scale(1.07) rotate(-4deg);
+  }
 }
 .art-bg-tomato {
   background: #f6ede4;
@@ -991,7 +986,7 @@ main {
   flex-shrink: 0;
   transition: background 0.2s;
 }
-.add-button:hover,
+.add-button:not(:disabled):hover,
 .add-button.has-quantity {
   color: #fff;
   background: #4c6d44;
@@ -1059,7 +1054,7 @@ footer > span:first-child {
   border-radius: 6px;
   color: #8b967d;
 }
-.icon-button:hover {
+.icon-button:not(:disabled):hover {
   background: #f0f3e8;
 }
 .modal-backdrop {
@@ -1413,7 +1408,7 @@ textarea {
   place-items: center;
   color: #82916a;
 }
-.quantity-control button:hover {
+.quantity-control button:not(:disabled):hover {
   background: #f0f3e8;
 }
 .quantity-control span {

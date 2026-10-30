@@ -52,6 +52,8 @@
 
 新增浏览器回归覆盖数量同步、组合筛选、购物袋草稿、手机菜单、英文反馈、减少动态效果、飞行落点和动画清理，并用 4 倍 CPU 减速模拟检查连续加购。
 
+鼠标操作提供悬停提示和按下反馈，商品卡本体保持稳定，小型加减、关闭及删除按钮扩大可点击区域。点击光波只在鼠标左键操作时生成，最多一个短时原生动画；不会追踪全局鼠标位置，触屏和减少动态效果时停用。首页插画仅在鼠标移动时按帧合并更新，离开、拖动、失焦或切换动态偏好时复位。弹窗遮罩仅在同处完成左键轻点后关闭，右键及拖动选择文字不会误关；清空搜索会将输入焦点交回搜索框。
+
 ## Rutgers 官方资料来源
 
 已于 **2026-10-16** 读取并核对 [Rutgers Farmers Market](https://ruoffcampus.rutgers.edu/basic-needs/food-assistance/rutgers-farmers-market) 与 [Market Bucks Program](https://ruoffcampus.rutgers.edu/basic-needs/food-assistance/market-bucks-program)。整理内容保存在 `references/rutgers-market-guide.json`，首页、市场目录与帮助中心共用这份资料。
