@@ -1,4 +1,5 @@
-import { LanguageSwitcher, useLanguage } from "./i18n";
+import { LanguageSwitcher, useLanguage, type Message } from "./i18n";
+import { matchesSearch } from "./translations/translate";
 import {
   useCallback,
   useEffect,
@@ -95,8 +96,8 @@ function App() {
   const { page, navigate: changePage, replacePage } = useNavigation();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [toast, setToast] = useState("");
+  const [loadError, setLoadError] = useState<Message>("");
+  const [toast, setToast] = useState<Message>("");
   const [authOpen, setAuthOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [cart, setCart] = useState<Cart>({});
@@ -115,7 +116,7 @@ function App() {
   const [sort, setSort] = useState("recommended");
   const [inStock, setInStock] = useState(false);
   const retailer = user?.role === "retailer";
-  const notify = useCallback((message: string) => setToast(message), []);
+  const notify = useCallback((message: Message) => setToast(message), []);
   const refresh = useCallback(() => {
     setRevision((r) => r + 1);
   }, []);
@@ -134,7 +135,7 @@ function App() {
       if (u.user?.role === "retailer" && window.location.pathname === "/")
         replacePage("dashboard");
     } catch (e) {
-      setLoadError((e as Error).message);
+      setLoadError(e as Error);
     } finally {
       setLoading(false);
     }
@@ -146,7 +147,7 @@ function App() {
     if (revision)
       api<Product[]>("/products")
         .then(setProducts)
-        .catch((e) => notify(e.message));
+        .catch((e) => notify(e as Error));
   }, [revision, notify]);
   useEffect(() => {
     if (!toast) return;
@@ -193,7 +194,7 @@ function App() {
     notify(
       loginIntent === "cart" && !resetCart
         ? "登录成功，请确认自提信息后提交预购"
-        : `欢迎回来，${next.name}`,
+        : { message: "欢迎回来，{name}", values: { name: next.role === "retailer" ? { message: next.name } : next.name } },
     );
   };
   const logout = async () => {
@@ -205,7 +206,7 @@ function App() {
       navigate("discover");
       notify("已退出登录");
     } catch (e) {
-      notify((e as Error).message);
+      notify(e as Error);
     }
   };
   const add = (product: Product) => {
@@ -213,14 +214,14 @@ function App() {
     if ((cart[product.id] ?? 0) >= product.stock)
       return notify("已达到当前库存数量");
     setCart((c) => ({ ...c, [product.id]: (c[product.id] ?? 0) + 1 }));
-    notify(`${product.name} 已加入购物袋`);
+    notify({ message: "{product} 已加入购物袋", values: { product: { message: product.name } } });
   };
   const cartCount = Object.values(cart).reduce((a, b) => a + b, 0);
   let visible = products.filter(
     (p) =>
       (category === "全部蔬菜" || p.category === category) &&
       (!inStock || p.stock > 0) &&
-      `${p.name}${p.farm}`.toLowerCase().includes(search.toLowerCase()),
+      matchesSearch(search, p.name, p.farm),
   );
   if (sort === "price-up")
     visible = [...visible].sort((a, b) => a.price_cents - b.price_cents);
@@ -320,7 +321,7 @@ function App() {
           <span>LOCAL FOOD. LOCAL GOOD.</span>
         </div>
         <div className="sidebar-bottom">
-          <div className="avatar">{t(user ? user.name.slice(0, 1) : "青")}</div>
+          <div className="avatar">{t(user ? user.name : "青").slice(0, 1)}</div>
           <div>
             <strong>{t(user?.name ?? "欢迎来到青禾")}</strong>
             <small>
@@ -419,7 +420,7 @@ function App() {
                 <div className="hero-copy">
                   <div className="hero-kicker">
                     <span />{t("在地生长 · 当季新鲜")}</div>
-                  <h2>{t("把田野的新鲜，")}<br />{t("带回你的餐桌")}<span>。</span>
+                  <h2>{t("把田野的新鲜，\n带回你的餐桌")}<span>。</span>
                   </h2>
                   <p>{t("一份当季蔬菜，一点简单的幸福。")}<br />{t("提前预购，来市集把好味道带回家。")}</p>
                   <div className="hero-actions">
@@ -471,7 +472,7 @@ function App() {
                   <span className="eyebrow">FRESH FROM THE FARM</span>
                   <h2>{t("今日新鲜上架")}{t(" ")}
                     <span className="subtle-count">
-                      {products.length}{t(" 款当季好物")}</span>
+                      {t("{count} 款当季好物", { count: products.length })}</span>
                   </h2>
                 </div>
                 <span className="harvest-tag">
@@ -527,7 +528,7 @@ function App() {
                 </div>
               </div>
               <div className="results-meta">
-                <span>{t("发现 ")}{visible.length}{t(" 款新鲜好物")}</span>
+                <span>{t("发现 {count} 款新鲜好物", { count: visible.length })}</span>
                 <label>
                   <input
                     type="checkbox"
@@ -751,7 +752,7 @@ function App() {
             setCartOpen(false);
             refresh();
             navigate("orders");
-            notify(`预购成功 · ${order.id}`);
+            notify({ message: "预购成功 · {id}", values: { id: order.id } });
           }}
         />
       )}
@@ -773,7 +774,7 @@ function App() {
                 {t(money(detail.price_cents))}
                 <small> / {t(detail.unit)}</small>
               </strong>
-              <span>{t("今日剩余 ")}{detail.stock} {t(detail.unit)}
+              <span>{t("今日剩余 {count} {unit}", { count: detail.stock, unit: { unit: detail.unit, count: detail.stock } })}
               </span>
             </div>
             <p className="helper-text">{t("称重类商品按标示单位预订；如需现场称重，最终金额请与商户确认。")}</p>
@@ -829,14 +830,14 @@ function ProductCard({
           {t(p.name)}
         </button>
         <div className="product-description">
-          {t(p.description.split("。")[0])}
+          {t(p.description).split(/[。.!?]/)[0]}
         </div>
         <div className="product-bottom">
           <div>
             <strong>{t(money(p.price_cents))}</strong>
             <small> / {t(p.unit)}</small>
             <span className={`stock-label ${p.stock < 10 ? "low" : ""}`}>
-              {t(p.stock > 0 ? `剩余 ${p.stock} ${p.unit}` : "等待下一次采收")}
+              {p.stock > 0 ? t("剩余 {count} {unit}", { count: p.stock, unit: { unit: p.unit, count: p.stock } }) : t("等待下一次采收")}
             </span>
           </div>
           <button
@@ -870,7 +871,7 @@ function AuthModal({
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Message>("");
   const submit = async (e?: FormEvent, role?: Role) => {
     e?.preventDefault();
     if (busy) return;
@@ -886,7 +887,7 @@ function AuthModal({
       );
       onLogin(result.user);
     } catch (e) {
-      setError((e as Error).message);
+      setError(e as Error);
     } finally {
       setBusy(false);
     }
@@ -931,7 +932,7 @@ function AuthModal({
         </div>
       )}
       <div className="divider">
-        <span>{t("或使用邮箱")}{t(register ? "注册" : "登录")}</span>
+        <span>{t(register ? "或使用邮箱注册" : "或使用邮箱登录")}</span>
       </div>
       <form onSubmit={submit} className="form-stack">
         <fieldset className="form-fields form-stack" disabled={busy}>
@@ -1024,7 +1025,7 @@ function CartModal({
     : (config.pickupSlots[0] ?? "");
   const { note } = draft;
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Message>("");
   const entries = Object.entries(cart).map(([id, quantity]) => ({
     id: Number(id),
     product: products.find((p) => p.id === Number(id)),
@@ -1064,7 +1065,7 @@ function CartModal({
       });
       onSuccess(order);
     } catch (e) {
-      setError((e as Error).message);
+      setError(e as Error);
     } finally {
       setBusy(false);
     }
@@ -1116,7 +1117,7 @@ function CartModal({
                         </div>
                         {quantity > p.stock && (
                           <div className="stock-warning" role="status">
-                            <span>{t("当前仅剩 ")}{p.stock} {t(p.unit)}
+                            <span>{t("当前仅剩 {count} {unit}", { count: p.stock, unit: { unit: p.unit, count: p.stock } })}
                             </span>
                             <button
                               type="button"
@@ -1206,7 +1207,7 @@ function CartModal({
               {t(busy
                 ? "正在提交预购，请稍候…"
                 : user
-                  ? "确认预购"
+                  ? "Place preorder"
                   : "登录后预购")}
               <ArrowRight size={16} />
             </button>
@@ -1257,7 +1258,7 @@ function ForecastPrices({
   const { t } = useLanguage();
   const [selected, setSelected] = useState(products[0]?.id ?? 0);
   const [data, setData] = useState<PriceData>();
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Message>("");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (!selected) return;
@@ -1269,7 +1270,7 @@ function ForecastPrices({
         if (!cancelled) setData(d);
       })
       .catch((e) => {
-        if (!cancelled) setError(e.message);
+        if (!cancelled) setError(e as Error);
       })
       .finally(() => {
         if (!cancelled) setBusy(false);
@@ -1322,7 +1323,7 @@ function ForecastPrices({
           >
             {products.map((p) => (
               <option value={p.id} key={p.id}>
-                {t(p.name)}{t(" · 每")}{t(p.unit)}
+                {t("{product} · 每{unit}", { product: t(p.name), unit: { unit: p.unit, count: 1 } })}
               </option>
             ))}
           </select>
@@ -1348,7 +1349,7 @@ function ForecastPrices({
               <Stat
                 label={t("当前售价")}
                 value={money(data.product.price_cents)}
-                note={t("每{0} · 最新记录 {1}", {0: t(data.product.unit), 1: t(shortDate(data.history.at(-1)?.date ?? ""))})}
+                note={t("每{0} · 最新记录 {1}", {0: { unit: data.product.unit, count: 1 }, 1: t(shortDate(data.history.at(-1)?.date ?? ""))})}
                 icon={<Wallet />}
               />
               <Stat
@@ -1382,7 +1383,7 @@ function ForecastPrices({
               <div className="panel-heading">
                 <div>
                   <span className="eyebrow">A CLEARER VIEW OF FRESHNESS</span>
-                  <h2>{t(data.product.name)}{t(" · 价格走势")}</h2>
+                  <h2>{t("{product} · 价格走势", { product: t(data.product.name) })}</h2>
                 </div>
                 <div className="chart-legend">
                   <span>
@@ -1554,7 +1555,7 @@ function Orders({
   user: User | null;
   revision: number;
   refresh: () => void;
-  notify: (s: string) => void;
+  notify: (s: Message) => void;
   onLogin: () => void;
   onShop: () => void;
 }) {
@@ -1562,7 +1563,7 @@ function Orders({
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Message>("");
   const [busy, setBusy] = useState("");
   const [cancelOrder, setCancelOrder] = useState<Order>();
   useEffect(() => {
@@ -1575,7 +1576,7 @@ function Orders({
         if (!cancelled) setOrders(d);
       })
       .catch((e) => {
-        if (!cancelled) setError(e.message);
+        if (!cancelled) setError(e as Error);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -1603,7 +1604,7 @@ function Orders({
             : "订单已完成",
       );
     } catch (e) {
-      notify((e as Error).message);
+      notify(e as Error);
     } finally {
       setBusy("");
     }
@@ -1709,7 +1710,7 @@ function Orders({
               </div>
               {o.note && <p className="order-note">{t("备注：")}{o.note}</p>}
               <div className="order-card-bottom">
-                <span>{t("到场付款 · 共 ")}{o.items.reduce((a, i) => a + i.quantity, 0)}{t(" 件")}<strong>{t(money(o.total_cents))}</strong>
+                <span>{t("到场付款 · 共 {count} 件", { count: o.items.reduce((a, i) => a + i.quantity, 0) })}<strong>{t(money(o.total_cents))}</strong>
                 </span>
                 <div>
                   {(o.status === "pending" ||
@@ -1731,7 +1732,7 @@ function Orders({
                       ) : (
                         <Check size={16} />
                       )}
-                      {t(busy === o.id ? "正在确认…" : "确认预购")}
+                      {t(busy === o.id ? "正在确认…" : "Accept preorder")}
                     </button>
                   )}
                   {user.role === "retailer" && o.status === "confirmed" && (
@@ -1756,7 +1757,7 @@ function Orders({
       )}
       {cancelOrder && (
         <Modal title={t("取消这份预购？")} onClose={closeCancel} busy={!!busy}>
-          <p className="modal-intro">{t("订单 ")}{t(cancelOrder.id)}{t(" ")}{t("取消后，预留库存会自动归还。已取消订单无法恢复。")}</p>
+          <p className="modal-intro">{t("订单 {id} 取消后，预留库存会自动归还。已取消订单无法恢复。", { id: cancelOrder.id })}</p>
           <div className="modal-actions">
             <button
               className="button secondary"

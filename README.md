@@ -179,3 +179,9 @@ tests/                API 集成测试
 ## 交付方式
 
 所有源代码变更放在功能分支，通过 PR 审核；不直接推送到 `main`。空仓库需要先存在基础分支，才能在 GitHub 创建 PR。未获授权时不替用户创建远程基础分支。
+
+### English translation coverage
+
+The customer catalog in `src/translations/common.ts` is composed with vendor-specific messages in `src/translations/vendor.ts`. Notifications and API errors preserve sentence parameters so changing languages updates the complete message. Known demo product and vendor content appears in English, including editor values; saving without edits preserves the stored source. Customer names, notes, and unknown custom content retain their original text.
+
+`npm test` checks source/reference/API message coverage and parameters. `tests/ui/english-coverage.spec.ts` checks all public and vendor routes, editable demo content, stock errors, order preparation, bulk actions, and 320/390px layouts.

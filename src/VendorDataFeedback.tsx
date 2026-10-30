@@ -4,7 +4,7 @@ import {
   LoaderCircle,
   RefreshCw,
 } from "lucide-react";
-import { useLanguage } from "./i18n";
+import { useLanguage, type Message } from "./i18n";
 
 export function VendorDataFeedback({
   loading,
@@ -13,7 +13,7 @@ export function VendorDataFeedback({
   refresh,
 }: {
   loading: boolean;
-  error: string;
+  error: Message;
   updatedAt?: number;
   refresh: () => void;
 }) {

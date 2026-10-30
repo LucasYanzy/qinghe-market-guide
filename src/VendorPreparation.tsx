@@ -5,6 +5,7 @@ import {
   ClipboardList,
   Package,
 } from "lucide-react";
+import { quantityUnit } from "./translations/translate";
 import { useLanguage } from "./i18n";
 import { Empty } from "./ui";
 import type { Order, OrderItem, OrderStatus } from "./types";
@@ -49,7 +50,7 @@ export function VendorPreparation({
   onOpen: (date: string, slot: string) => void;
   onBack: () => void;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const confirmed = orders.filter((o) => o.status === "confirmed");
   const groups = new Map<
     string,
@@ -154,7 +155,7 @@ export function VendorPreparation({
                       <span>{t(item.name)}</span>
                       <strong>
                         {item.quantity}
-                        <small>{t(item.unit)}</small>
+                        <small>{quantityUnit(language, item.unit, item.quantity)}</small>
                       </strong>
                     </div>
                   ))}
