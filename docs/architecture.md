@@ -45,4 +45,4 @@ The public Pages artifact contains only the public site and versioned reference 
 
 `npm run check` type-checks and builds the full application, builds the independent public website and runs the Node regression suite. Browser tests verify role workflows and responsive layouts. Deployment tests exercise exact origin checks behind a proxy, invalid configuration, deep links, cache headers and a WAL-safe database backup. GitHub Actions also builds and starts the Docker image using a named data volume.
 
-CI validates source; publishing the public guide and deploying the full backend are distinct jobs. A successful Pages deployment does not imply that online ordering is available.
+CI validates source and exports the guide artifact. The independent public website repository publishes only built files from its main branch; the original project history and source stay private. Deploying the full backend is a separate operation. A successful Pages deployment does not imply that online ordering is available.

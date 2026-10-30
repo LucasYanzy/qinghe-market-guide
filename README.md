@@ -2,7 +2,7 @@
 
 独立的社区市集项目，包含公开市场导览与顾客、商户、学校三端完整应用。非 Rutgers 官方网站。
 
-- **公开导览站发布目标（待启用）**：[市场时间、导航与资源](https://lucasyanzy.github.io/Rutgers-Community-Farmers-Market/)。公开站为 GitHub Pages 准备，提供日历、地址导航、历史价格档案和帮助；预购及管理后台需要单独部署 Node 服务。
+- **公开导览站**：[市场时间、导航与资源](https://lucasyanzy.github.io/qinghe-market-guide/)。公开站采用 GitHub Pages，提供日历、地址导航、历史价格档案和帮助；预购及管理后台需要单独部署 Node 服务。
 - **架构说明**：[docs/architecture.md](docs/architecture.md)。公开站与完整应用使用独立入口，共享日程、组件和翻译；价格分析与学校模块按需加载。
 - **部署手册**：[docs/deployment.md](docs/deployment.md)。包含 Node 24、Docker / Railway、持久化卷、反向代理、备份恢复及回滚流程。
 
@@ -14,7 +14,7 @@ npm run test:public   # 公开站导航、路径、语言、手机布局
 npm run test:ui       # 完整应用浏览器回归
 ```
 
-`npm run build:public` 生成独立的 `dist-public/`，无需 API；`npm run build` 生成完整应用的 `dist/`，与 Express API 同源运行。`.github/workflows/` 提供检查、容器启动验证和公开站发布流程。运行配置由 `server/config.mjs` 统一校验；生产环境必须显式指定持久化 `DATABASE_PATH`，默认关闭演示模式并启用安全 Cookie。本地 `npm run dev` 与 `npm start` 自动加载 `.env`，不要提交环境文件、运营数据库或备份。
+`npm run build:public` 生成独立的 `dist-public/`，无需 API；`npm run build` 生成完整应用的 `dist/`，与 Express API 同源运行。`.github/workflows/` 提供检查、容器启动验证和公开站构建产物。网站文件发布到独立的 `LucasYanzy/qinghe-market-guide` 仓库，原源码仓库继续保持私有。运行配置由 `server/config.mjs` 统一校验；生产环境必须显式指定持久化 `DATABASE_PATH`，默认关闭演示模式并启用安全 Cookie。本地 `npm run dev` 与 `npm start` 自动加载 `.env`，不要提交环境文件、运营数据库或备份。
 
 ---
 

@@ -1,4 +1,4 @@
-name: Publish market guide
+name: Build public guide artifact
 on:
   push:
     branches: ["feat/public-release-architecture"]
@@ -6,11 +6,10 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: github-pages
-  cancel-in-progress: false
+  group: public-guide-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   build:
-    if: ${{ github.event.repository.private == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -22,21 +21,10 @@ jobs:
       - run: npm ci
       - run: npm run build:public
         env:
-          PUBLIC_BASE_PATH: /Rutgers-Community-Farmers-Market/
-      - uses: actions/upload-pages-artifact@v3
+          PUBLIC_BASE_PATH: /qinghe-market-guide/
+      - uses: actions/upload-artifact@v4
         with:
+          name: public-market-guide
           path: dist-public
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          include-hidden-files: true
+          retention-days: 7

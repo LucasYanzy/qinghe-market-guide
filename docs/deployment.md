@@ -10,9 +10,13 @@ npm run build:public
 npm run preview:public
 ```
 
-The default URL prefix is `/Rutgers-Community-Farmers-Market/`. To use a custom domain or another prefix, set `PUBLIC_BASE_PATH` when building and rebuild. `dist-public/` is the complete Pages artifact. It has no API dependency; dates, navigation, the price archive and help work on static hosting. Real orders and accounts are unavailable in this target.
+The default URL prefix is `/qinghe-market-guide/`. To use a custom domain or another prefix, set `PUBLIC_BASE_PATH` when building and rebuild. `dist-public/` is the complete Pages artifact. It has no API dependency; dates, navigation, the price archive and help work on static hosting. Real orders and accounts are unavailable in this target.
 
-`.github/workflows/pages.yml` publishes the release branch. Repository settings must enable Pages with **GitHub Actions** as its source. The deployment environment must permit the selected release branch. When this PR is merged, change the workflow branch filter to the maintained default branch if future automatic releases should follow it.
+Live guide: https://lucasyanzy.github.io/qinghe-market-guide/
+
+The source repository remains private. GitHub Pages serves only built website files from the separate public repository `LucasYanzy/qinghe-market-guide`, with `main` and `/` as its publishing source. It contains no backend, database, environment files or original Git history.
+
+`.github/workflows/pages.yml` builds a private `public-market-guide` artifact from the source release branch. To update the live site, review the public build, copy `dist-public/` into the dedicated website checkout (preserving its `.git` and README), commit and push there. Its Pages branch deployment publishes that static commit automatically. The source CI token is not granted cross-repository permissions.
 
 ## Full application (Node.js / Railway / Docker)
 

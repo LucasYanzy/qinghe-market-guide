@@ -4,7 +4,7 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
 export default defineConfig({
-  base: process.env.PUBLIC_BASE_PATH ?? "/Rutgers-Community-Farmers-Market/",
+  base: process.env.PUBLIC_BASE_PATH ?? "/qinghe-market-guide/",
   plugins: [react(), {
     name: "public-route-documents",
     async closeBundle() {

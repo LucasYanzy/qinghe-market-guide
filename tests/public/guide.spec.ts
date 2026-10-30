@@ -7,7 +7,7 @@ test("the public guide works without an API, respects its repository path and re
   await page.goto("./");
   await expect(page.getByRole("heading", { name: "下一场新鲜，离你不远。" })).toBeVisible();
   const nav = page.getByRole("navigation", { name: "主导航", exact: true });
-  await expect(nav.getByRole("link", { name: "市场与导航" })).toHaveAttribute("href", "/Rutgers-Community-Farmers-Market/markets");
+  await expect(nav.getByRole("link", { name: "市场与导航" })).toHaveAttribute("href", "/qinghe-market-guide/markets");
   await nav.getByRole("link", { name: "市场与导航" }).click();
   await expect(page.getByRole("region", { name: "开市日历", exact: true })).toBeVisible();
   await page.getByLabel("选择出行日期", { exact: true }).fill("2026-10-31");
