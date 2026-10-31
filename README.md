@@ -1,15 +1,11 @@
-# Qinghe · Rutgers Community Market Guide
+# Qinghe · Rutgers Community Farmers Market Demo
 
-Live site: https://lucasyanzy.github.io/qinghe-market-guide/
+**Open the app:** https://lucasyanzy.github.io/qinghe-market-guide/
 
-Read-only demo: https://lucasyanzy.github.io/qinghe-market-guide/demo/
+The complete interactive demo works without registration or login. Switch between customer, vendor and university roles in the top toolbar. Browse products, place sample orders, edit inventory, process pickups, configure markets and explore reports.
 
-Public website files for the independent Qinghe community market guide. The website provides published market dates, addresses, directions, a historical price archive, and food-support resources in Chinese and English.
+Each browser tab has its own sample SQLite database. Refresh keeps your changes; Reset clears that tab. No real orders, payments or email are sent. The calendar and directions use published Rutgers market information; demo inventory and orders are synthetic.
 
-The demo offers customer, vendor and university views with synthetic products, orders and figures. Visitors can switch roles, search and filter; all operational features remain preview-only.
+This is an independent community project, not an official Rutgers website. Check official announcements before traveling: https://communityfarmersmarket.rutgers.edu/visit-us/
 
-This is not an official Rutgers website. Opening schedules follow the market organizer's published information; check official announcements before traveling. This website does not accept real orders, payments, or account registrations.
-
-This repository contains only the built public website. It does not contain the application database, environment configuration, backend, or the original project's Git history.
-
-Official market information: https://communityfarmersmarket.rutgers.edu/visit-us/
+This repository contains built website files, including the browser runtime and SQLite WebAssembly. It contains no operating database, environment secrets or the original project's Git history.
