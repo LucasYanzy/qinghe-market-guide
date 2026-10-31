@@ -127,7 +127,7 @@ test("长时间打开的购物袋跨日时清空旧日期的商品和自提草�
   });
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(cart.getByRole("heading", { name: "购物袋在等一份新鲜" })).toBeVisible();
-  await expect(page.getByRole("status")).toContainText("市集日期已更新");
+  await expect(page.getByRole("status").filter({ hasText: "市集日期已更新" })).toBeVisible();
   await expect(cart.getByRole("button", { name: "撤销", exact: true })).toHaveCount(0);
   await expect.poll(() => page.evaluate((key) => sessionStorage.getItem(key), storageKey)).toBeNull();
 });

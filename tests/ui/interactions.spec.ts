@@ -93,7 +93,7 @@ test("提交时锁定内容和关闭操作，失败后保留输入并允许重�
 
 test("库存降低时提供明确提示和一键修正", async ({ page }) => {
   const cart = await openCart(page, 2);
-  await page.route("**/api/products?*", async (route) => {
+  await page.route(/\/api\/products(?:\?|$)/, async (route) => {
     const response = await route.fetch();
     const products = await response.json();
     await route.fulfill({
@@ -112,7 +112,7 @@ test("库存降低时提供明确提示和一键修正", async ({ page }) => {
 
 test("已下架商品可移除，不阻塞后续浏览", async ({ page }) => {
   const cart = await openCart(page);
-  await page.route("**/api/products?*", (route) => route.fulfill({ json: [] }));
+  await page.route(/\/api\/products(?:\?|$)/, (route) => route.fulfill({ json: [] }));
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(cart.getByText("商品已下架，请移除后继续预购。")).toBeVisible();
   await cart.getByRole("button", { name: "移除", exact: true }).click();

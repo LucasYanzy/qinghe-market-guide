@@ -105,6 +105,24 @@ async function demoApi(page: Page, path: string, method = "GET", body?: unknown,
   }, { path, method, body, headers });
 }
 
+test("the complete public app includes every customer, vendor and university page", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+  for (const path of ["", "markets/", "prices/", "help/", "about/", "orders/", "vendor/", "notifications/", "retailer/", "retailer/inventory/", "admin/", "admin/markets/", "admin/vendors/", "admin/impact/", "admin/community/", "admin/operations/", "admin/screen/"]) {
+    await page.goto(`./${path}`);
+    await expect(toolbar(page)).toBeVisible();
+    await expect(page.locator(".boot-screen, .loading-panel, .page-loading")).toHaveCount(0);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(page.getByRole("button", { name: /登录|注册/ })).toHaveCount(0);
+  }
+  await expect(page.locator(".screen-kpis")).toBeVisible();
+  await expect(page.getByRole("link", { name: "返回管理", exact: true })).toHaveAttribute("href", "/qinghe-market-guide/admin");
+  await expect(page.getByRole("link", { name: "打开现场运营", exact: true })).toHaveAttribute("href", /^\/qinghe-market-guide\/admin\/operations\?/);
+  await page.getByRole("link", { name: "打开现场运营", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "工作日期", exact: true })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test("school operations, idempotent booking, validation rollback and pickup work through the shared routes", async ({ page }) => {
   await page.goto("admin/operations/");
   await expect(toolbar(page).getByRole("button", { name: "学校", exact: true })).toHaveAttribute("aria-pressed", "true");
@@ -127,6 +145,11 @@ test("school operations, idempotent booking, validation rollback and pickup work
   expect((await demoApi(page, `/admin/sessions/${session.data.id}`, "PATCH", { status: "open", version: 0 })).status).toBe(200);
   await demoApi(page, "/demo/role", "POST", { role: "client" });
   expect((await demoApi(page, "/admin/markets")).status).toBe(403);
+  await page.goto(`./?date=${date}&market=${marketId}`);
+  const sessionLink = page.getByRole("link", { name: "查看本场商品", exact: true });
+  await expect(sessionLink).toHaveAttribute("href", `/qinghe-market-guide/?date=${date}&market=${marketId}#today-produce`);
+  await sessionLink.click();
+  await expect(page.locator(".product-card")).toHaveCount(1);
   const payload = { items: [{ productId: product.data.id, quantity: 2 }], pickupSlot: "09:00–09:30", note: "Shared services" };
   const first = await demoApi(page, "/orders", "POST", payload, { "Idempotency-Key": "browser-order-123" });
   expect(first.status, JSON.stringify(first.data)).toBe(201);

@@ -3,6 +3,7 @@ import { Activity, ArrowLeft, ArrowUpRight, CheckCircle2, Clock3, Expand, Leaf, 
 import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { LanguageSwitcher, useLanguage, type Message } from "./i18n";
 import { api, money, shortDate } from "./api";
+import { pageHref } from "./navigation";
 import type { SchoolOverview } from "./types";
 import "./school-screen.css";
 
@@ -12,7 +13,7 @@ type Session = { id: number; market_id: number; marketName: string; date: string
 type LiveData = { date: string; generatedAt: string; summary: Counts; markets: (Counts & { id: number; name: string; active: number; preorders_enabled: number; vendors: number; session: Session | null })[]; sessions: Session[]; worklist: { marketId: number; marketName: string; date: string; count: number; pending: number }[] };
 type ScreenData = { overview: SchoolOverview; live: LiveData };
 const bookingLabels: Record<string, string> = { open: "接单中", draft: "草稿", closed: "停止接单", cutoff: "接单已截止", ended: "当日场次已结束", inactive: "市场已停用", paused: "预购已暂停", unscheduled: "今日未排期" };
-export const operationsUrl = (marketId: number | null, date: string, tab = "orders") => `/admin/operations?${new URLSearchParams({ ...(marketId ? { market: String(marketId) } : {}), date, tab })}`;
+export const operationsUrl = (marketId: number | null, date: string, tab = "orders") => `${pageHref("school-operations")}?${new URLSearchParams({ ...(marketId ? { market: String(marketId) } : {}), date, tab })}`;
 
 export default function SchoolScreen({ demo }: { demo: boolean }) {
   const { t } = useLanguage();
@@ -62,7 +63,7 @@ export default function SchoolScreen({ demo }: { demo: boolean }) {
   const l = data?.live, a = data?.overview, s = l?.summary;
   const displayTime = (date: Date) => date.toLocaleTimeString([], { timeZone: "America/New_York", hour12: false });
   return <div className="school-screen" ref={root}>
-    <header className="screen-header"><div className="screen-brand"><Leaf size={27} /><div><span>QINGHE / UNIVERSITY OPERATIONS</span><h1>{t("学校市场管理大屏")}</h1></div></div><div className="screen-clock"><strong>{displayTime(clock)}</strong><span>{clock.toLocaleDateString("en-CA", { timeZone: "America/New_York" })} · ET</span></div><div className="screen-tools"><LanguageSwitcher /><a href="/admin" className="screen-button"><ArrowLeft size={16} />{t("返回管理")}</a><button className="screen-button" onClick={() => void fullscreen()}><Expand size={16} />{t("全屏展示")}</button></div></header>
+    <header className="screen-header"><div className="screen-brand"><Leaf size={27} /><div><span>QINGHE / UNIVERSITY OPERATIONS</span><h1>{t("学校市场管理大屏")}</h1></div></div><div className="screen-clock"><strong>{displayTime(clock)}</strong><span>{clock.toLocaleDateString("en-CA", { timeZone: "America/New_York" })} · ET</span></div><div className="screen-tools"><LanguageSwitcher /><a href={pageHref("school")} className="screen-button"><ArrowLeft size={16} />{t("返回管理")}</a><button className="screen-button" onClick={() => void fullscreen()}><Expand size={16} />{t("全屏展示")}</button></div></header>
     <div className="screen-toolbar"><div><span className={`screen-live-dot ${error ? "offline" : paused ? "paused" : ""}`} /><strong>{t(error ? "刷新失败" : busy ? "更新中" : paused ? "已暂停自动刷新" : "自动刷新中")}</strong><span>{t(demo ? "演示数据库" : "运营数据库")}</span>{a?.sampleData && <b className="screen-sample">{t("合成演示样本")}</b>}<span className="screen-updated">{t("最近成功更新")} {l ? displayTime(new Date(l.generatedAt)) : "—"}</span></div><div><label>{t("当前市场")}<select aria-label={t("大屏市场范围")} value={market} onChange={(e) => setMarket(e.target.value)}><option value="all">{t("全部市场")}</option>{marketOptions.map((m) => <option key={m.id} value={m.id}>{t(m.name)}</option>)}</select></label><label>{t("趋势周期")}<select aria-label={t("大屏趋势周期")} value={range} onChange={(e) => setRange(e.target.value)}>{["7", "30", "90"].map((n) => <option key={n} value={n}>{t("最近 {count} 天", { count: n })}</option>)}</select></label><select aria-label={t("大屏刷新间隔")} value={interval} onChange={(e) => setIntervalSeconds(Number(e.target.value))}>{[30, 60, 120].map((n) => <option key={n} value={n}>{t("每 {count} 秒", { count: n })}</option>)}</select><button className="screen-button" aria-pressed={paused} onClick={() => setPaused((v) => !v)}>{paused ? <Play size={14} /> : <Pause size={14} />}{t(paused ? "恢复刷新" : "暂停刷新")}</button><button className="screen-button" aria-label={t("立即刷新大屏")} disabled={busy} onClick={() => setTick((n) => n + 1)}><RefreshCw size={15} />{t("刷新")}</button></div></div>
     {(error || fullError) && <p className="screen-error" role="alert">{error ? <>{t(error)} {t("当前显示最近成功更新的数据，请核对更新时间。")}</> : t(fullError)}</p>}
     {!data ? <div className="screen-loading" role="status">{t(error ? "暂时无法读取管理大屏，请点击刷新重试。" : "正在读取市场运营记录…")}</div> : <>

@@ -16,7 +16,7 @@ async function expectEnglish(page: Page) {
       if (element.closest('[lang="zh-CN"]') || !element.checkVisibility()) continue;
       for (const attribute of ['aria-label', 'placeholder', 'title']) {
         const value = element.getAttribute(attribute) ?? '';
-        if (/\p{Script=Han}/u.test(value)) found.push(`${attribute}: ${value}`);
+        if (/\p{Script=Han}/u.test(value) && !['林同学'].includes(value)) found.push(`${attribute}: ${value}`);
       }
       if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
         if (!['checkbox', 'radio', 'hidden'].includes(element.type) && /\p{Script=Han}/u.test(element.value) && !['林同学', '保留我的备注', '商户交互测试：当季采收'].includes(element.value)) found.push(`value: ${element.value}`);
@@ -63,12 +63,13 @@ test('English covers every public page, FAQs, navigation, metadata, and reloads'
   }
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-  await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /^Rutgers Community Farmers Market:/);
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /^Rutgers farmers market dates, hours, addresses, directions, and calendar planning\.$/);
   await page.getByRole('button', { name: '切换为中文', exact: true }).click();
   await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
   await expect(page).toHaveTitle(/页面未找到 · 青禾/);
   await page.goto('/help');
   await expect(page.getByRole('heading', { level: 1 })).toContainText('帮助与食品援助');
+  await page.locator('.help-resource-disclosure > summary').click();
   await expect(page.getByRole('heading', { name: '食品援助站与流动食品援助站', exact: true })).toBeVisible();
 });
 
@@ -194,15 +195,14 @@ for (const width of [320, 390]) {
     const nav = page.getByRole('navigation', { name: 'Mobile navigation', exact: true });
     await nav.getByRole('link', { name: 'Markets & directions', exact: true }).click();
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Markets & directions');
-    await page.getByRole('button', { name: 'Open navigation', exact: true }).click();
-    await page.getByRole('navigation', { name: 'Main navigation', exact: true }).getByRole('link', { name: 'Help & food assistance', exact: true }).click();
+    await page.locator('.visitor-header').getByRole('link', { name: 'Help', exact: true }).click();
     await expectEnglish(page);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    await expect(page.getByRole('button', { name: 'Switch to English', exact: true })).toBeInViewport();
+    await expect(page.getByRole('button', { name: '切换为中文', exact: true })).toBeInViewport();
     await login(page, 'retailer');
     for (const path of ['/retailer', '/retailer/inventory']) {
       await page.goto(path);
-      await expect(page.getByRole('button', { name: 'Customer view', exact: true })).toBeInViewport();
+      await expect(page.getByRole('button', { name: 'Switch account', exact: true })).toBeInViewport();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     }
   });

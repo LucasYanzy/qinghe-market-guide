@@ -164,6 +164,11 @@ test("学校分配第二市场后商户可选择该市场上架，统计范围�
 
 test("多个市场可以批量暂停并恢复预购", async ({ page }) => {
   await page.request.post("/api/auth/login", { data: login });
+  const created = await page.request.post("/api/admin/markets", { data: {
+    name: "Batch test market", subtitle: "", address: "Sample campus road", latitude: 40.5, longitude: -74.45,
+    hours: "Sample hours", description: "", community: "", coverage_radius_km: 1, active: true, preorders_enabled: true,
+  } });
+  expect(created.status()).toBe(201);
   await page.goto("/admin/markets");
   const choices = page.getByRole("checkbox", { name: /^批量选择 / });
   await expect(choices.first()).toBeVisible();

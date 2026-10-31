@@ -115,6 +115,6 @@ test("新增筛选及购物袋交互显示英文", async ({ page }) => {
   await expect(page.getByRole("group", { name: "Active filters", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Reset all", exact: true }).click();
   await page.getByRole("button", { name: "Add Vine-ripened Tomatoes to bag", exact: true }).click();
-  await expect(page.getByRole("button", { name: "View shopping bag, 1 selected", exact: true })).toContainText("View bag");
+  await expect(page.getByRole("button", { name: "View bag, 1 selected", exact: true })).toContainText("View bag");
   await expect(page.getByRole("status")).toContainText("added to your bag");
 });
