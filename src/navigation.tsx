@@ -7,8 +7,17 @@ export const pagePaths = {
   orders: "/orders",
   about: "/about",
   help: "/help",
+  vendor: "/vendor",
+  notifications: "/notifications",
   dashboard: "/retailer",
   inventory: "/retailer/inventory",
+  school: "/admin",
+  "school-screen": "/admin/screen",
+  "school-operations": "/admin/operations",
+  "school-markets": "/admin/markets",
+  "school-vendors": "/admin/vendors",
+  "school-impact": "/admin/impact",
+  "school-community": "/admin/community",
 } as const;
 export type Page = keyof typeof pagePaths;
 export type Route = Page | "not-found";

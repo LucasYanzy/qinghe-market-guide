@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from './fixtures';
 
 test("网站页面支持直接访问、刷新和页面标题", async ({ page }) => {
   for (const [path, title] of [
@@ -24,7 +25,7 @@ test("网站导航支持浏览器前进后退，购物袋不会因切页丢失",
   const nav = page.getByRole("navigation", { name: "主导航", exact: true });
   await nav.getByRole("link", { name: "市场与导航", exact: true }).click();
   await expect(page).toHaveURL(/\/markets$/);
-  await nav.getByRole("link", { name: "价格观察", exact: true }).click();
+  await page.getByRole("navigation", { name: "页脚导航", exact: true }).getByRole("link", { name: "价格观察", exact: true }).click();
   await expect(page).toHaveURL(/\/prices$/);
   await page.goBack();
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
@@ -63,7 +64,7 @@ test("首页入口能定位商品，并进入完整的访客指南", async ({ pa
   await expect(faq.locator("p")).not.toBeVisible();
   await expect(
     page.getByRole("link", { name: "Rutgers 官方市场信息" }).first(),
-  ).toHaveAttribute("href", /ruoffcampus\.rutgers\.edu/);
+  ).toHaveAttribute("href", /communityfarmersmarket\.rutgers\.edu\/visit-us\//);
 });
 
 test("商户深层链接先提示登录，登录及刷新后仍停留在库存页", async ({ page }) => {
@@ -120,24 +121,22 @@ for (const width of [320, 390]) {
       exact: true,
     });
     await expect(nav).toBeInViewport();
-    await nav.getByRole("link", { name: "价格观察", exact: true }).click();
-    await expect(page).toHaveURL(/\/prices$/);
+    await expect(nav.getByRole("link")).toHaveCount(3);
+    await nav.getByRole("link", { name: "市场与导航", exact: true }).click();
+    await expect(page).toHaveURL(/\/markets$/);
     await expect(
-      nav.getByRole("link", { name: "价格观察", exact: true }),
+      nav.getByRole("link", { name: "市场与导航", exact: true }),
     ).toHaveAttribute("aria-current", "page");
     await nav.getByRole("link", { name: "我的预购", exact: true }).click();
     await expect(page.getByRole("heading", { level: 1 })).toContainText(
       "我的预购",
     );
-    await page.getByRole("button", { name: "打开导航", exact: true }).click();
+    await expect(page.getByRole("button", { name: "打开导航", exact: true })).toHaveCount(0);
     await page
-      .getByRole("navigation", { name: "主导航", exact: true })
+      .getByRole("navigation", { name: "页脚导航", exact: true })
       .getByRole("link", { name: "关于青禾", exact: true })
       .click();
     await expect(page).toHaveURL(/\/about$/);
-    await expect(
-      page.getByRole("button", { name: "打开导航", exact: true }),
-    ).toHaveAttribute("aria-expanded", "false");
     await expect(
       page.getByRole("heading", { name: "来之前，你可能想知道", exact: true }),
     ).toBeVisible();
@@ -146,10 +145,7 @@ for (const width of [320, 390]) {
         () => document.documentElement.scrollWidth <= window.innerWidth,
       ),
     ).toBe(true);
-    await page
-      .getByRole("navigation", { name: "页脚导航", exact: true })
-      .getByRole("link", { name: "今日蔬菜", exact: true })
-      .click();
+    await nav.getByRole("link", { name: "逛逛市集", exact: true }).click();
     await expect(page).toHaveURL("/");
   });
 }

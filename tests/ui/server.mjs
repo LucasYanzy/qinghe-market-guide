@@ -6,7 +6,8 @@ import { openDatabase } from "../../server/db.mjs";
 
 const directory = mkdtempSync(join(tmpdir(), "qinghe-ui-"));
 const db = openDatabase(join(directory, "market.sqlite"));
-const server = createApp(db).listen(3101, "127.0.0.1");
+// Isolated browser sessions share one loopback IP during this regression suite.
+const server = createApp(db, { staticDir: process.env.UI_STATIC_DIR, authAttemptLimit: 1000 }).listen(Number(process.env.PLAYWRIGHT_PORT ?? 3101), "127.0.0.1");
 for (const signal of ["SIGINT", "SIGTERM"]) {
   process.once(signal, () => {
     server.close(() => {
