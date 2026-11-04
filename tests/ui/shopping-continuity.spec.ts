@@ -68,6 +68,8 @@ for (const nextAccount of ["guest", "different", "retailer"] as const) {
     await login(page);
     const cart = await choose(page);
     await cart.getByRole("textbox").fill("只属于原顾客");
+    await cart.getByRole("button", { name: "切换付款偏好", exact: true }).click();
+    await cart.getByRole("radio", { name: "SNAP/EBT", exact: true }).check();
     if (nextAccount === "different") {
       const response = await page.request.post("/api/auth/register", {
         data: { name: "另一位顾客", email: `session-${Date.now()}@example.test`, password: "SessionFlow2026!" },
@@ -85,6 +87,7 @@ for (const nextAccount of ["guest", "different", "retailer"] as const) {
       await add(page).click();
       await open(page);
       await expect(cart.getByRole("textbox")).toHaveValue("");
+      await expect(cart.locator(".payment-current strong")).toHaveText("常规到场付款");
     }
   });
 }
@@ -109,6 +112,7 @@ test("跨日和损坏的本地草稿不会进入购物袋", async ({ page }) => 
     "not-json",
     JSON.stringify({ version: 1, date: "2000-01-01", ownerId: null, cart: { 1: 2 }, checkout: { slot: "", note: "昨天的草稿" } }),
     JSON.stringify({ version: 1, date: config.today, ownerId: null, cart: { 1: 999 }, checkout: { slot: "", note: "非法数量" } }),
+    JSON.stringify({ version: 1, date: config.today, ownerId: null, cart: { 1: 1 }, checkout: { slot: "", note: "", paymentMethod: "online_ebt" } }),
   ];
   for (const value of cases) {
     await page.evaluate(({ key, value }) => sessionStorage.setItem(key, value), { key: storageKey, value });

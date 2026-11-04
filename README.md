@@ -56,6 +56,8 @@
 
 商品卡与购物袋的加减按钮支持鼠标长按：450ms 后开始，每 140ms 调整一份，松开时不追加一次点击。移出按钮、滚动、切页、失焦、Esc、进入后台或按钮禁用时停止；触屏与键盘保留原生单次点击。长按不会重复播放飞入动画或刷新通知，数量和金额立即同步；达到库存或每种商品 100 份的限制后显示具体上限，减到零仍可在购物袋撤销。低性能设备每次定时只调整一份，不补发积压操作。
 
+购物袋新增独立的到场付款偏好区：长按付款区 ＋ 700ms，在常规付款与 SNAP/EBT 间切换，圆环显示进度，松开不再追加操作。轻点 ＋ 展开原生单选项，支持键盘与触屏；松开、移出、滚动、失焦和关闭弹窗会取消未完成的长按，减少动态效果时使用静态反馈。付款偏好随购物草稿和订单保存，顾客与商户均可查看。SNAP/EBT 接受情况与商品资格需向商户确认，此功能不处理线上付款或收集 EBT 卡号/PIN。旧数据库会自动补充付款偏好列，旧订单和草稿默认常规到场付款。
+
 ## Rutgers 官方资料来源
 
 已于 **2026-10-16** 读取并核对 [Rutgers Farmers Market](https://ruoffcampus.rutgers.edu/basic-needs/food-assistance/rutgers-farmers-market) 与 [Market Bucks Program](https://ruoffcampus.rutgers.edu/basic-needs/food-assistance/market-bucks-program)。整理内容保存在 `references/rutgers-market-guide.json`，首页、市场目录与帮助中心共用这份资料。

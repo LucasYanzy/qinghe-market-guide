@@ -1,5 +1,7 @@
+import type { PaymentMethod } from "./types";
+
 export type Cart = Record<number, number>;
-export type CheckoutDraft = { slot: string; note: string };
+export type CheckoutDraft = { slot: string; note: string; paymentMethod: PaymentMethod };
 
 export type ShoppingSession = {
   version: 1;
@@ -21,7 +23,8 @@ export function readShoppingSession(): ShoppingSession | null {
       !(value.ownerId === null || (Number.isSafeInteger(value.ownerId) && value.ownerId > 0)) ||
       !value.cart || typeof value.cart !== "object" || Array.isArray(value.cart) ||
       !value.checkout || typeof value.checkout.slot !== "string" || value.checkout.slot.length > 80 ||
-      typeof value.checkout.note !== "string" || value.checkout.note.length > 300) return null;
+      typeof value.checkout.note !== "string" || value.checkout.note.length > 300 ||
+      (value.checkout.paymentMethod !== undefined && !["pay_at_pickup", "snap_ebt"].includes(value.checkout.paymentMethod))) return null;
     const entries = Object.entries(value.cart);
     if (entries.length > 50 || entries.some(([id, quantity]) =>
       !/^[1-9]\d*$/.test(id) || !Number.isSafeInteger(Number(id)) ||
@@ -31,7 +34,7 @@ export function readShoppingSession(): ShoppingSession | null {
       date: value.date,
       ownerId: value.ownerId,
       cart: Object.fromEntries(entries),
-      checkout: { slot: value.checkout.slot, note: value.checkout.note },
+      checkout: { slot: value.checkout.slot, note: value.checkout.note, paymentMethod: value.checkout.paymentMethod ?? "pay_at_pickup" },
     };
   } catch {
     return null;
@@ -40,7 +43,7 @@ export function readShoppingSession(): ShoppingSession | null {
 
 export function saveShoppingSession(session: ShoppingSession | null) {
   try {
-    if (!session || (!Object.keys(session.cart).length && !session.checkout.slot && !session.checkout.note))
+    if (!session || (!Object.keys(session.cart).length && !session.checkout.slot && !session.checkout.note && session.checkout.paymentMethod !== "snap_ebt"))
       window.sessionStorage.removeItem(storageKey);
     else window.sessionStorage.setItem(storageKey, JSON.stringify(session));
   } catch {

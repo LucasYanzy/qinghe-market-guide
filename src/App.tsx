@@ -63,6 +63,7 @@ import { InteractiveHero, MotionGrid, ScrollActions, usePageMotion } from "./mot
 import { useCartFeedback } from "./cartFeedback";
 import { usePointerFeedback } from "./pointerFeedback";
 import { QuantityButton } from "./QuantityButton";
+import { PaymentPreference } from "./PaymentPreference";
 import { readShoppingSession, saveShoppingSession, type Cart, type CheckoutDraft } from "./shoppingSession";
 import type {
   Config,
@@ -259,6 +260,7 @@ function App() {
   const [checkout, setCheckout] = useState<CheckoutDraft>({
     slot: "",
     note: "",
+    paymentMethod: "pay_at_pickup",
   });
   const [loginIntent, setLoginIntent] = useState<"cart" | "orders" | null>(
     null,
@@ -327,7 +329,7 @@ function App() {
     ]);
     if (shoppingDate.current && shoppingDate.current !== nextConfig.today) {
       setCart({});
-      setCheckout({ slot: "", note: "" });
+      setCheckout({ slot: "", note: "", paymentMethod: "pay_at_pickup" });
       notify("市集日期已更新，请重新选择商品和自提时段。");
     }
     shoppingDate.current = nextConfig.today;
@@ -347,7 +349,7 @@ function App() {
       const restore = saved && saved.date === c.today && u.user?.role !== "retailer" &&
         (saved.ownerId === null || saved.ownerId === u.user?.id);
       setCart(restore ? saved.cart : {});
-      setCheckout(restore ? saved.checkout : { slot: "", note: "" });
+      setCheckout(restore ? saved.checkout : { slot: "", note: "", paymentMethod: "pay_at_pickup" });
       shoppingDate.current = c.today;
       setConfig(c);
       setUser(u.user);
@@ -406,7 +408,7 @@ function App() {
     cartOwnerId.current = next.role === "client" ? next.id : null;
     if (resetCart) {
       setCart({});
-      setCheckout({ slot: "", note: "" });
+      setCheckout({ slot: "", note: "", paymentMethod: "pay_at_pickup" });
     }
     setAuthOpen(false);
     setCartOpen(loginIntent === "cart" && !resetCart);
@@ -436,7 +438,7 @@ function App() {
       setUser(null);
       cartOwnerId.current = null;
       setCart({});
-      setCheckout({ slot: "", note: "" });
+      setCheckout({ slot: "", note: "", paymentMethod: "pay_at_pickup" });
       navigate("discover");
       notify("已退出登录");
     } catch (e) {
@@ -1025,7 +1027,7 @@ function App() {
           onRefreshListings={reloadListings}
           onSuccess={(order) => {
             setCart({});
-            setCheckout({ slot: "", note: "" });
+            setCheckout({ slot: "", note: "", paymentMethod: "pay_at_pickup" });
             setCartOpen(false);
             refresh();
             navigate("orders");
@@ -1438,6 +1440,7 @@ function CartModal({
             quantity,
           })),
           pickupSlot: slot,
+          paymentMethod: draft.paymentMethod,
           note,
         }),
       });
@@ -1550,6 +1553,8 @@ function CartModal({
                 </div>
               ))}
             </div>
+            <PaymentPreference value={draft.paymentMethod} disabled={busy}
+              onChange={(paymentMethod) => onDraftChange({ ...draft, paymentMethod })} />
             <div className="pickup-box">
               <div>
                 <Store size={17} />
@@ -1597,7 +1602,7 @@ function CartModal({
               <p className="form-error" role="alert">{t("当前暂无可用自提时段，请稍后再来。")}</p>
             )}
             <button
-              className="button primary full-width"
+              className="button primary full-width cart-submit"
               disabled={busy || invalid || !slot || user?.role === "retailer"}
             >
               {busy ? (
@@ -2149,6 +2154,10 @@ function Orders({
                   {o.client_name}
                 </span>
               </div>
+              {o.payment_method === "snap_ebt" && <p className="order-payment">
+                <Wallet size={16} aria-hidden="true" />
+                {t("付款偏好：SNAP/EBT。请与商户确认是否接受及商品资格，到场完成付款。")}
+              </p>}
               {o.note && <p className="order-note">{t("备注：")}{o.note}</p>}
               <div className="order-card-bottom">
                 <span>{t("到场付款 · 共 {count} 件", { count: o.items.reduce((a, i) => a + i.quantity, 0) })}<strong>{t(money(o.total_cents))}</strong>

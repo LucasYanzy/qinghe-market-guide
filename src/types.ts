@@ -46,6 +46,7 @@ export interface OrderItem {
   quantity: number;
 }
 export type OrderStatus = "pending" | "confirmed" | "completed" | "cancelled";
+export type PaymentMethod = "pay_at_pickup" | "snap_ebt";
 export interface Order {
   id: string;
   client_name: string;
@@ -53,6 +54,7 @@ export interface Order {
   total_cents: number;
   pickup_date: string;
   pickup_slot: string;
+  payment_method: PaymentMethod;
   note: string;
   created_at: string;
   items: OrderItem[];
