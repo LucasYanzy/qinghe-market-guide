@@ -62,6 +62,7 @@ import { AboutMarket, PreorderSteps } from "./VisitorGuide";
 import { InteractiveHero, MotionGrid, ScrollActions, usePageMotion } from "./motion";
 import { useCartFeedback } from "./cartFeedback";
 import { usePointerFeedback } from "./pointerFeedback";
+import { QuantityButton } from "./QuantityButton";
 import { readShoppingSession, saveShoppingSession, type Cart, type CheckoutDraft } from "./shoppingSession";
 import type {
   Config,
@@ -442,18 +443,18 @@ function App() {
       notify(e as Error);
     }
   };
-  const add = (product: Product, source: HTMLElement) => {
+  const add = (product: Product, source: HTMLElement, repeated = false) => {
     if (retailer) return;
     const current = products.find((item) => item.id === product.id);
     if (!current || !current.stock) return notify("这份商品暂不可购，请选择其他新鲜。");
     const limit = maxQuantity(current);
     if ((cart[current.id] ?? 0) >= limit)
       return notify("已达到可购数量");
-    animateCart(source);
+    if (!repeated) animateCart(source);
     setCart((c) => (c[current.id] ?? 0) >= limit ? c : {
       ...c, [current.id]: (c[current.id] ?? 0) + 1,
     });
-    notify({ message: "{product} 已加入购物袋", values: { product: { message: product.name } } });
+    if (!repeated) notify({ message: "{product} 已加入购物袋", values: { product: { message: product.name } } });
   };
   const remove = (product: Product) => {
     setCart((current) => {
@@ -792,7 +793,10 @@ function App() {
                 </div>
               </div>
               <div className="results-meta">
-                <span aria-live="polite" aria-atomic="true"><span key={visible.length} className="result-count">{t("发现 {count} 款新鲜好物", { count: visible.length })}</span></span>
+                <div className="results-summary">
+                  <span aria-live="polite" aria-atomic="true"><span key={visible.length} className="result-count">{t("发现 {count} 款新鲜好物", { count: visible.length })}</span></span>
+                  <span className="quantity-hint">{t("鼠标长按 + / − 可连续调整")}</span>
+                </div>
                 <label>
                   <input
                     type="checkbox"
@@ -816,7 +820,7 @@ function App() {
                       key={product.id}
                       product={product}
                       quantity={cart[product.id] ?? 0}
-                      onAdd={(source) => add(product, source)}
+                      onAdd={(source, repeated) => add(product, source, repeated)}
                       onRemove={() => remove(product)}
                       onView={() => setDetailId(product.id)}
                     />
@@ -1091,7 +1095,7 @@ function ProductCard({
 }: {
   product: Product;
   quantity: number;
-  onAdd: (source: HTMLButtonElement) => void;
+  onAdd: (source: HTMLButtonElement, repeated: boolean) => void;
   onRemove: () => void;
   onView: () => void;
 }) {
@@ -1134,18 +1138,22 @@ function ProductCard({
           </div>
           <div className={quantity ? "product-quantity" : "product-add"}>
             {quantity > 0 && <>
-              <button className="add-button remove-button" onClick={() => { if (quantity === 1) addRef.current?.focus(); onRemove(); }} aria-label={t("减少{0}", { 0: t(p.name) })}><Minus size={15} /></button>
+              <QuantityButton className="add-button remove-button" onStep={() => { if (quantity === 1) addRef.current?.focus(); onRemove(); }} title={t("按住可连续减少")} aria-label={t("减少{0}", { 0: t(p.name) })}><Minus size={15} /></QuantityButton>
               <span aria-live="polite" aria-atomic="true"><span className="quantity-pop" key={quantity}>{quantity}</span></span>
             </>}
-            <button
+            <QuantityButton
               ref={addRef}
               className={`add-button ${quantity ? "has-quantity" : ""}`}
               disabled={!p.stock || quantity >= maxQuantity(p)}
+              title={t(!p.stock ? "今日已售罄" : quantity >= maxQuantity(p) ? "已达到可购数量" : "按住可连续增加")}
               aria-label={t("将{0}加入购物袋", {0: t(p.name)})}
-              onClick={(event) => onAdd(event.currentTarget)}
-            ><Plus size={quantity ? 15 : 20} /></button>
+              onStep={onAdd}
+            ><Plus size={quantity ? 15 : 20} /></QuantityButton>
           </div>
         </div>
+        {!!quantity && p.stock > 0 && quantity >= maxQuantity(p) && <p className="quantity-limit" role="status">
+          {t("已达上限 {count} {unit}", { count: maxQuantity(p), unit: quantityUnit(language, p.unit, maxQuantity(p)) })}
+        </p>}
       </div>
     </article>
   );
@@ -1472,6 +1480,7 @@ function CartModal({
               <span>{t("已选 {count} 件", { count: entries.reduce((sum, item) => sum + item.quantity, 0) })}</span>
               <button className="text-button" type="button" onClick={onShop}>{t("继续选购")}<ArrowRight size={14} /></button>
             </div>
+            <p className="quantity-hint cart-quantity-hint">{t("鼠标长按 + / − 可连续调整")}</p>
             <div className="cart-list" ref={cartList}>
               {entries.map(({ id, product: p, quantity }) => (
                 <div className="cart-item" key={id} data-cart-item={id}>
@@ -1486,23 +1495,27 @@ function CartModal({
                           {t(money(p.price_cents))} / {t(p.unit)}
                         </small>
                         <div className="quantity-control">
-                          <button
-                            type="button"
+                          <QuantityButton
                             aria-label={t("减少{0}", {0: t(p.name)})}
-                            onClick={() => adjust(p, -1)}
+                            title={t("按住可连续减少")}
+                            disabled={busy}
+                            onStep={() => adjust(p, -1)}
                           >
                             <Minus size={13} />
-                          </button>
+                          </QuantityButton>
                           <span><span className="quantity-pop" key={quantity}>{quantity}</span></span>
-                          <button
-                            type="button"
+                          <QuantityButton
                             aria-label={t("增加{0}", {0: t(p.name)})}
-                            disabled={quantity >= maxQuantity(p)}
-                            onClick={() => adjust(p, 1)}
+                            disabled={busy || quantity >= maxQuantity(p)}
+                            title={t(quantity >= maxQuantity(p) ? "已达到可购数量" : "按住可连续增加")}
+                            onStep={() => adjust(p, 1)}
                           >
                             <Plus size={13} />
-                          </button>
+                          </QuantityButton>
                         </div>
+                        {quantity === maxQuantity(p) && p.stock > 0 && <p className="quantity-limit" role="status">
+                          {t("已达上限 {count} {unit}", { count: maxQuantity(p), unit: quantityUnit(language, p.unit, maxQuantity(p)) })}
+                        </p>}
                         {quantity > maxQuantity(p) && (
                           <div className="stock-warning" role="status">
                             <span>{t(p.stock <= 100 ? "当前仅剩 {count} {unit}" : "当前最多可购 {count} {unit}", { count: maxQuantity(p), unit: quantityUnit(language, p.unit, maxQuantity(p)) })}

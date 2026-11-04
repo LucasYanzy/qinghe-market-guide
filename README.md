@@ -54,6 +54,8 @@
 
 鼠标操作提供悬停提示和按下反馈，商品卡本体保持稳定，小型加减、关闭及删除按钮扩大可点击区域。点击光波只在鼠标左键操作时生成，最多一个短时原生动画；不会追踪全局鼠标位置，触屏和减少动态效果时停用。首页插画仅在鼠标移动时按帧合并更新，离开、拖动、失焦或切换动态偏好时复位。弹窗遮罩仅在同处完成左键轻点后关闭，右键及拖动选择文字不会误关；清空搜索会将输入焦点交回搜索框。
 
+商品卡与购物袋的加减按钮支持鼠标长按：450ms 后开始，每 140ms 调整一份，松开时不追加一次点击。移出按钮、滚动、切页、失焦、Esc、进入后台或按钮禁用时停止；触屏与键盘保留原生单次点击。长按不会重复播放飞入动画或刷新通知，数量和金额立即同步；达到库存或每种商品 100 份的限制后显示具体上限，减到零仍可在购物袋撤销。低性能设备每次定时只调整一份，不补发积压操作。
+
 ## Rutgers 官方资料来源
 
 已于 **2026-10-16** 读取并核对 [Rutgers Farmers Market](https://ruoffcampus.rutgers.edu/basic-needs/food-assistance/rutgers-farmers-market) 与 [Market Bucks Program](https://ruoffcampus.rutgers.edu/basic-needs/food-assistance/market-bucks-program)。整理内容保存在 `references/rutgers-market-guide.json`，首页、市场目录与帮助中心共用这份资料。

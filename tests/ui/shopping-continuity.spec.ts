@@ -165,7 +165,8 @@ test("移除最后一项可以撤销，库存下降时按最新数量恢复且�
   await expect(cart.getByLabel("增加藤熟番茄")).toBeDisabled();
   await expect(cart.getByLabel("减少藤熟番茄")).toBeFocused();
   await expect(cart.getByRole("textbox")).toHaveValue("撤销仍保留备注");
-  await expect(cart.getByRole("status")).toHaveText("库存已变化，已按可购数量恢复。");
+  await expect(cart.getByRole("status").filter({ hasText: "库存已变化，已按可购数量恢复。" })).toBeVisible();
+  await expect(cart.getByRole("status").filter({ hasText: "已达上限 1 磅" })).toBeVisible();
   await expect(undo).toHaveCount(0);
 });
 
