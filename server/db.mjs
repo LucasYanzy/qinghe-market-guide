@@ -61,6 +61,7 @@ export function openDatabase(
       status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','confirmed','completed','cancelled')),
       total_cents INTEGER NOT NULL, pickup_date TEXT NOT NULL,
       pickup_slot TEXT NOT NULL, note TEXT NOT NULL DEFAULT '',
+      payment_method TEXT NOT NULL DEFAULT 'pay_at_pickup' CHECK(payment_method IN ('pay_at_pickup','snap_ebt')),
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     CREATE TABLE IF NOT EXISTS order_items (

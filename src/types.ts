@@ -111,6 +111,7 @@ export interface OrderItem {
   quantity: number;
 }
 export type OrderStatus = "pending" | "confirmed" | "completed" | "cancelled";
+export type PaymentMethod = "pay_at_pickup" | "snap_ebt";
 export interface Order {
   id: string;
   client_name: string;
@@ -126,7 +127,7 @@ export interface Order {
   note: string;
   created_at: string;
   items: OrderItem[];
-  payment_method: "pay_at_pickup" | "snap_ebt";
+  payment_method: PaymentMethod;
   snap_eligible_cents: number;
   other_payment_cents: number;
   snap_plan: CheckoutQuote | null;

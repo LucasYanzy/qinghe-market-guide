@@ -75,7 +75,8 @@ test("商户标记食品资格后，混合购物袋拆分现场 SNAP 意向并�
   await page.getByRole("button", { name: /^购物袋/ }).click();
   const cart = page.getByRole("dialog", { name: "我的新鲜购物袋", exact: true });
   await expect(cart.getByText("本次可预约现场 SNAP/EBT 付款", { exact: true })).toBeVisible();
-  await cart.getByLabel("现场付款方式", { exact: true }).selectOption("snap_ebt");
+  await cart.getByRole("button", { name: "切换付款偏好", exact: true }).click();
+  await cart.getByRole("radio", { name: "SNAP/EBT", exact: true }).check();
   const split = cart.locator(".snap-split");
   await expect(split).toContainText("$4.00"); await expect(split).toContainText("$3.00");
   await cart.getByText("查看逐项资格与金额", { exact: true }).click();
@@ -97,8 +98,12 @@ test("未确认的市场不开放 SNAP 付款；预估失败仍允许选择普�
   await page.goto("/"); await page.getByRole("button", { name: "将藤熟番茄加入购物袋", exact: true }).click();
   await page.getByRole("button", { name: /^购物袋/ }).click();
   const cart = page.getByRole("dialog", { name: "我的新鲜购物袋", exact: true });
-  await expect(cart.getByRole("option", { name: "现场 SNAP/EBT（需接受条件满足）", exact: true })).toHaveAttribute("disabled", "");
   await expect(cart.getByText("本次 SNAP/EBT 接受条件尚未确认", { exact: true })).toBeVisible();
+  await cart.getByRole("button", { name: "切换付款偏好", exact: true }).click();
+  await cart.getByRole("radio", { name: "SNAP/EBT", exact: true }).check();
+  await expect(cart.getByRole("button", { name: "登录后预购", exact: true })).toBeDisabled();
+  await cart.getByRole("button", { name: "切换付款偏好", exact: true }).click();
+  await cart.getByRole("radio", { name: "常规到场付款", exact: true }).check();
   await page.keyboard.press("Escape");
   await page.route("**/api/checkout/quote", (route) => route.fulfill({ status: 503, json: { error: "Quote unavailable" } }));
   await page.getByRole("button", { name: /^购物袋/ }).click();

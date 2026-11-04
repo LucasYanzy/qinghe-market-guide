@@ -1,0 +1,37 @@
+.payment-preference { margin-top: 20px; padding: 17px; border: 1px solid #dfe6d8; border-radius: 10px; background: #fafbf7; transition: background-color 180ms, border-color 180ms; }
+.payment-preference.is-snap { background: #edf4e6; border-color: #a8bf91; }
+.payment-heading, .payment-summary, .payment-current { display: flex; align-items: center; gap: 10px; }
+.payment-heading { color: #60794d; }
+.payment-heading h3 { font-size: 12px; font-weight: 600; margin: 0; }
+.payment-heading > span { margin-left: auto; font-size: 9px; color: #647459; }
+.payment-summary { justify-content: space-between; margin-top: 15px; }
+.payment-current { min-width: 0; }
+.payment-current > div { min-width: 0; }
+.payment-current strong { color: #2c492f; font-size: 14px; font-weight: 600; }
+.payment-current p { margin-top: 5px; color: #637356; font-size: 10px; line-height: 1.7; }
+.payment-choice-icon { width: 36px; height: 36px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 10px; color: #55763d; background: #e3ecd9; animation: payment-confirm 220ms ease-out; }
+.payment-hold { position: relative; display: grid; place-items: center; width: 48px; height: 48px; flex: 0 0 auto; border: 1px solid #c9d8bc; border-radius: 50%; background: #fffefb; color: #4b6e38; cursor: pointer; user-select: none; touch-action: pan-y; -webkit-touch-callout: none; }
+.payment-hold:not(:disabled):hover { background: #f2f6ed; border-color: #8aa975; }
+.payment-hold:not(:disabled):active, .payment-hold.is-holding { background: #e2eed7; }
+.payment-hold-ring { position: absolute; inset: -1px; width: 48px; height: 48px; transform: rotate(-90deg); pointer-events: none; }
+.payment-hold-ring circle { fill: none; stroke: #527b35; stroke-width: 3; stroke-linecap: round; stroke-dasharray: 132; stroke-dashoffset: 132; }
+.payment-hold.is-holding circle { animation: payment-hold-progress 700ms linear both; }
+.payment-instruction { margin-top: 12px; color: #506843; font-size: 10px; line-height: 1.8; min-height: 18px; }
+.payment-explanation { border-top: 1px solid #dbe5d2; margin-top: 12px; padding-top: 10px; color: #69765e; font-size: 10px; line-height: 1.9; }
+.payment-options { border: 0; padding: 8px 0 0; margin: 0; min-width: 0; }
+.payment-options legend { padding-top: 10px; color: #617451; font-size: 10px; }
+.payment-options label { display: flex; align-items: center; gap: 9px; border: 1px solid #d7e1ce; background: #fffefb; border-radius: 7px; padding: 10px; margin-top: 6px; font-size: 11px; color: #3f5c31; cursor: pointer; }
+.payment-options input { accent-color: #597e3f; width: 16px; height: 16px; flex: 0 0 auto; }
+.payment-options label > svg { margin-left: auto; }
+.order-payment { display: flex; align-items: flex-start; gap: 8px; margin: 15px 0; padding: 12px; border-radius: 8px; color: #52733d; background: #eef4e8; font-size: 11px; line-height: 1.8; }
+.order-payment svg { flex: 0 0 auto; margin-top: 2px; }
+@keyframes payment-hold-progress { to { stroke-dashoffset: 0; } }
+@keyframes payment-confirm { from { transform: scale(.9); opacity: .5; } to { transform: scale(1); opacity: 1; } }
+@media (max-width: 767px) {
+  .cart-submit { position: sticky; bottom: env(safe-area-inset-bottom, 0px); z-index: 2; box-shadow: 0 0 0 9px #fffefa; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .payment-preference { transition: none; }
+  .payment-choice-icon, .payment-hold.is-holding circle { animation: none; }
+  .payment-hold.is-holding circle { stroke-dashoffset: 0; }
+}

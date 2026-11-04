@@ -45,7 +45,7 @@ export function canRestoreShoppingDraft(saved: ShoppingDraft | undefined, user: 
 export function saveShoppingDraft(date: string, cart: Cart, checkout: CheckoutDraft, user: User | null) {
   try {
     sessionStorage.removeItem("qinghe-shopping-session-v1");
-    if ((user && user.role !== "client") || (!Object.keys(cart).length && !checkout.slot && !checkout.note)) {
+    if ((user && user.role !== "client") || (!Object.keys(cart).length && !checkout.slot && !checkout.note && checkout.paymentMethod !== "snap_ebt")) {
       sessionStorage.removeItem(storageKey); return;
     }
     sessionStorage.setItem(storageKey, JSON.stringify({ version: 1, savedOn: shoppingToday(), date, owner: user?.id ?? null, cart, checkout }));
