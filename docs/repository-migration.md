@@ -10,7 +10,7 @@ The previous arrangement kept application source in the private repository and g
 
 The imported application release includes the existing full customer, vendor and university workflows, English by default, and the newest quantity and payment preference controls. Demo changes remain isolated to each browser tab. Runtime databases, local environment files, backups, and unfinished local edits are excluded.
 
-For local development, clone the canonical repository and run `npm ci` and `npm run dev`. Existing working directories with unfinished changes may remain in place; preserve those changes before switching remotes or branches. They are not automatically incorporated by this migration.
+For local development, clone the canonical repository and run `npm ci` and `npm run dev`. Existing working directories with unfinished changes may remain in place; preserve those changes before switching remotes or branches. They are not automatically incorporated into the production build by this migration. The original local market directory’s source, tests, reference files and build configuration are additionally preserved under the tag `archive/local-market-workflows-2026-11-04`, including the newer vendor profile and school operations views. This snapshot excludes runtime data and generated review outputs and leaves the original working directory intact.
 
 Original source branch tips are retained as `archive/source/2026-11-04/*` tags, listed with their commit IDs in [legacy-branches.json](legacy-branches.json). These tags also preserve branch-specific history that is not an ancestor of the integrated release.
 
