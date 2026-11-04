@@ -1,0 +1,28 @@
+.preorder-review { animation: preorder-enter 180ms ease-out; }
+.preorder-reminder { padding: 18px; background: #eef4e7; border: 1px solid #d9e5cc; border-radius: 10px; }
+.preorder-icon { display: grid; place-items: center; width: 43px; height: 43px; border-radius: 12px; background: #dfead4; color: #52733d; margin-bottom: 12px; }
+.preorder-reminder h3 { color: #2f4d30; font-size: 17px; outline: none; }
+.preorder-reminder p { margin-top: 9px; color: #586e49; font-size: 12px; line-height: 1.9; }
+.preorder-items { list-style: none; padding: 0; margin: 14px 0; }
+.preorder-items li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid #e6eade; color: #41523b; font-size: 12px; }
+.preorder-items small { color: #77836b; white-space: nowrap; }
+.preorder-items strong { flex-shrink: 0; font-size: 12px; }
+.preorder-details { margin: 16px 0; font-size: 11px; line-height: 1.8; }
+.preorder-details > div { display: flex; justify-content: space-between; gap: 14px; margin-top: 9px; }
+.preorder-details dt { display: flex; align-items: center; gap: 6px; flex-shrink: 0; color: #78876a; }
+.preorder-details dd { text-align: right; color: #415b33; margin: 0; overflow-wrap: anywhere; }
+.preorder-payment-note, .preorder-note, .preorder-estimate { font-size: 10px; color: #728264; line-height: 1.8; }
+.preorder-note { white-space: pre-wrap; overflow-wrap: anywhere; margin: 12px 0; }
+.preorder-total { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-top: 14px; border-top: 1px solid #e0e7d8; color: #527041; font-size: 12px; }
+.preorder-total small { margin-left: 6px; font-size: 9px; }
+.preorder-total strong { font-size: 24px; color: #365333; }
+.preorder-estimate { margin-top: 8px; }
+.preorder-actions { display: flex; gap: 10px; justify-content: space-between; margin-top: 22px; }
+.preorder-actions .button { justify-content: center; min-height: 42px; flex: 1; }
+@keyframes preorder-enter { from { opacity: .6; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (max-width: 400px) {
+  .preorder-actions { flex-direction: column-reverse; }
+  .preorder-details > div { flex-direction: column; gap: 3px; }
+  .preorder-details dd { text-align: left; }
+}
+@media (prefers-reduced-motion: reduce) { .preorder-review { animation: none; } }

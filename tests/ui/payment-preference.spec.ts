@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { test } from "./isolated";
+import { prepareSnapTomatoes } from "./snap-fixture";
 
 async function openBag(page: Page) {
   await page.goto("/");
@@ -67,16 +68,7 @@ for (const action of ["leave", "wheel", "blur", "close"] as const) {
 }
 
 test("键盘可选付款偏好，刷新和登录后保留，订单对顾客与商户可见", async ({ page }) => {
-  // SNAP orders still require verified market/vendor acceptance and eligible food.
-  expect((await page.request.post("/api/auth/login", { data: { email: "admin@qinghe.demo", password: "MarketDemo2026!" } })).ok()).toBe(true);
-  const today = (await (await page.request.get("/api/config")).json()).today;
-  const product = (await (await page.request.get("/api/products")).json()).find((p: { name: string }) => p.name === "藤熟番茄");
-  const policy = { snap_status: "accepted", snap_verified_on: today, snap_note: "Test only: demo vendor terminal." };
-  expect((await page.request.put(`/api/admin/markets/${product.market_id}/snap`, { data: { ...policy, snap_model: "vendor_terminal" } })).ok()).toBe(true);
-  expect((await page.request.put(`/api/admin/markets/${product.market_id}/vendors/${product.retailer_id}/snap`, { data: policy })).ok()).toBe(true);
-  expect((await page.request.post("/api/auth/login", { data: { email: "retailer@qinghe.demo", password: "MarketDemo2026!" } })).ok()).toBe(true);
-  expect((await page.request.put(`/api/retailer/products/${product.id}`, { data: { ...product, active: true, organic: !!product.organic, snap_eligibility: "eligible" } })).ok()).toBe(true);
-  await page.request.post("/api/auth/logout");
+  await prepareSnapTomatoes(page);
   const bag = await openBag(page);
   const plus = bag.getByRole("button", { name: "切换付款偏好", exact: true });
   await plus.focus();
@@ -92,6 +84,7 @@ test("键盘可选付款偏好，刷新和登录后保留，订单对顾客与�
   await page.getByRole("button", { name: /顾客端演示/ }).click();
   await expect(bag.locator(".payment-current strong")).toHaveText("SNAP/EBT");
   await bag.getByRole("button", { name: "确认预购", exact: true }).click();
+  await bag.getByRole("button", { name: "确认并提交预购", exact: true }).click();
   await expect(page.locator(".order-payment")).toContainText("付款偏好：SNAP/EBT");
   const orders = await (await page.request.get("/api/orders")).json();
   expect(orders[0].payment_method).toBe("snap_ebt");

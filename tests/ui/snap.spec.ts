@@ -82,6 +82,7 @@ test("商户标记食品资格后，混合购物袋拆分现场 SNAP 意向并�
   await cart.getByText("查看逐项资格与金额", { exact: true }).click();
   await expect(cart.locator(".snap-item-breakdown")).toContainText("SNAP 食品资格待核实");
   await cart.getByRole("button", { name: "确认预购", exact: true }).click();
+  await cart.getByRole("button", { name: "确认并提交预购", exact: true }).click();
   await expect(cart).not.toBeVisible();
   const order = page.locator(".order-card").filter({ hasText: name });
   await expect(order).toContainText("现场 SNAP/EBT 付款意向");

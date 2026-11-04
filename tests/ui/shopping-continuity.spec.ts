@@ -53,6 +53,7 @@ test("同一顾客刷新后继续确认，下单成功后刷新不会恢复已�
     if (request.url().endsWith("/api/orders") && request.method() === "POST") submissions++;
   });
   await cart.getByRole("button", { name: "确认预购", exact: true }).click();
+  await cart.getByRole("button", { name: "确认并提交预购", exact: true }).click();
   await expect(page).toHaveURL("/orders");
   await expect(page.locator(".order-note").filter({ hasText: "恢复后手动确认" })).toBeVisible();
   await page.reload();
