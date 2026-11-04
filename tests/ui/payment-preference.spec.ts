@@ -82,6 +82,7 @@ test("键盘可选付款偏好，刷新和登录后保留，订单对顾客与�
   await page.getByRole("button", { name: /顾客端演示/ }).click();
   await expect(bag.locator(".payment-current strong")).toHaveText("SNAP/EBT");
   await bag.getByRole("button", { name: "确认预购", exact: true }).click();
+  await bag.getByRole("button", { name: "确认并提交预购", exact: true }).click();
   await expect(page.locator(".order-payment")).toContainText("付款偏好：SNAP/EBT");
   const orders = await (await page.request.get("/api/orders")).json();
   expect(orders[0].payment_method).toBe("snap_ebt");

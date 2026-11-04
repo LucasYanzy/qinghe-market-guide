@@ -58,6 +58,8 @@
 
 购物袋新增独立的到场付款偏好区：长按付款区 ＋ 700ms，在常规付款与 SNAP/EBT 间切换，圆环显示进度，松开不再追加操作。轻点 ＋ 展开原生单选项，支持键盘与触屏；松开、移出、滚动、失焦和关闭弹窗会取消未完成的长按，减少动态效果时使用静态反馈。付款偏好随购物草稿和订单保存，顾客与商户均可查看。SNAP/EBT 接受情况与商品资格需向商户确认，此功能不处理线上付款或收集 EBT 卡号/PIN。旧数据库会自动补充付款偏好列，旧订单和草稿默认常规到场付款。
 
+每次提交订单前均显示预购确认，列出商品、预计金额、自提时间、付款偏好和备注，说明提交会预留库存、需等待商户确认后到场付款自提。顾客可返回修改，只有点击「确认并提交预购」才发送请求；失败重试、重新登录或下一笔订单均需重新确认。确认期间商品、价格、库存或自提信息更新会返回购物袋，要求重新核对，防止提交未确认的变更。
+
 ## Rutgers 官方资料来源
 
 已于 **2026-10-16** 读取并核对 [Rutgers Farmers Market](https://ruoffcampus.rutgers.edu/basic-needs/food-assistance/rutgers-farmers-market) 与 [Market Bucks Program](https://ruoffcampus.rutgers.edu/basic-needs/food-assistance/market-bucks-program)。整理内容保存在 `references/rutgers-market-guide.json`，首页、市场目录与帮助中心共用这份资料。

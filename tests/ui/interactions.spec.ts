@@ -29,6 +29,7 @@ test("顾客登录后恢复自提信息，明确确认后才创建订单", async
   await expect(cart.getByRole("textbox")).toHaveValue("请帮我留一份，谢谢");
   expect(submissions).toBe(0);
   await cart.getByRole("button", { name: "确认预购", exact: true }).click();
+  await cart.getByRole("button", { name: "确认并提交预购", exact: true }).click();
   await expect(cart).not.toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
     "我的预购",
@@ -72,6 +73,7 @@ test("提交时锁定内容和关闭操作，失败后保留输入并允许重�
     });
   });
   await cart.getByRole("button", { name: "确认预购", exact: true }).click();
+  await cart.getByRole("button", { name: "确认并提交预购", exact: true }).click();
   await expect(cart).toHaveAttribute("aria-busy", "true");
   await expect(cart.getByRole("textbox")).toBeDisabled();
   await expect(cart.getByLabel("关闭弹窗")).toBeDisabled();
@@ -87,6 +89,7 @@ test("提交时锁定内容和关闭操作，失败后保留输入并允许重�
   await expect(cart.getByRole("textbox")).toHaveValue("失败后也要保留");
   await page.unroute("**/api/orders");
   await cart.getByRole("button", { name: "确认预购", exact: true }).click();
+  await cart.getByRole("button", { name: "确认并提交预购", exact: true }).click();
   await expect(cart).not.toBeVisible();
   await expect(page.getByText("备注：失败后也要保留")).toBeVisible();
 });
