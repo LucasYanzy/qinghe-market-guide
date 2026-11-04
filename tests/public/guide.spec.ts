@@ -1,5 +1,12 @@
 import { test, expect, type Page } from "@playwright/test";
 
+// These workflow cases intentionally cover Chinese; fresh-visit defaults are checked separately.
+test.beforeEach(async ({ context }) => {
+  await context.addInitScript(() => {
+    if (localStorage.getItem("qinghe-language") === null) localStorage.setItem("qinghe-language", "zh");
+  });
+});
+
 const toolbar = (page: Page) => page.locator(".interactive-demo-toolbar");
 const bag = (page: Page) => page.getByRole("dialog", { name: "我的新鲜购物袋", exact: true });
 async function role(page: Page, name: string) {

@@ -14,9 +14,9 @@ type Translator = (text: Message | null | undefined, values?: Parameters) => str
 
 function readLanguage(): Language {
   try {
-    return localStorage.getItem(storageKey) === "en" ? "en" : "zh";
+    return localStorage.getItem(storageKey) === "zh" ? "zh" : "en";
   } catch {
-    return "zh";
+    return "en";
   }
 }
 

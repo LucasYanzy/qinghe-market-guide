@@ -138,12 +138,16 @@ test("浏览器禁用存储时仍可选菜并填写购物袋", async ({ page }) 
       Object.defineProperty(Storage.prototype, method, { configurable: true, value: () => { throw new DOMException("blocked", "SecurityError"); } });
     }
   });
-  const cart = await choose(page);
-  await cart.getByRole("textbox").fill("无存储也可操作");
-  await cart.getByLabel("增加藤熟番茄").click();
+  await page.goto("/");
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await page.getByRole("button", { name: "Add Vine-ripened Tomatoes to bag", exact: true }).click();
+  await page.getByRole("button", { name: /^Shopping bag/ }).click();
+  const cart = page.getByRole("dialog", { name: "My shopping bag", exact: true });
+  await cart.getByRole("textbox").fill("Works without storage");
+  await cart.getByLabel("Increase Vine-ripened Tomatoes").click();
   await expect(cart.locator(".quantity-control")).toHaveText("2");
-  await cart.getByRole("button", { name: "登录后预购" }).click();
-  await expect(page.getByRole("dialog", { name: "你好，欢迎来到青禾" })).toBeVisible();
+  await cart.getByRole("button", { name: "Sign in to preorder" }).click();
+  await expect(page.getByRole("dialog", { name: "Hello, welcome to Qinghe", exact: true })).toBeVisible();
 });
 
 test("移除最后一项可以撤销，库存下降时按最新数量恢复且只撤销一次", async ({ page }) => {

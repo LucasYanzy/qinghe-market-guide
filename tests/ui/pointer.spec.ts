@@ -114,6 +114,7 @@ test("缺少动画接口或使用键盘时均可直接加购", async ({ page }) 
 
 test("触屏点击不生成鼠标光波，手机商品操作无横向溢出", async ({ browser, baseURL }) => {
   const context = await browser.newContext({ baseURL, hasTouch: true, isMobile: true, viewport: { width: 320, height: 844 } });
+  await context.addInitScript(() => localStorage.setItem("qinghe-language", "zh"));
   const page = await context.newPage();
   try {
     await page.goto("/");

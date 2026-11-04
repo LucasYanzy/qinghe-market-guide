@@ -7,6 +7,15 @@ import { openDatabase } from "../../server/db.mjs";
 
 // Account-switch and checkout cases need independent sessions, stock and login limits.
 export const test = base.extend({
+  // Existing workflow cases explicitly exercise Chinese; language preference survives reloads.
+  context: async ({ context }, use) => {
+    await context.addInitScript(() => {
+      try {
+        if (localStorage.getItem("qinghe-language") === null) localStorage.setItem("qinghe-language", "zh");
+      } catch { /* Storage-blocked cases exercise the English default. */ }
+    });
+    await use(context);
+  },
   baseURL: async ({}, use) => {
     const directory = mkdtempSync(join(tmpdir(), "qinghe-shopping-"));
     const db = openDatabase(join(directory, "market.sqlite"));
