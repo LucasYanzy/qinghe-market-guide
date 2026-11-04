@@ -1,0 +1,16 @@
+services:
+  market:
+    build: .
+    ports:
+      - "127.0.0.1:3001:3001"
+    environment:
+      DATABASE_PATH: /data/market.sqlite
+      DEMO_MODE: "${DEMO_MODE:-true}"
+      COOKIE_SECURE: "${COOKIE_SECURE:-false}"
+      TRUST_PROXY: "${TRUST_PROXY:-0}"
+    volumes:
+      - market-data:/data
+    restart: unless-stopped
+    stop_grace_period: 15s
+volumes:
+  market-data:
