@@ -70,7 +70,7 @@ export function placeOrder(db, user, input) {
     });
     const id = `QH-${randomUUID().slice(0, 8).toUpperCase()}`;
     db.prepare(
-      "INSERT INTO orders (id,client_id,market_id,total_cents,pickup_date,pickup_slot,note) VALUES (?,?,?,?,?,?,?)",
+      "INSERT INTO orders (id,client_id,market_id,total_cents,pickup_date,pickup_slot,note,payment_method) VALUES (?,?,?,?,?,?,?,?)",
     ).run(
       id,
       user.id,
@@ -79,6 +79,7 @@ export function placeOrder(db, user, input) {
       marketDay(),
       input.pickupSlot,
       input.note,
+      input.paymentMethod,
     );
     const insert = db.prepare("INSERT INTO order_items VALUES (?,?,?,?,?,?,?)");
     for (const item of items) {

@@ -60,6 +60,7 @@ export function openDatabase(
       status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','confirmed','completed','cancelled')),
       total_cents INTEGER NOT NULL, pickup_date TEXT NOT NULL,
       pickup_slot TEXT NOT NULL, note TEXT NOT NULL DEFAULT '',
+      payment_method TEXT NOT NULL DEFAULT 'pay_at_pickup' CHECK(payment_method IN ('pay_at_pickup','snap_ebt')),
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     CREATE TABLE IF NOT EXISTS order_items (
@@ -71,6 +72,9 @@ export function openDatabase(
     CREATE INDEX IF NOT EXISTS orders_client ON orders(client_id,created_at);
     CREATE INDEX IF NOT EXISTS order_items_retailer ON order_items(retailer_id,order_id);
   `);
+  if (!db.prepare("PRAGMA table_info(orders)").all().some((column) => column.name === "payment_method")) {
+    db.exec("ALTER TABLE orders ADD COLUMN payment_method TEXT NOT NULL DEFAULT 'pay_at_pickup' CHECK(payment_method IN ('pay_at_pickup','snap_ebt'))");
+  }
   if (demo && !db.prepare("SELECT id FROM users LIMIT 1").get()) seed(db);
   return db;
 }

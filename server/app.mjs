@@ -268,6 +268,7 @@ export function createApp(
           .min(1)
           .max(50),
         pickupSlot: z.enum(pickupSlots),
+        paymentMethod: z.enum(["pay_at_pickup", "snap_ebt"]).default("pay_at_pickup"),
         note: z.string().trim().max(300).default(""),
       })
       .parse(req.body);
