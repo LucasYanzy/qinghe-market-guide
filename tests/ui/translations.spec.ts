@@ -110,10 +110,14 @@ test('English product search, details, cart, sign-in, live notifications, orders
     } });
   });
   await page.getByRole('button', { name: 'Place preorder', exact: true }).click();
+  await expectEnglish(page);
+  await page.getByRole('button', { name: 'Confirm and submit preorder', exact: true }).click();
   await expect(page.getByRole('alert')).toHaveText('Not enough stock for Vine-ripened Tomatoes. Available: 0 lb.');
   await expectEnglish(page);
   await page.unroute('**/api/orders');
   await page.getByRole('button', { name: 'Place preorder', exact: true }).click();
+  await expectEnglish(page);
+  await page.getByRole('button', { name: 'Confirm and submit preorder', exact: true }).click();
   await expect(page).toHaveURL('/orders');
   await expect(page.locator('.order-card').first()).toBeVisible();
   await expect(page.getByRole('status')).toContainText('Preorder placed · QH-');
