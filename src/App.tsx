@@ -69,6 +69,7 @@ import { useCartFeedback } from "./cartFeedback";
 import { usePointerFeedback } from "./pointerFeedback";
 import { QuantityButton } from "./QuantityButton";
 import { PaymentPreference } from "./PaymentPreference";
+import { PreorderReview } from "./PreorderReview";
 import type {
   Config,
   Dashboard,
@@ -1384,6 +1385,10 @@ function CartModal({
   const [snapReady, setSnapReady] = useState(false);
   const submitting = useRef(false);
   type RemovedItem = { id: number; quantity: number; name: string; date: string };
+  const [review, setReview] = useState<string | null>(null);
+  const checkoutButton = useRef<HTMLButtonElement>(null);
+  const checkoutForm = useRef<HTMLFormElement>(null);
+  const restoreCheckoutFocus = useRef(false);
   const [removed, setRemoved] = useState<RemovedItem>();
   const removedRef = useRef<RemovedItem | undefined>(undefined);
   const [undoNotice, setUndoNotice] = useState<Message>("");
@@ -1449,6 +1454,22 @@ function CartModal({
   const invalid = entries.some(
     (item) => !item.product || item.quantity > maxQuantity(item.product),
   ) || entries.some(item => item.product && (item.product.market_id !== firstProduct?.market_id || item.product.retailer_id !== firstProduct?.retailer_id));
+  const reviewKey = JSON.stringify({ cart, products: entries.map((entry) => entry.product), date: pickupDate, slot, payment: draft.paymentMethod, note, userId: user?.id });
+  useEffect(() => {
+    if (review && review !== reviewKey) {
+      restoreCheckoutFocus.current = true;
+      setReview(null);
+      setError("商品或自提信息已更新，请重新确认预购。");
+    }
+  }, [review, reviewKey]);
+  useLayoutEffect(() => {
+    if (!review && restoreCheckoutFocus.current) {
+      restoreCheckoutFocus.current = false;
+      const target = checkoutButton.current && !checkoutButton.current.disabled
+        ? checkoutButton.current : checkoutForm.current;
+      target?.focus();
+    }
+  }, [review]);
   const change = (id: number, quantity: number) => {
     update((current) => {
       const next = { ...current };
@@ -1469,11 +1490,18 @@ function CartModal({
     });
     setError("");
   };
-  const submit = async (e: FormEvent) => {
+  const requestReview = (e: FormEvent) => {
     e.preventDefault();
     if (submitting.current || invalid || !slot || !entries.length || (draft.paymentMethod === "snap_ebt" && !snapReady)) return;
     if (!user) return onLogin();
+    if (user.role !== "client") return;
+    setError("");
+    setReview(reviewKey);
+  };
+  const submit = async () => {
+    if (submitting.current || !review || review !== reviewKey || invalid || !slot || !entries.length || user?.role !== "client" || (draft.paymentMethod === "snap_ebt" && !snapReady)) return;
     submitting.current = true;
+    setReview(null);
     setBusy(true);
     setError("");
     try {
@@ -1518,8 +1546,13 @@ function CartModal({
             </button>
           }
         />
+      ) : review ? (
+        <PreorderReview items={entries.flatMap(({ product, quantity }) => product ? [{ product, quantity }] : [])}
+          total={total} date={pickupDate} slot={slot} paymentMethod={draft.paymentMethod ?? "pay_at_pickup"} note={note}
+          onBack={() => { restoreCheckoutFocus.current = true; setReview(null); }}
+          onConfirm={() => void submit()} />
       ) : (
-        <form onSubmit={submit}>
+        <form ref={checkoutForm} tabIndex={-1} aria-label={t("我的新鲜购物袋")} onSubmit={requestReview}>
           <fieldset className="form-fields" disabled={busy}>
             <div className="cart-continue">
               <span>{t("已选 {count} 件", { count: entries.reduce((sum, item) => sum + item.quantity, 0) })}</span>
@@ -1653,6 +1686,7 @@ function CartModal({
               <p className="form-error" role="alert">{t("当前暂无可用自提时段，请稍后再来。")}</p>
             )}
             <button
+              ref={checkoutButton}
               className="button primary full-width cart-submit"
               disabled={busy || invalid || !slot || (draft.paymentMethod === "snap_ebt" && !snapReady) || (!!user && user.role !== "client")}
             >

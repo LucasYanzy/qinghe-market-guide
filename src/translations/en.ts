@@ -12,6 +12,17 @@ import { releaseEnglish } from "./release.ts";
 import { continuityEnglish } from "./continuity.ts";
 
 export const english: Record<string, string> = {
+  "商品或自提信息已更新，请重新确认预购。": "Your items or pickup details changed. Please review your preorder again.",
+  "提交前确认预购": "Review your preorder before submitting",
+  "这是一笔预购。提交后会预留库存，请等待商户确认，再按约定时段到场自提并付款。": "This is a preorder. Submitting reserves stock. Wait for vendor confirmation, then collect and pay during your pickup window.",
+  "本次预购商品": "Items in this preorder",
+  "自提时间": "Pickup time",
+  "付款偏好": "Payment preference",
+  "SNAP/EBT（到场确认）": "SNAP/EBT (confirm at pickup)",
+  "SNAP/EBT 是否接受及商品资格，请提前与商户确认。": "Confirm SNAP/EBT acceptance and eligible items with the vendor before pickup.",
+  "此处不会收取线上款项；称重商品的最终数量与金额以到场确认为准。": "No payment is taken online. Confirm the final quantity and amount for weighed items at pickup.",
+  "返回修改": "Back to edit",
+  "确认并提交预购": "Confirm and submit preorder",
   "到场付款偏好": "Payment preference at pickup",
   "到场确认": "Confirm at pickup",
   "常规到场付款": "Standard payment at pickup",

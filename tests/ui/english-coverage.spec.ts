@@ -84,6 +84,7 @@ test('English product detail, bag, authentication, live notifications and API pa
     await route.fulfill({ status: 409, json: { error: '藤熟番茄 库存不足，当前剩余 0 磅。', messageKey: '{product} 库存不足，当前剩余 {stock} {unit}。', values: { product: '藤熟番茄', stock: 0, unit: '磅' } } });
   });
   await page.getByRole('button', { name: 'Place preorder', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirm and submit preorder', exact: true }).click();
   await expect(page.getByRole('alert')).toHaveText(/Not enough stock for Vine-ripened [Tt]omatoes\. Available: 0 lb\./);
   await expectEnglish(page);
 });

@@ -41,6 +41,8 @@ test('工作人员可登记无账号商户、代录商品并开放未来的实�
   await page.getByRole('button', { name: /^购物袋/ }).click();
   await expect(page.getByRole('combobox', { name: '选择自提时段', exact: true })).toContainText('09:00–09:30');
   await page.getByRole('button', { name: '确认预购', exact: true }).click();
+  await expect(page.locator('.preorder-details')).toContainText(date);
+  await page.getByRole('button', { name: '确认并提交预购', exact: true }).click();
   const placed = page.locator('.order-card').filter({ hasText: 'Assisted UI greens' });
   await expect(placed.locator('.customer-pickup-code strong')).toHaveText(/^\d{6}$/);
   await expect(placed.locator('.order-pickup')).toContainText(date);

@@ -26,6 +26,8 @@ test("visitors use the real order and inventory workflow without an account or e
   await page.getByRole("button", { name: /^购物袋/ }).click();
   await bag(page).getByRole("textbox").fill("完整流程体验");
   await bag(page).getByRole("button", { name: "确认预购", exact: true }).click();
+  await expect(bag(page).getByRole("heading", { name: "提交前确认预购", exact: true })).toBeVisible();
+  await bag(page).getByRole("button", { name: "确认并提交预购", exact: true }).click();
   await expect(page).toHaveURL(/qinghe-market-guide\/orders$/);
   await expect(page.locator(".order-note")).toContainText("完整流程体验");
   const orderId = await page.locator(".order-card").first().getByText(/^QH-/).textContent();
@@ -58,6 +60,8 @@ test("vendor edits persist and school statistics reflect sample orders", async (
   await page.getByRole("button", { name: "将藤熟番茄加入购物袋", exact: true }).click();
   await page.getByRole("button", { name: /^购物袋/ }).click();
   await bag(page).getByRole("button", { name: "确认预购", exact: true }).click();
+  await expect(bag(page).getByRole("heading", { name: "提交前确认预购", exact: true })).toBeVisible();
+  await bag(page).getByRole("button", { name: "确认并提交预购", exact: true }).click();
   await expect(page.locator(".order-card")).toHaveCount(1);
   await role(page, "学校");
   await expect(page.locator(".analytics-stat")).toHaveCount(8);
@@ -92,6 +96,8 @@ test("reset clears only this visitor's data and a new tab gets independent state
   await page.getByRole("button", { name: "将藤熟番茄加入购物袋", exact: true }).click();
   await page.getByRole("button", { name: /^购物袋/ }).click();
   await bag(page).getByRole("button", { name: "确认预购", exact: true }).click();
+  await expect(bag(page).getByRole("heading", { name: "提交前确认预购", exact: true })).toBeVisible();
+  await bag(page).getByRole("button", { name: "确认并提交预购", exact: true }).click();
   await expect(page.locator(".order-card")).toHaveCount(1);
   const another = await context.newPage();
   await another.goto("orders/");

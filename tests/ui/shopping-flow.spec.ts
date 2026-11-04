@@ -56,6 +56,7 @@ test("刷新恢复当前标签页的商品、备注和时段，登录后仍需�
   await expect(cart.getByRole("textbox")).toHaveValue("保留我的备注");
   expect(submissions).toBe(0);
   await cart.getByRole("button", { name: "确认预购", exact: true }).click();
+  await cart.getByRole("button", { name: "确认并提交预购", exact: true }).click();
   await expect(page).toHaveURL(/\/orders$/);
   expect(submissions).toBe(1);
   await page.reload();

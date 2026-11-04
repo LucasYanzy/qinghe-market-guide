@@ -38,6 +38,11 @@
       "tag": "archive/source/2026-11-04/feat/market-content-guide"
     },
     {
+      "branch": "feat/preorder-confirmation",
+      "commit": "f22816bc0be15c0efd65a67299e2dae2663c4168",
+      "tag": "archive/source/2026-11-04/feat/preorder-confirmation"
+    },
+    {
       "branch": "feat/public-release-architecture",
       "commit": "69b3f9ff8da75bdc88cd8feea4ed31e1e55666c6",
       "tag": "archive/source/2026-11-04/feat/public-release-architecture"
