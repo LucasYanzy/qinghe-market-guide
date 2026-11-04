@@ -1,0 +1,167 @@
+{
+  "name": "Rutgers Community Farmers Market",
+  "sourceUrl": "https://communityfarmersmarket.rutgers.edu/visit-us/",
+  "checkedOn": "2026-10-29",
+  "scheduleNotice": "2026 年营业季与例外休市日期已按市场运营方官网核对。所有时间为美国东部时间；天气或临时变更请留意官方公告。",
+  "contact": {
+    "name": "Off-Campus Living & Community Initiatives",
+    "phone": "848-932-5500",
+    "email": "RUoffcampus@echo.rutgers.edu",
+    "address": "39 Union Street, New Brunswick, NJ 08901"
+  },
+  "locations": [
+    {
+      "id": "college-ave",
+      "name": "College Avenue Student Center",
+      "area": "Rutgers 校园",
+      "address": "126 College Avenue, New Brunswick, NJ 08901",
+      "sourceAddress": "126 College Avenue, New Brunswick, NJ",
+      "schedule": "周四 11:00–16:00",
+      "season": "2026-08-27 至 2026-11-19；10 月 1 日休市",
+      "status": "confirmed",
+      "note": "位于 College Avenue 学生中心外。10 月 1 日休市；出行前可查看官方临时公告。",
+      "sourceUrl": "https://communityfarmersmarket.rutgers.edu/visit-us/",
+      "sessions": [
+        {
+          "startDate": "2026-08-27",
+          "endDate": "2026-11-19",
+          "weekday": 4,
+          "opens": "11:00",
+          "closes": "16:00",
+          "closedDates": [
+            "2026-10-01"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cooks",
+      "name": "Cook’s Market at Rutgers Gardens",
+      "area": "Rutgers 校园",
+      "address": "112 Log Cabin Road, North Brunswick, NJ",
+      "sourceAddress": "112 Log Cabin Road, North Brunswick",
+      "schedule": "周五 11:00–15:00",
+      "season": "2026-05-22 至 2026-11-20；6 月 19 日、7 月 3 日休市",
+      "status": "confirmed",
+      "note": "导航至市场入口 112 Log Cabin Road。6 月 19 日及 7 月 3 日休市。",
+      "sourceUrl": "https://communityfarmersmarket.rutgers.edu/visit-us/",
+      "sessions": [
+        {
+          "startDate": "2026-05-22",
+          "endDate": "2026-11-20",
+          "weekday": 5,
+          "opens": "11:00",
+          "closes": "15:00",
+          "closedDates": [
+            "2026-06-19",
+            "2026-07-03"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "jones-ave",
+      "name": "Jones Avenue Market Pavilion",
+      "area": "New Brunswick 社区",
+      "address": "178 Jones Avenue, New Brunswick, NJ",
+      "sourceAddress": "NBCFM Market Pavilion, 178 Jones Avenue, New Brunswick, NJ",
+      "schedule": "周二、周六 09:00–13:00",
+      "season": "周二：2026-07-07 至 2026-10-27；周六：2026-06-20 至 2026-11-21；7 月 4 日休市",
+      "status": "confirmed",
+      "note": "官网列明有现场停车位。周二场与周六场营业季不同，请按所选日期查看。",
+      "sourceUrl": "https://communityfarmersmarket.rutgers.edu/visit-us/",
+      "sessions": [
+        {
+          "startDate": "2026-07-07",
+          "endDate": "2026-10-27",
+          "weekday": 2,
+          "opens": "09:00",
+          "closes": "13:00",
+          "closedDates": []
+        },
+        {
+          "startDate": "2026-06-20",
+          "endDate": "2026-11-21",
+          "weekday": 6,
+          "opens": "09:00",
+          "closes": "13:00",
+          "closedDates": [
+            "2026-07-04"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "busch",
+      "name": "Busch Student Center",
+      "area": "Rutgers 校园",
+      "address": "604 Bartholomew Rd Suite 152, Piscataway, NJ 08854",
+      "sourceAddress": "604 Bartholomew Rd Suite 152, Piscataway, NJ 08854",
+      "schedule": "春季学期每月举办，具体时间待公布",
+      "season": "尚未公布可确认的日期与营业时间",
+      "status": "unconfirmed",
+      "note": "学生事务官网仍列春季按月举行、时间 TBD；不纳入当前开市日历。可联系官方确认。",
+      "sourceUrl": "https://ruoffcampus.rutgers.edu/basic-needs/food-assistance/rutgers-farmers-market",
+      "sessions": []
+    }
+  ],
+  "offerings": [
+    "本地农场的当季果蔬",
+    "手工面包、糕点与烘焙食品",
+    "本地蜂蜜、果酱及特色食品",
+    "手工艺品与环保产品",
+    "植物性食品及有机选项",
+    "学生组织与可持续发展活动摊位"
+  ],
+  "marketBucks": {
+    "sourceUrl": "https://ruoffcampus.rutgers.edu/basic-needs/food-assistance/market-bucks-program",
+    "checkedOn": "2026-10-16",
+    "summary": "官方页面介绍：使用 Rutgers Student Food Pantry 的学生，每两周可领取 $10 代金券，用于参与市场的新鲜水果和蔬菜。无需另行申请，领取方式为到访 Food Pantry。",
+    "notice": "以上为官网页面所载项目说明，并非本站审核的资格或额度承诺；项目当前可用性、领取及摊位接受情况请向官方核实。本站不收集申请资料，也不提供代金券线上核销。"
+  },
+  "resources": [
+    {
+      "name": "Food & Mobile Pantry",
+      "description": "了解校内食品与移动食品领取资源。",
+      "url": "https://ruoffcampus.rutgers.edu/basic-needs/food-assistance/food-and-mobile-pantry"
+    },
+    {
+      "name": "Market Bucks Program",
+      "description": "查看市场代金券的官方领取和使用说明。",
+      "url": "https://ruoffcampus.rutgers.edu/basic-needs/food-assistance/market-bucks-program"
+    },
+    {
+      "name": "Grocery Shuttles",
+      "description": "查看 Rutgers 官方食品采购交通资源。",
+      "url": "https://ruoffcampus.rutgers.edu/basic-needs/food-assistance/grocery-shuttles"
+    },
+    {
+      "name": "Student Food Assistance",
+      "description": "浏览 Rutgers 学生食品援助的完整资源目录。",
+      "url": "https://ruoffcampus.rutgers.edu/basic-needs/food-assistance"
+    }
+  ],
+  "organizer": {
+    "name": "Rutgers Community Farmers Market",
+    "email": "farmersmarket@rutgers.edu",
+    "url": "https://communityfarmersmarket.rutgers.edu/contact-us/",
+    "updatesUrl": "https://www.instagram.com/rutgersfarmersmarket/"
+  },
+  "sources": [
+    {
+      "name": "2026 营业季、地址与休市日",
+      "url": "https://communityfarmersmarket.rutgers.edu/visit-us/",
+      "checkedOn": "2026-10-29"
+    },
+    {
+      "name": "College Avenue 地点详情",
+      "url": "https://communityfarmersmarket.rutgers.edu/college-ave-student-center/",
+      "checkedOn": "2026-10-29"
+    },
+    {
+      "name": "学生食品援助与 Busch 待公布信息",
+      "url": "https://ruoffcampus.rutgers.edu/basic-needs/food-assistance/rutgers-farmers-market",
+      "checkedOn": "2026-10-29"
+    }
+  ]
+}

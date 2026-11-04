@@ -1,0 +1,16 @@
+export const releaseEnglish: Record<string, string> = {
+  "直接确认自提时段与备注。提交后，在「我的预购」查看商户确认状态，无需登录。": "Choose a pickup slot and add a note. Track vendor confirmation in My preorders without signing in.",
+  "无需注册或登录。直接选购、提交演示预购，也可以从顶部切换商户和学校身份。": "No registration or sign-in is needed. Shop, place sample preorders and switch to vendor or university roles in the toolbar.",
+  "直接选择商品、数量与演示自提时段，无需登录。提交后可切换商户身份确认，再体验到场取货流程。演示订单不会发给真实商户。": "Choose products, quantities and a sample pickup slot without signing in. Switch to the vendor role to confirm and try the pickup workflow. Sample orders are not sent to real vendors.",
+  "切换体验": "Switch role",
+  "免登录体验完整流程；订单、库存和管理操作仅影响当前标签页的演示数据。": "Explore the full workflow without signing in. Orders, stock and management changes affect only the sample data in this tab.",
+  "线上预购开放了吗？": "Are online preorders open?",
+  "当前网站提供开市信息和到场指引，暂不接受线上预购。请到市场现场选购，并与商户确认供应和付款方式。": "This site offers market information and directions. Online preorders are not open. Shop at the market and confirm availability and payment methods with vendors.",
+  "出行前如何确认临时变更？": "How can I check last-minute changes?",
+  "这里的开市日历按已公布的营业季整理。临时天气调整和停市以市场运营方的最新公告为准，出行前请查看官方日程。": "The calendar follows the published market season. Check the organizer’s official schedule before traveling for weather changes or cancellations.",
+  "历史价格可以当作今天的售价吗？": "Can I use archive prices as today’s prices?",
+  "不可以。价格档案保留历史采价与来源限制，当天供应和价格以现场商户为准。": "No. The archive records historical observations and source limitations. Confirm today’s availability and prices with vendors at the market.",
+  "页面暂时无法加载，请重新加载后再试。": "This page could not load. Reload to try again.",
+  "重新加载页面": "Reload page",
+  "正在加载页面…": "Loading page…",
+};
