@@ -82,9 +82,9 @@ function SnapVendorEditor({ marketId, vendor, onSaved }: { marketId: number; ven
   </details>;
 }
 
-export function SnapCheckout({ itemsKey, method, onChange, onReady }: {
+export function SnapCheckout({ itemsKey, method, onReady }: {
   itemsKey: string; method: "pay_at_pickup" | "snap_ebt";
-  onChange: (method: "pay_at_pickup" | "snap_ebt") => void; onReady: (ready: boolean) => void;
+  onReady: (ready: boolean) => void;
 }) {
   const { t } = useLanguage();
   const [quote, setQuote] = useState<CheckoutQuote>(), [error, setError] = useState<Message>("");
@@ -98,7 +98,6 @@ export function SnapCheckout({ itemsKey, method, onChange, onReady }: {
   }, [itemsKey, retry, onReady]);
   const available = !!quote?.snapAvailable && quote.eligibleCents > 0;
   return <section className="snap-checkout" aria-label={t("现场付款方式与 SNAP 拆分")}>
-    <label>{t("现场付款方式")}<select aria-label={t("现场付款方式")} value={method} onChange={(e) => onChange(e.target.value as "pay_at_pickup" | "snap_ebt")}><option value="pay_at_pickup">{t("到场选择其他付款方式")}</option><option value="snap_ebt" disabled={!available}>{t("现场 SNAP/EBT（需接受条件满足）")}</option></select></label>
     {quote ? <><div className="snap-quote-status"><CreditCard size={16} /><strong>{t(available ? "本次可预约现场 SNAP/EBT 付款" : quote.snapAvailable ? "购物袋中暂无已确认的 SNAP 合资格食品" : "本次 SNAP/EBT 接受条件尚未确认")}</strong></div>
       {method === "snap_ebt" && available && <><dl className="snap-split"><div><dt>{t("SNAP 合资格食品预估")}</dt><dd>{money(quote.eligibleCents)}</dd></div><div><dt>{t("其他方式付款预估")}</dt><dd>{money(quote.otherCents)}</dd></div></dl>
         {!!quote.unknownCents && <p>{t("资格未确认的商品按其他付款方式预留。")}</p>}

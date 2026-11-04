@@ -106,6 +106,7 @@ test("preorders snapshot server prices, deduct stock and advance through merchan
     },
   });
   assert.equal(placed.status, 201);
+  assert.equal(placed.data.payment_method, "pay_at_pickup");
   assert.equal(placed.data.total_cents, p.price_cents * 2);
   assert.equal((await request("/products")).data[0].stock, p.stock - 2);
   assert.equal(
@@ -319,4 +320,44 @@ test("a second database connection reads persisted listings and orders", () => {
     2,
   );
   second.close();
+});
+
+test("SNAP/EBT preference persists for customer and vendor; invalid methods do not reserve stock", async () => {
+  const p = (await request("/products")).data[0];
+  const input = { items: [{ productId: p.id, quantity: 1 }], pickupSlot: "10:00–12:00" };
+  assert.equal((await request("/orders", { method: "POST", cookie: client, body: { ...input, paymentMethod: "online_ebt" } })).status, 400);
+  assert.equal((await request("/products")).data[0].stock, p.stock);
+  assert.equal((await request("/orders", { method: "POST", cookie: client, body: { ...input, paymentMethod: "snap_ebt" } })).status, 409);
+  assert.equal((await request("/products")).data[0].stock, p.stock);
+  db.prepare("UPDATE markets SET snap_status='accepted',snap_model='vendor_terminal',snap_verified_on=?,snap_note='Test vendor terminal' WHERE id=?").run(marketDay(), p.market_id);
+  db.prepare("UPDATE market_vendors SET snap_status='accepted',snap_verified_on=?,snap_note='Test vendor confirmation' WHERE market_id=? AND retailer_id=?").run(marketDay(), p.market_id, p.retailer_id);
+  db.prepare("UPDATE products SET snap_eligibility='eligible' WHERE id=?").run(p.id);
+  const placed = await request("/orders", { method: "POST", cookie: client, body: { ...input, paymentMethod: "snap_ebt" } });
+  assert.equal(placed.status, 201);
+  assert.equal(placed.data.payment_method, "snap_ebt");
+  assert.equal(placed.data.status, "pending");
+  assert.equal(placed.data.total_cents, p.price_cents);
+  for (const cookie of [client, retailer]) {
+    assert.equal((await request("/orders", { cookie })).data.find((o) => o.id === placed.data.id).payment_method, "snap_ebt");
+  }
+  const second = openDatabase(join(directory, "test.sqlite"));
+  try { assert.equal(second.prepare("SELECT payment_method FROM orders WHERE id=?").get(placed.data.id).payment_method, "snap_ebt"); }
+  finally { second.close(); }
+});
+
+test("opening a legacy database adds a payment preference without losing old orders", () => {
+  const path = join(directory, "legacy.sqlite");
+  const legacy = openDatabase(path);
+  const product = legacy.prepare("SELECT * FROM products LIMIT 1").get();
+  legacy.prepare("INSERT INTO orders (id,client_id,market_id,total_cents,pickup_date,pickup_slot,note) VALUES (?,?,?,?,?,?,?)")
+    .run("LEGACY", 1, product.market_id, product.price_cents, marketDay(), "10:00–12:00", "legacy-note");
+  legacy.exec("ALTER TABLE orders DROP COLUMN payment_method");
+  legacy.close();
+  const migrated = openDatabase(path);
+  try {
+    const order = migrated.prepare("SELECT * FROM orders WHERE id='LEGACY'").get();
+    assert.equal(order.payment_method, "pay_at_pickup");
+    assert.equal(order.note, "legacy-note");
+    assert.equal(order.total_cents, product.price_cents);
+  } finally { migrated.close(); }
 });

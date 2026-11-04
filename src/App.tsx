@@ -67,6 +67,8 @@ import { canRestoreShoppingDraft, readShoppingDraft, saveShoppingDraft, shopping
 import { MotionGrid, ScrollActions, usePageMotion } from "./motion";
 import { useCartFeedback } from "./cartFeedback";
 import { usePointerFeedback } from "./pointerFeedback";
+import { QuantityButton } from "./QuantityButton";
+import { PaymentPreference } from "./PaymentPreference";
 import type {
   Config,
   Dashboard,
@@ -279,6 +281,7 @@ function App() {
   const [checkout, setCheckout] = useState<CheckoutDraft>({
     slot: "",
     note: "",
+    paymentMethod: "pay_at_pickup",
   });
   const [loginIntent, setLoginIntent] = useState<"cart" | "orders" | null>(
     null,
@@ -365,7 +368,7 @@ function App() {
     ]);
     if (shoppingDate < nextConfig.today) {
       setCart({});
-      setCheckout({ slot: "", note: "" });
+      setCheckout({ slot: "", note: "", paymentMethod: "pay_at_pickup" });
       notify("市集日期已更新，请重新选择商品和自提时段。");
     }
     if (shoppingDate < nextConfig.today) setShoppingDate(nextConfig.today);
@@ -459,7 +462,7 @@ function App() {
     cartOwnerId.current = next.role === "client" ? next.id : null;
     if (resetCart) {
       setCart({});
-      setCheckout({ slot: "", note: "" });
+      setCheckout({ slot: "", note: "", paymentMethod: "pay_at_pickup" });
     }
     setAuthOpen(false);
     setDetailId(undefined);
@@ -492,14 +495,14 @@ function App() {
       setUser(null);
       cartOwnerId.current = null;
       setCart({});
-      setCheckout({ slot: "", note: "" });
+      setCheckout({ slot: "", note: "", paymentMethod: "pay_at_pickup" });
       navigate("discover");
       notify("已退出登录");
     } catch (e) {
       notify(e as Error);
     }
   };
-  const add = (product: Product, source: HTMLElement) => {
+  const add = (product: Product, source: HTMLElement, repeated = false) => {
     if (manager) return;
     const current = products.find((item) => item.id === product.id);
     if (!current || !current.stock) return notify("这份商品暂不可购，请选择其他新鲜。");
@@ -510,11 +513,11 @@ function App() {
     const limit = maxQuantity(current);
     if ((cart[current.id] ?? 0) >= limit)
       return notify("已达到可购数量");
-    animateCart(source);
+    if (!repeated) animateCart(source);
     setCart((c) => (c[current.id] ?? 0) >= limit ? c : {
       ...c, [current.id]: Math.round(Math.min(limit, (c[current.id] ?? 0) + 1) * 1000) / 1000,
     });
-    notify({ message: "{product} 已加入购物袋", values: { product: { message: product.name } } });
+    if (!repeated) notify({ message: "{product} 已加入购物袋", values: { product: { message: product.name } } });
   };
   const remove = (product: Product) => {
     setCart((current) => {
@@ -822,7 +825,10 @@ function App() {
                 </div>
               </div>
               <div className="results-meta">
-                <span aria-live="polite" aria-atomic="true">{t("发现 {count} 款新鲜好物", { count: visible.length })}</span>
+                <div className="results-summary">
+                  <span aria-live="polite" aria-atomic="true"><span key={visible.length} className="result-count">{t("发现 {count} 款新鲜好物", { count: visible.length })}</span></span>
+                  <span className="quantity-hint">{t("鼠标长按 + / − 可连续调整")}</span>
+                </div>
                 {visible.length > 0 && (category !== "全部蔬菜" || search || sort !== "recommended" || inStock) && <button className="text-button" onClick={() => { setCategory("全部蔬菜"); setSearch(""); setSort("recommended"); setInStock(false); }}>{t("清除筛选")}</button>}
               </div>
               {(category !== "全部蔬菜" || search || inStock || sort !== "recommended") && (
@@ -841,7 +847,7 @@ function App() {
                       key={product.id}
                       product={product}
                       quantity={cart[product.id] ?? 0}
-                      onAdd={(source) => add(product, source)}
+                      onAdd={(source, repeated) => add(product, source, repeated)}
                       onRemove={() => remove(product)}
                       onView={() => setDetailId(product.id)}
                     />
@@ -1044,7 +1050,7 @@ function App() {
           onRefreshListings={reloadListings}
           onSuccess={(order) => {
             setCart({});
-            setCheckout({ slot: "", note: "" });
+            setCheckout({ slot: "", note: "", paymentMethod: "pay_at_pickup" });
             setCartOpen(false);
             refresh();
             navigate("orders");
@@ -1117,7 +1123,7 @@ function ProductCard({
 }: {
   product: Product;
   quantity: number;
-  onAdd: (source: HTMLButtonElement) => void;
+  onAdd: (source: HTMLButtonElement, repeated: boolean) => void;
   onRemove: () => void;
   onView: () => void;
 }) {
@@ -1160,18 +1166,22 @@ function ProductCard({
           </div>
           <div className={quantity ? "product-quantity is-selected" : "product-add"}>
             {quantity > 0 && <>
-              <button className="add-button remove-button" onClick={() => { if (quantity === 1) addRef.current?.focus(); onRemove(); }} aria-label={t("减少{0}", { 0: t(p.name) })}><Minus size={15} /></button>
+              <QuantityButton className="add-button remove-button" onStep={() => { if (quantity === 1) addRef.current?.focus(); onRemove(); }} title={t("按住可连续减少")} aria-label={t("减少{0}", { 0: t(p.name) })}><Minus size={15} /></QuantityButton>
               <span className="product-quantity-value" aria-live="polite" aria-atomic="true"><span className="quantity-pop" key={quantity}>{quantity}</span></span>
             </>}
-            <button
+            <QuantityButton
               ref={addRef}
               className={`add-button ${quantity ? "has-quantity" : ""}`}
               disabled={!p.stock || quantity >= maxQuantity(p)}
+              title={t(!p.stock ? "今日已售罄" : quantity >= maxQuantity(p) ? "已达到可购数量" : "按住可连续增加")}
               aria-label={t("将{0}加入购物袋", {0: t(p.name)})}
-              onClick={(event) => onAdd(event.currentTarget)}
-            ><Plus size={quantity ? 15 : 20} /></button>
+              onStep={onAdd}
+            ><Plus size={quantity ? 15 : 20} /></QuantityButton>
           </div>
         </div>
+        {!!quantity && p.stock > 0 && quantity >= maxQuantity(p) && <p className="quantity-limit" role="status">
+          {t("已达上限 {count} {unit}", { count: maxQuantity(p), unit: quantityUnit(language, p.unit, maxQuantity(p)) })}
+        </p>}
       </div>
     </article>
   );
@@ -1515,6 +1525,7 @@ function CartModal({
               <span>{t("已选 {count} 件", { count: entries.reduce((sum, item) => sum + item.quantity, 0) })}</span>
               <button className="text-button" type="button" onClick={onShop}>{t("继续选购")}<ArrowRight size={14} /></button>
             </div>
+            <p className="quantity-hint cart-quantity-hint">{t("鼠标长按 + / − 可连续调整")}</p>
             <div className="cart-list" ref={cartList}>
               {entries.map(({ id, product: p, quantity }) => (
                 <div className="cart-item" key={id} data-cart-item={id}>
@@ -1530,23 +1541,27 @@ function CartModal({
                         </small>
                         <SnapFoodLabel eligibility={p.snap_eligibility} />
                         <div className="quantity-control">
-                          <button
-                            type="button"
+                          <QuantityButton
                             aria-label={t("减少{0}", {0: t(p.name)})}
-                            onClick={() => adjust(p, -1)}
+                            title={t("按住可连续减少")}
+                            disabled={busy}
+                            onStep={() => adjust(p, -1)}
                           >
                             <Minus size={13} />
-                          </button>
+                          </QuantityButton>
                           {p.unit==='磅'?<><span className="sr-only">{quantity}</span><input className="weight-quantity" aria-label={t('预订磅数：{name}',{name:t(p.name)})} type="number" min="0.001" max={Math.min(p.stock,100)} step="0.001" value={quantity} onChange={e=>{const q=Number(e.target.value);if(Number.isFinite(q)&&q>0&&q<=Math.min(p.stock,100))change(p.id,q);}}/></>:<span>{quantity}</span>}
-                          <button
-                            type="button"
+                          <QuantityButton
                             aria-label={t("增加{0}", {0: t(p.name)})}
-                            disabled={quantity >= maxQuantity(p)}
-                            onClick={() => adjust(p, 1)}
+                            disabled={busy || quantity >= maxQuantity(p)}
+                            title={t(quantity >= maxQuantity(p) ? "已达到可购数量" : "按住可连续增加")}
+                            onStep={() => adjust(p, 1)}
                           >
                             <Plus size={13} />
-                          </button>
+                          </QuantityButton>
                         </div>
+                        {quantity === maxQuantity(p) && p.stock > 0 && <p className="quantity-limit" role="status">
+                          {t("已达上限 {count} {unit}", { count: maxQuantity(p), unit: quantityUnit(language, p.unit, maxQuantity(p)) })}
+                        </p>}
                         {quantity > maxQuantity(p) && (
                           <div className="stock-warning" role="status">
                             <span>{t(p.stock <= 100 ? "当前仅剩 {count} {unit}" : "当前最多可购 {count} {unit}", { count: maxQuantity(p), unit: quantityUnit(language, p.unit, maxQuantity(p)) })}
@@ -1581,6 +1596,8 @@ function CartModal({
                 </div>
               ))}
             </div>
+            <PaymentPreference value={draft.paymentMethod ?? "pay_at_pickup"} disabled={busy}
+              onChange={(paymentMethod) => onDraftChange({ ...draft, paymentMethod })} />
             <div className="pickup-box">
               <div>
                 <Store size={17} />
@@ -1615,8 +1632,7 @@ function CartModal({
               </label>
             </div>
             <SnapCheckout itemsKey={JSON.stringify(Object.entries(cart).map(([id, quantity]) => ({ productId: Number(id), quantity })))}
-              method={draft.paymentMethod ?? "pay_at_pickup"} onReady={setSnapReady}
-              onChange={(paymentMethod) => onDraftChange({ ...draft, paymentMethod })} />
+              method={draft.paymentMethod ?? "pay_at_pickup"} onReady={setSnapReady} />
             <div className="cart-total">
               <span>{t("预计合计 ")}<small>USD</small>
               </span>
@@ -1863,6 +1879,10 @@ function Orders({
                   {translatePreviewContent(o.client_name, t)}
                 </span>
               </div>
+              {o.payment_method === "snap_ebt" && <p className="order-payment">
+                <Wallet size={16} aria-hidden="true" />
+                {t("付款偏好：SNAP/EBT。请与商户确认是否接受及商品资格，到场完成付款。")}
+              </p>}
               {o.note && <p className="order-note">{t("备注：")}{translatePreviewContent(o.note, t)}</p>}
               {user.role === "client" && o.pickup_code && ["pending", "confirmed"].includes(o.status) && <div className="customer-pickup-code"><span>{t("向现场工作人员出示取货码")}</span><strong>{o.pickup_code}</strong><small>{t("待确认订单请等待备货确认后再到场。")}</small></div>}
               <SnapOrderPlan order={o} />
