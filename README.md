@@ -2,7 +2,8 @@
 
 独立的社区市集项目，包含公开市场导览与顾客、商户、学校三端完整应用。非 Rutgers 官方网站。
 
-**网站：** https://lucasyanzy.github.io/qinghe-market-guide/  
+**网站：** https://lucasyanzy.github.io/qinghe-market-guide/
+
 **源码与后续更新：** https://github.com/LucasYanzy/qinghe-market-guide
 
 [![Validate application](https://github.com/LucasYanzy/qinghe-market-guide/actions/workflows/ci.yml/badge.svg)](https://github.com/LucasYanzy/qinghe-market-guide/actions/workflows/ci.yml)

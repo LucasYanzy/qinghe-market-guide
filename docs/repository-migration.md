@@ -12,4 +12,6 @@ The imported application release includes the existing full customer, vendor and
 
 For local development, clone the canonical repository and run `npm ci` and `npm run dev`. Existing working directories with unfinished changes may remain in place; preserve those changes before switching remotes or branches. They are not automatically incorporated by this migration.
 
+Original source branch tips are retained as `archive/source/2026-11-04/*` tags, listed with their commit IDs in [legacy-branches.json](legacy-branches.json). These tags also preserve branch-specific history that is not an ancestor of the integrated release.
+
 Historical PR conversations remain in the private archive. Git commit ancestry is preserved here; GitHub PR numbers and discussions do not transfer between repositories.

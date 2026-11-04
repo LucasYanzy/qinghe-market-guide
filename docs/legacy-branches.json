@@ -1,0 +1,101 @@
+{
+  "repository": "LucasYanzy/Rutgers-Community-Farmers-Market",
+  "importedAt": "2026-11-04",
+  "branches": [
+    {
+      "branch": "feat/build-market-website",
+      "commit": "51135276fdb2f7bed48b52fe72f6f72022e33b59",
+      "tag": "archive/source/2026-11-04/feat/build-market-website"
+    },
+    {
+      "branch": "feat/chinese-english-switch",
+      "commit": "ed4a3208f579379011c1d47a7da5401fbe2dc32c",
+      "tag": "archive/source/2026-11-04/feat/chinese-english-switch"
+    },
+    {
+      "branch": "feat/customer-shopping-continuity",
+      "commit": "a27b57e771f711a64a7a8b34702ed95db2f6e9e1",
+      "tag": "archive/source/2026-11-04/feat/customer-shopping-continuity"
+    },
+    {
+      "branch": "feat/farmers-market-platform",
+      "commit": "148208bebfb59a12cf9d9b7a08dc7db53a1508e4",
+      "tag": "archive/source/2026-11-04/feat/farmers-market-platform"
+    },
+    {
+      "branch": "feat/improve-system-interactions",
+      "commit": "969f36a68ae3bfafe6ecf17a7fe2015f08fb0e81",
+      "tag": "archive/source/2026-11-04/feat/improve-system-interactions"
+    },
+    {
+      "branch": "feat/lightweight-cart-feedback",
+      "commit": "82a99bd8b47189824f8a973217826f4d28fe900b",
+      "tag": "archive/source/2026-11-04/feat/lightweight-cart-feedback"
+    },
+    {
+      "branch": "feat/market-content-guide",
+      "commit": "7b67178c02c45e1a11b18368ec52252b0a2dc57a",
+      "tag": "archive/source/2026-11-04/feat/market-content-guide"
+    },
+    {
+      "branch": "feat/public-release-architecture",
+      "commit": "69b3f9ff8da75bdc88cd8feea4ed31e1e55666c6",
+      "tag": "archive/source/2026-11-04/feat/public-release-architecture"
+    },
+    {
+      "branch": "feat/quantity-press-controls",
+      "commit": "2c4abf8313120039fa4cf6fc279149c6dd8f393b",
+      "tag": "archive/source/2026-11-04/feat/quantity-press-controls"
+    },
+    {
+      "branch": "feat/refined-pointer-interactions",
+      "commit": "919251babfb925d6178ee67b970a8e3272a0fd35",
+      "tag": "archive/source/2026-11-04/feat/refined-pointer-interactions"
+    },
+    {
+      "branch": "feat/ui-interactions-motion",
+      "commit": "a66247a2240cd11bf2200237bdcceef7fecc3d89",
+      "tag": "archive/source/2026-11-04/feat/ui-interactions-motion"
+    },
+    {
+      "branch": "feat/vendor-dashboard",
+      "commit": "a04dc69f21f57f075e709be98d4a010a5a9ec682",
+      "tag": "archive/source/2026-11-04/feat/vendor-dashboard"
+    },
+    {
+      "branch": "feat/vendor-data-feedback",
+      "commit": "c5ca339e44feb340eda7ec9a93f31e7cdd0970be",
+      "tag": "archive/source/2026-11-04/feat/vendor-data-feedback"
+    },
+    {
+      "branch": "feat/vendor-inventory-bulk",
+      "commit": "28612cd6612d2e3681d05fcc10db7eef5a8eece7",
+      "tag": "archive/source/2026-11-04/feat/vendor-inventory-bulk"
+    },
+    {
+      "branch": "feat/vendor-pickup-preparation",
+      "commit": "9122a992b89879a34811e8b1fa3ea83a7fa1d36b",
+      "tag": "archive/source/2026-11-04/feat/vendor-pickup-preparation"
+    },
+    {
+      "branch": "feat/vendor-visual-workflows",
+      "commit": "1fce963fa837d97e380d98ba058005acacd6f9e3",
+      "tag": "archive/source/2026-11-04/feat/vendor-visual-workflows"
+    },
+    {
+      "branch": "fix/complete-translations",
+      "commit": "60f925ead944ea4d94b5255763236223c6ecef02",
+      "tag": "archive/source/2026-11-04/fix/complete-translations"
+    },
+    {
+      "branch": "fix/complete-vendor-english",
+      "commit": "79c472feb20ccf90162b265adc3153a3ff428ab7",
+      "tag": "archive/source/2026-11-04/fix/complete-vendor-english"
+    },
+    {
+      "branch": "fix/polish-english-copy",
+      "commit": "e275297c2045cb9f565cefb5da0fe85f7c6397f7",
+      "tag": "archive/source/2026-11-04/fix/polish-english-copy"
+    }
+  ]
+}
