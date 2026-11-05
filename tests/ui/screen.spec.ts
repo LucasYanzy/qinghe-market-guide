@@ -49,6 +49,23 @@ test('大屏自动刷新可暂停且暂停期间不再请求', async ({ page }) 
   await page.clock.runFor(61000); expect(calls).toBe(before);
 });
 
+test('隐藏大屏时停止时钟更新，重新显示时恢复当前时间', async ({ page }) => {
+  await login(page); await page.clock.install(); await page.goto('/admin/screen');
+  await expect(page.locator('.screen-kpis')).toBeVisible();
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  const before = await page.locator('.screen-clock').innerText();
+  await page.clock.runFor(3100);
+  expect(await page.locator('.screen-clock').innerText()).toBe(before);
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect(page.locator('.screen-clock')).not.toHaveText(before);
+});
+
 for (const width of [390, 1920]) test(`大屏 ${width}px 中英文布局与权限`, async ({ page }) => {
   await page.setViewportSize({ width, height: width === 1920 ? 1080 : 844 });
   await page.goto('/admin/screen'); await expect(page.getByRole('button', { name: '学校管理方登录', exact: true })).toBeVisible();

@@ -21,7 +21,7 @@ export default function SchoolScreen({ demo }: { demo: boolean }) {
   const [market, setMarket] = useState(() => /^\d+$/.test(q.get("market") ?? "") && Number(q.get("market")) > 0 ? q.get("market")! : "all");
   const [range, setRange] = useState(() => ["7", "30", "90"].includes(q.get("range") ?? "") ? q.get("range")! : "30");
   const [interval, setIntervalSeconds] = useState(30), [paused, setPaused] = useState(false), [tick, setTick] = useState(0);
-  const [data, setData] = useState<ScreenData>(), [error, setError] = useState<Message>(""), [busy, setBusy] = useState(true), [clock, setClock] = useState(new Date());
+  const [data, setData] = useState<ScreenData>(), [error, setError] = useState<Message>(""), [busy, setBusy] = useState(true);
   const [marketPage, setMarketPage] = useState(0), [fullError, setFullError] = useState("");
   const [marketOptions, setMarketOptions] = useState<{ id: number; name: string }[]>([]);
   const inFlight = useRef(false), scope = useRef(`${market}:${range}`), root = useRef<HTMLDivElement>(null);
@@ -49,7 +49,6 @@ export default function SchoolScreen({ demo }: { demo: boolean }) {
       .finally(() => { clearTimeout(timeout); if (current) { setBusy(false); inFlight.current = false; } });
     return () => { current = false; clearTimeout(timeout); controller.abort(); inFlight.current = false; };
   }, [market, range, tick]);
-  useEffect(() => { const timer = window.setInterval(() => setClock(new Date()), 1000); return () => clearInterval(timer); }, []);
   useEffect(() => {
     const refresh = () => { if (!paused && !document.hidden && !inFlight.current) setTick((n) => n + 1); };
     const timer = window.setInterval(refresh, interval * 1000); document.addEventListener("visibilitychange", refresh);
@@ -63,7 +62,7 @@ export default function SchoolScreen({ demo }: { demo: boolean }) {
   const l = data?.live, a = data?.overview, s = l?.summary;
   const displayTime = (date: Date) => date.toLocaleTimeString([], { timeZone: "America/New_York", hour12: false });
   return <div className="school-screen" ref={root}>
-    <header className="screen-header"><div className="screen-brand"><Leaf size={27} /><div><span>QINGHE / UNIVERSITY OPERATIONS</span><h1>{t("学校市场管理大屏")}</h1></div></div><div className="screen-clock"><strong>{displayTime(clock)}</strong><span>{clock.toLocaleDateString("en-CA", { timeZone: "America/New_York" })} · ET</span></div><div className="screen-tools"><LanguageSwitcher /><a href={pageHref("school")} className="screen-button"><ArrowLeft size={16} />{t("返回管理")}</a><button className="screen-button" onClick={() => void fullscreen()}><Expand size={16} />{t("全屏展示")}</button></div></header>
+    <header className="screen-header"><div className="screen-brand"><Leaf size={27} /><div><span>QINGHE / UNIVERSITY OPERATIONS</span><h1>{t("学校市场管理大屏")}</h1></div></div><ScreenClock /><div className="screen-tools"><LanguageSwitcher /><a href={pageHref("school")} className="screen-button"><ArrowLeft size={16} />{t("返回管理")}</a><button className="screen-button" onClick={() => void fullscreen()}><Expand size={16} />{t("全屏展示")}</button></div></header>
     <div className="screen-toolbar"><div><span className={`screen-live-dot ${error ? "offline" : paused ? "paused" : ""}`} /><strong>{t(error ? "刷新失败" : busy ? "更新中" : paused ? "已暂停自动刷新" : "自动刷新中")}</strong><span>{t(demo ? "演示数据库" : "运营数据库")}</span>{a?.sampleData && <b className="screen-sample">{t("合成演示样本")}</b>}<span className="screen-updated">{t("最近成功更新")} {l ? displayTime(new Date(l.generatedAt)) : "—"}</span></div><div><label>{t("当前市场")}<select aria-label={t("大屏市场范围")} value={market} onChange={(e) => setMarket(e.target.value)}><option value="all">{t("全部市场")}</option>{marketOptions.map((m) => <option key={m.id} value={m.id}>{t(m.name)}</option>)}</select></label><label>{t("趋势周期")}<select aria-label={t("大屏趋势周期")} value={range} onChange={(e) => setRange(e.target.value)}>{["7", "30", "90"].map((n) => <option key={n} value={n}>{t("最近 {count} 天", { count: n })}</option>)}</select></label><select aria-label={t("大屏刷新间隔")} value={interval} onChange={(e) => setIntervalSeconds(Number(e.target.value))}>{[30, 60, 120].map((n) => <option key={n} value={n}>{t("每 {count} 秒", { count: n })}</option>)}</select><button className="screen-button" aria-pressed={paused} onClick={() => setPaused((v) => !v)}>{paused ? <Play size={14} /> : <Pause size={14} />}{t(paused ? "恢复刷新" : "暂停刷新")}</button><button className="screen-button" aria-label={t("立即刷新大屏")} disabled={busy} onClick={() => setTick((n) => n + 1)}><RefreshCw size={15} />{t("刷新")}</button></div></div>
     {(error || fullError) && <p className="screen-error" role="alert">{error ? <>{t(error)} {t("当前显示最近成功更新的数据，请核对更新时间。")}</> : t(fullError)}</p>}
     {!data ? <div className="screen-loading" role="status">{t(error ? "暂时无法读取管理大屏，请点击刷新重试。" : "正在读取市场运营记录…")}</div> : <>
@@ -80,6 +79,23 @@ export default function SchoolScreen({ demo }: { demo: boolean }) {
       <footer className="screen-footer"><span><Store size={13} />{t("大屏仅显示汇总数据，不展示顾客姓名、联系方式或取货码。")}</span><span>{t("库存与营业设置为当前状态，趋势按自提日期汇总。")}</span></footer>
     </>}
   </div>;
+}
+function ScreenClock() {
+  const [clock, setClock] = useState(() => new Date());
+  useEffect(() => {
+    let timer: number | undefined;
+    const sync = () => {
+      window.clearInterval(timer);
+      if (!document.hidden) {
+        setClock(new Date());
+        timer = window.setInterval(() => setClock(new Date()), 1000);
+      }
+    };
+    sync();
+    document.addEventListener("visibilitychange", sync);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", sync); };
+  }, []);
+  return <div className="screen-clock"><strong>{clock.toLocaleTimeString([], { timeZone: "America/New_York", hour12: false })}</strong><span>{clock.toLocaleDateString("en-CA", { timeZone: "America/New_York" })} · ET</span></div>;
 }
 function PanelTitle({ title, kicker }: { title: string; kicker: string }) { const { t } = useLanguage(); return <div className="screen-panel-title"><span>{kicker}</span><h2>{t(title)}</h2></div>; }
 function Empty({ text }: { text: string }) { const { t } = useLanguage(); return <p className="screen-empty">{t(text)}</p>; }

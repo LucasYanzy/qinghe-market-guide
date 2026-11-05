@@ -56,6 +56,9 @@ const productSchema = z.object({
 });
 const orderItemsSchema = z.array(z.object({ productId: z.number().int().positive(), quantity: z.number().positive().max(100).refine(n => Math.abs(n*1000-Math.round(n*1000))<1e-7) })).min(1).max(50);
 const digest = (token) => createHash("sha256").update(token).digest("hex");
+// Generate once so nonexistent accounts do the same password work per request
+// as existing accounts, without revealing email existence through a second KDF.
+const dummyPasswordHash = hashPassword("constant-time-dummy");
 
 export function createApp(
   db,
@@ -93,7 +96,7 @@ export function createApp(
     role: user.role,
     roles: [...new Set([user.role,...db.prepare('SELECT role FROM user_roles WHERE user_id=?').all(user.id).map(r=>r.role)])],
   });
-  const session = (res, user) => {
+  const session = (req, res, user) => {
     db.prepare("DELETE FROM sessions WHERE expires_at<=?").run(Date.now());
     const token = randomBytes(32).toString("hex");
     db.prepare("INSERT INTO sessions VALUES (?,?,?)").run(
@@ -102,6 +105,10 @@ export function createApp(
       Date.now() + 7 * 86400000,
     );
     db.prepare('INSERT INTO session_roles VALUES (?,?)').run(digest(token),user.role);
+    // Both login and registration can switch the browser to another account.
+    const previous = req.headers.cookie?.split(";").map(x => x.trim())
+      .find(x => x.startsWith("qinghe_session="))?.slice(15);
+    if (previous) db.prepare("DELETE FROM sessions WHERE token_hash=?").run(digest(previous));
     res.cookie("qinghe_session", token, {
       httpOnly: true,
       sameSite: "strict",
@@ -161,24 +168,14 @@ export function createApp(
       .prepare("SELECT * FROM users WHERE email=?")
       .get(input.email);
     const [salt, hash] = (
-      user?.password_hash ?? hashPassword("constant-time-dummy")
+      user?.password_hash ?? dummyPasswordHash
     ).split(":");
     const valid = timingSafeEqual(
       Buffer.from(hash, "hex"),
       scryptSync(input.password, salt, 64),
     );
     if (!user || !valid) throw new HttpError(401, "邮箱或密码不正确。");
-    // Retire the previous cookie on account switches.
-    const previous = req.headers.cookie
-      ?.split(";")
-      .map((x) => x.trim())
-      .find((x) => x.startsWith("qinghe_session="))
-      ?.slice(15);
-    if (previous)
-      db.prepare("DELETE FROM sessions WHERE token_hash=?").run(
-        digest(previous),
-      );
-    res.json({ user: session(res, user) });
+    res.json({ user: session(req, res, user) });
   });
   app.post("/api/auth/register", throttle, (req, res) => {
     const input = z
@@ -199,7 +196,7 @@ export function createApp(
     res
       .status(201)
       .json({
-        user: session(res, {
+        user: session(req, res, {
           id: Number(result.lastInsertRowid),
           ...input,
           role: "client",
