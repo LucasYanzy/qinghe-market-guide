@@ -1,3 +1,4 @@
+import type { TenderBreakdown } from '../server/tenders.mjs';
 export type Role = "client" | "retailer" | "admin";
 export interface User {
   id: number;
@@ -57,6 +58,7 @@ export interface CheckoutQuote {
   marketId: number; marketName: string; totalCents: number; eligibleCents: number; otherCents: number; unknownCents: number;
   snapUnavailableReason?: "market_unconfirmed" | "market_unavailable" | "vendor_unconfirmed" | "vendor_unavailable" | null;
   snapAvailable: boolean; snapModel: Market["snap_model"]; marketVerifiedOn: string; vendorVerifiedOn: string; instructions: string;
+  marketConfirmed?: boolean; vendorConfirmed?: boolean;
   items: { productId: number; name: string; quantity: number; lineCents: number; snapEligibility: Product["snap_eligibility"] }[];
 }
 export interface ReportSummary {
@@ -66,6 +68,29 @@ export interface ReportSummary {
 export interface ProductPerformance {
   productId: number; name: string; unit: string; marketId: number; marketName: string;
   vendorId: number; vendorName: string; quantity: number; revenueCents: number; orders: number; buyers: number; repeatBuyers: number;
+  minPriceCents: number; maxPriceCents: number; sellingDays: number; lastSoldOn: string;
+}
+export interface BusinessAnalytics {
+  receipts: { orders: number; cashCents: number; cardCents: number; snapCents: number };
+  attendance: { assignments: number; checkedIn: number; absent: number; unconfirmed: number; sessions: number };
+  reports: { reports: number; grossCents: number; transactions: number };
+  tenderMix: { reports: number; classifiedCents: number; unclassifiedCents: number; channels: TenderBreakdown };
+  fees: { invoices: number; billedCents: number; paidCents: number; outstandingCents: number; overdueCents: number; periodReceiptsCents: number };
+}
+export interface FinanceTotals { incomeCents: number; expenseCents: number; incomeEntries: number; expenseEntries: number; netCents: number | null }
+export interface OperatorFinance {
+  current: FinanceTotals; previous: FinanceTotals | null;
+  series: { date: string; incomeCents: number | null; expenseCents: number | null }[];
+  previousSeries: OperatorFinance['series'] | null;
+  categories: { kind: 'income' | 'expense'; category: string; entries: number; amountCents: number }[];
+  entries: { id: number | string; marketId: number | null; marketName: string | null; date: string; kind: 'income' | 'expense'; category: string; amountCents: number; description: string; reference: string; version: number; source: 'manual' | 'invoice' }[];
+  totalEntries: number;
+}
+export interface MerchantProfitability {
+  reports: number; grossCovered: number; completeCovered: number; salesCents: number | null;
+  grossCoveredSalesCents: number | null; goodsCostCents: number | null; grossProfitCents: number | null;
+  completeSalesCents: number | null; operatingSurplusCents: number | null;
+  rows: { sessionId: number; date: string; marketName: string; salesCents: number; goodsCostCents: number | null; operatingCostCents: number | null; grossProfitCents: number | null; operatingSurplusCents: number | null }[];
 }
 export interface SchoolAnalytics {
   current: ReportSummary;
@@ -77,6 +102,9 @@ export interface SchoolAnalytics {
     alerts: { id: number; name: string; unit: string; stock: number; category: string; snap_eligibility: Product["snap_eligibility"]; marketId: number; marketName: string; vendorName: string }[];
   };
   products: ProductPerformance[];
+  previousProducts: ProductPerformance[] | null;
+  business: BusinessAnalytics;
+  finance: OperatorFinance;
   sellingVendors: number; soldProducts: number;
   slots: { slot: string; orders: number; completed: number; revenueCents: number }[];
   heatmap: { weekday: number; slot: string; orders: number }[];
@@ -106,7 +134,8 @@ export interface SchoolOverview {
     orders: number; completed: number; participants: number; revenueCents: number;
     snapMarkets: SnapVendorPolicy[];
   }[];
-  timeline: { date: string; orders: number; completed: number; cancelled: number; snapOrders: number; revenueCents: number }[];
+  timeline: { date: string; orders: number; completed: number; cancelled: number; snapOrders: number; revenueCents: number; participants?: number }[];
+  previousTimeline: { date: string; orders: number; completed: number; participants: number; revenueCents: number }[] | null;
 }
 export interface OrderItem {
   product_id: number;

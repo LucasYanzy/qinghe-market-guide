@@ -16,7 +16,7 @@ const foodLabels = { eligible: "SNAP 合资格食品", ineligible: "需其他方
 
 export function SnapFoodLabel({ eligibility }: { eligibility: Product["snap_eligibility"] }) {
   const { t } = useLanguage();
-  return <span className={`snap-food-label snap-food-${eligibility}`}>{eligibility === "eligible" && <Leaf size={12} />}{t(foodLabels[eligibility])}</span>;
+  return <span className={`snap-food-label snap-food-${eligibility}`} title={eligibility === 'eligible' ? t('食品资格不等于商户接受 SNAP；下单前还需核对市场与商户受理状态。') : undefined}>{eligibility === "eligible" && <Leaf size={12} />}{t(foodLabels[eligibility])}</span>;
 }
 
 export function SnapPurchaseGuide({ compact = false }: { compact?: boolean }) {

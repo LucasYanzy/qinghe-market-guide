@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { ArrowRight, CheckCircle2, CircleHelp, Globe2, LoaderCircle, MapPin, RefreshCw, School, ShoppingBag, Users, Wallet } from "lucide-react";
+import { ArrowRight, CheckCircle2, CircleHelp, Globe2, LoaderCircle, MapPin, RefreshCw, RotateCcw, School, ShoppingBag, Users, Wallet } from "lucide-react";
 import { matchesSearch } from "./translations/translate";
 import { api, money } from "./api";
 import { useLanguage, type Message } from "./i18n";
@@ -11,7 +11,7 @@ import MarketManagement from "./MarketManagement";
 import SchoolDashboard from "./SchoolDashboard";
 import SchoolOperations from "./SchoolOperations";
 import SchoolWorkflows from './SchoolWorkflows';
-import { readReportFilters, reportToday, type ReportRange } from "./schoolReports";
+import { readReportFilters, reportToday, reportDate, type ReportRange } from "./schoolReports";
 import "./school-admin.css";
 
 export default function SchoolAdmin({ page, demo, navigate, refresh, notify }: {
@@ -61,10 +61,11 @@ export default function SchoolAdmin({ page, demo, navigate, refresh, notify }: {
   }, [range, from, to, revision, marketId]);
   const saved = (message = "市场设置已保存") => { reload(); refresh(); notify(message); };
   const manage = (id: number) => { setMarketId(id); navigate("school-markets"); };
-  return <div className="school-workspace">
+  return <div className={`school-workspace ${page === "school" ? "analytics-workspace" : ""}`}>
     <div className="school-toolbar">
       <span className="school-access"><School size={16} />{t("学校管理方")}<span> / </span>{t("跨市场管理")}</span>
       <div>
+        {page === "school" && <div className="analytics-quick-periods" role="group" aria-label={t("快捷统计周期")}>{["7", "30", "90"].map((n) => <button key={n} aria-pressed={range === n} onClick={() => { setFilters((f) => ({ ...f, range: n as ReportRange })); setDateError(""); }}>{t("{count} 天", { count: n })}</button>)}</div>}
         <label className="school-range">{t("当前市场")}<select aria-label={t("当前市场")} value={marketId ?? "all"} onChange={(e) => setMarketId(e.target.value === "all" ? null : Number(e.target.value))}>
           <option value="all">{t("全部市场")}</option>{data?.markets.map((m) => <option key={m.id} value={m.id}>{t(m.name)}</option>)}
         </select></label>
@@ -74,6 +75,7 @@ export default function SchoolAdmin({ page, demo, navigate, refresh, notify }: {
             <option value="90">{t("最近 90 天")}</option><option value="all">{t("全部时间")}</option><option value="custom">{t("自定义日期")}</option>
           </select>
         </label>}
+        {page === "school" && (marketId || range !== "30") && <button className="analytics-clear-all" onClick={() => { const dates = { from: reportDate(reportToday(), -29), to: reportToday() }; setMarketId(null); setFilters({ range: "30", ...dates }); setDateDraft(dates); setDateError(""); }}><RotateCcw size={13} />{t("重置全部筛选")}</button>}
         <button className="button" disabled={loading} onClick={reload} aria-label={t("刷新管理数据")}><RefreshCw size={15} />{t("刷新")}</button>
       </div>
     </div>
@@ -87,10 +89,10 @@ export default function SchoolAdmin({ page, demo, navigate, refresh, notify }: {
       : !data || data.marketId !== marketId || data.range !== range || (range === "custom" && (data.from !== from || data.to !== to)) ? <div className="loading-panel" role="status"><LoaderCircle className="spin" />{t("正在汇总全盘数据…")}</div>
       : <>
         {data.sampleData && page !== "school" && <div className="analytics-sample"><CircleHelp size={17} /><div><strong>{t("合成演示样本")}</strong><span>{t("当前交易、顾客与付款意向为生成样例，用于评审统计功能，不代表真实运营或 SNAP 核销。")}</span></div></div>}
-        {page !== "school-markets" && page !== "school-operations" && <p className="school-period">{t(demo ? "演示数据库" : "运营数据库")} · {data.from ?? t("全部时间")} — {data.to} · {t("按自提日期统计，美国东部时间")}</p>}
+        {page !== "school-markets" && page !== "school-operations" && <p className="school-period">{t(demo ? "演示数据库" : "运营数据库")} · {data.from ?? t("全部时间")} — {data.to} · {t(page === "school" ? "订单按自提日期、运营收支按发生日期统计，美国东部时间" : "按自提日期统计，美国东部时间")}</p>}
         {page === "school-operations" && <SchoolOperations data={data} selectedMarketId={marketId} refresh={refresh} />}
         {page === 'school-community' && <SchoolWorkflows data={data} marketId={marketId} onSaved={reload} />}
-        {page === "school" && <SchoolDashboard data={data} navigate={navigate} selectMarket={setMarketId} />}
+        {page === "school" && <SchoolDashboard onSaved={reload} data={data} navigate={navigate} selectMarket={setMarketId} />}
         {page === "school-vendors" && <Vendors data={data} manage={manage} />}
         {page === "school-impact" && <Impact data={data} selectMarket={setMarketId} manage={manage} planningOpen={planningOpen} setPlanningOpen={setPlanningOpen} />}
         {page === "school-markets" && <MarketManagement data={data} selectedId={marketId} onSelect={setMarketId} onSaved={saved} />}

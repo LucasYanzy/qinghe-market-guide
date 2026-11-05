@@ -10,9 +10,11 @@ import { simpleEnglish } from "./simple.ts";
 import { releaseEnglish } from "./release.ts";
 
 import { continuityEnglish } from "./continuity.ts";
+import { reportsEnglish } from "./reports.ts";
 import { analyticsEnglish } from "./analytics.ts";
 
 export const english: Record<string, string> = {
+  ...reportsEnglish,
   "商品或自提信息已更新，请重新确认预购。": "Your items or pickup details changed. Please review your preorder again.",
   "提交前确认预购": "Review your preorder before submitting",
   "这是一笔预购。提交后会预留库存，请等待商户确认，再按约定时段到场自提并付款。": "This is a preorder. Submitting reserves stock. Wait for vendor confirmation, then collect and pay during your pickup window.",

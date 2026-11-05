@@ -66,8 +66,22 @@ export function migrateWorkflows(db) {
       id INTEGER PRIMARY KEY,invoice_id INTEGER NOT NULL REFERENCES vendor_invoices(id),amount_cents INTEGER NOT NULL CHECK(amount_cents>0),
       reference TEXT NOT NULL,recorded_by INTEGER NOT NULL REFERENCES users(id),created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS operator_entries (
+      id INTEGER PRIMARY KEY,market_id INTEGER REFERENCES markets(id),recorded_on TEXT NOT NULL,
+      kind TEXT NOT NULL CHECK(kind IN ('income','expense')),category TEXT NOT NULL,
+      amount_cents INTEGER NOT NULL CHECK(amount_cents>=0),description TEXT NOT NULL,reference TEXT NOT NULL DEFAULT '',
+      request_key TEXT NOT NULL UNIQUE,request_json TEXT NOT NULL,recorded_by INTEGER NOT NULL REFERENCES users(id),
+      version INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,voided_at TEXT,void_reason TEXT
+    );
+    CREATE INDEX IF NOT EXISTS operator_entries_date_market ON operator_entries(recorded_on,market_id);
     CREATE VIEW IF NOT EXISTS vendor_directory AS SELECT u.*,
       COALESCE(NULLIF(p.business_name,''),u.name) AS business_name
       FROM users u LEFT JOIN vendor_profiles p ON p.retailer_id=u.id;
   `);
+  // NULL preserves the distinction between old unclassified sales and explicit zeroes.
+  if (!db.prepare('PRAGMA table_info(vendor_sales_reports)').all().some(c => c.name === 'tenders_json'))
+    db.exec('ALTER TABLE vendor_sales_reports ADD COLUMN tenders_json TEXT');
+  for (const column of ['goods_cost_cents','operating_cost_cents'])
+    if (!db.prepare('PRAGMA table_info(vendor_sales_reports)').all().some(c => c.name === column))
+      db.exec(`ALTER TABLE vendor_sales_reports ADD COLUMN ${column} INTEGER CHECK(${column}>=0)`);
 }

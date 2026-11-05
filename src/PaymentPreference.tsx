@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type PointerEvent } from "react";
-import { Check, CreditCard, Plus, Wallet } from "lucide-react";
+import { Check, CircleHelp, CreditCard, Plus, Wallet } from "lucide-react";
 import { useLanguage } from "./i18n";
 import type { PaymentMethod } from "./types";
 import "./payment.css";
 
 const holdDuration = 700;
 
-export function PaymentPreference({ value, onChange, disabled }: {
+export function PaymentPreference({ value, onChange, disabled, verified = false }: {
   value: PaymentMethod;
   onChange: (value: PaymentMethod) => void;
   disabled: boolean;
+  verified?: boolean;
 }) {
   const { t } = useLanguage();
   const id = useId();
@@ -90,7 +91,7 @@ export function PaymentPreference({ value, onChange, disabled }: {
     };
   };
 
-  return <section className={`payment-preference ${snap ? "is-snap" : ""}`} aria-labelledby={`${id}-title`}>
+  return <section className={`payment-preference ${snap ? `is-snap ${verified ? 'is-verified' : 'needs-verification'}` : ""}`} aria-labelledby={`${id}-title`}>
     <div className="payment-heading">
       <Wallet size={16} aria-hidden="true" />
       <h3 id={`${id}-title`}>{t("到场付款偏好")}</h3>
@@ -98,7 +99,7 @@ export function PaymentPreference({ value, onChange, disabled }: {
     </div>
     <div className="payment-summary">
       <div className="payment-current" aria-live="polite" aria-atomic="true">
-        <span className="payment-choice-icon" key={value} aria-hidden="true">{snap ? <Check size={19} /> : <CreditCard size={19} />}</span>
+        <span className="payment-choice-icon" key={value} aria-hidden="true">{snap ? verified ? <Check size={19} /> : <CircleHelp size={19} /> : <CreditCard size={19} />}</span>
         <div><strong>{t(snap ? "SNAP/EBT" : "常规到场付款")}</strong>
           <p>{t(snap ? "已选择 SNAP/EBT，请到场确认是否可用。" : "使用商户现场接受的付款方式。")}</p>
         </div>

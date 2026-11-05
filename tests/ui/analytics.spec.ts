@@ -131,9 +131,10 @@ for (const width of [320, 390, 768]) {
   test(`统计看板在 ${width}px 可切换全部分区且不横向溢出`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 }); await login(page);
     await page.goto("/admin");
-    for (const name of [/数据总览/, /市场与商户/, /商品与库存/, /SNAP 与服务/]) {
+    for (const name of [/数据总览/, /市场与商户/, /商品与库存/, /经营与覆盖/, /报表中心/, /运营收支/, /SNAP 与服务/]) {
       await page.getByRole("tab", { name }).click();
       await expect(page.getByRole("tabpanel")).toBeVisible();
+      await page.getByRole("tabpanel").locator("details").evaluateAll(elements => elements.forEach(element => element.setAttribute("open", "")));
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     }
     await page.getByRole("button", { name: "Switch to English", exact: true }).click();
@@ -141,3 +142,85 @@ for (const width of [320, 390, 768]) {
     await expect(page.getByRole("heading", { name: "On-site payment intentions", exact: true })).toBeVisible();
   });
 }
+
+test("商品可并排对比价格、购买量和复购，筛选与清空操作保留一致状态", async ({ page }) => {
+  const { market } = await fixture(page);
+  await page.goto(`/admin?market=${market.id}&view=products`);
+  const panel = page.getByRole("region", { name: "商品需求分析", exact: true });
+  await panel.getByRole("button", { name: "对比商品：Analytics UI greens", exact: true }).click();
+  await panel.getByRole("button", { name: "对比商品：Analytics unverified food", exact: true }).click();
+  await panel.getByRole("button", { name: "对比 2 项", exact: true }).click();
+  const comparison = panel.getByRole("region", { name: "商品对比", exact: true });
+  await expect(comparison.getByRole("row", { name: /成交均价/ })).toContainText("$4.00 / 个");
+  await expect(comparison.getByRole("row", { name: /成交均价/ })).toContainText("$3.00 / 个");
+  await expect(comparison.getByRole("row", { name: /每单平均购买量/ })).toContainText("1.00 个");
+  await panel.getByRole("button", { name: "有跨场次复购", exact: true }).click();
+  await expect(panel.getByText("没有符合条件的商品", { exact: true })).toBeVisible();
+  await panel.getByRole("button", { name: "重置筛选", exact: true }).first().click();
+  await expect(panel.locator(".decision-bar-row")).toHaveCount(2);
+  await panel.getByRole("button", { name: "清空对比", exact: true }).click();
+  await expect(comparison).toHaveCount(0);
+  const first = panel.locator(".decision-bar-row").first(), second = panel.locator(".decision-bar-row").nth(1);
+  await first.focus(); await first.press("ArrowDown");
+  await expect(second).toBeFocused(); await expect(second).toHaveAttribute("aria-pressed", "true");
+});
+
+test("商品分页能查看榜外记录且对比最多三项", async ({ page }) => {
+  const { market } = await fixture(page);
+  await page.route("**/api/admin/overview?**", async (route) => {
+    const response = await route.fetch(), data = await response.json(), source = data.analytics.products[0];
+    data.analytics.products = Array.from({ length: 19 }, (_, i) => ({ ...source, productId: 10000 + i, name: `Page product ${i + 1}`, buyers: 19 - i }));
+    await route.fulfill({ json: data });
+  });
+  await page.goto(`/admin?market=${market.id}&view=products`);
+  const panel = page.getByRole("region", { name: "商品需求分析", exact: true });
+  await expect(panel.locator(".decision-bar-row")).toHaveCount(8);
+  for (const name of ["Page product 1", "Page product 2", "Page product 3"]) await panel.getByRole("button", { name: `对比商品：${name}`, exact: true }).click();
+  await expect(panel.getByRole("button", { name: "对比商品：Page product 4", exact: true })).toBeDisabled();
+  await panel.getByRole("button", { name: "下一页商品", exact: true }).click();
+  await expect(panel.locator(".decision-bar-row").first()).toContainText("Page product 9");
+  await panel.getByRole("button", { name: "下一页商品", exact: true }).click();
+  await expect(panel.locator(".decision-bar-row")).toHaveCount(3);
+  await expect(panel.getByRole("button", { name: "下一页商品", exact: true })).toBeDisabled();
+  await panel.getByRole("searchbox").fill("Page product 19");
+  await expect(panel.locator(".decision-bar-row")).toHaveCount(1);
+  await expect(panel.locator(".decision-pagination")).toContainText("第 1 / 1 页");
+});
+
+test("趋势支持键盘选日期、隐藏折线，经营页说明收款与缺失成本", async ({ page }) => {
+  const { market } = await fixture(page);
+  await page.goto(`/admin?market=${market.id}`);
+  const slider = page.getByRole("slider", { name: "选择趋势日期", exact: true });
+  await slider.focus(); await slider.press("Home");
+  await expect(slider).toHaveValue("0");
+  const completion = page.locator(".legend-toggle");
+  await completion.click(); await expect(completion).toHaveAttribute("aria-pressed", "false");
+  await page.getByRole("tab", { name: "经营与覆盖", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "平台订单收款登记", exact: true })).toBeVisible();
+  await expect(page.locator(".business-panel").filter({ hasText: "平台订单收款登记" }).locator(".business-lead strong")).toHaveText("$7.00");
+  const readiness = page.locator(".business-readiness");
+  await expect(readiness.getByText("尚未采集", { exact: true })).toHaveCount(1);
+  await expect(readiness.getByText("商户私有，可自行填报", { exact: true })).toBeVisible();
+  await expect(readiness.getByText("可在运营收支登记", { exact: true })).toHaveCount(2);
+  await expect(readiness).toContainText("缺失记录不按零处理");
+  await page.getByLabel("选择导出报表", { exact: true }).selectOption("business");
+  const exported = page.waitForEvent("download");
+  await page.getByRole("button", { name: "导出 CSV", exact: true }).click();
+  const csv = await readFile((await (await exported).path())!, "utf8");
+  expect(csv).toContain('"现金登记","7"');
+  expect(csv).toContain('"已登记运营收入",""');
+  expect(csv).toContain('"已登记运营支出",""');
+  expect(csv).toContain('"已登记净收支",""');
+  expect(csv).not.toContain('"商户进货、运输与人工成本"');
+  await page.getByRole("button", { name: "Switch to English", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "Business & coverage", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("heading", { name: "Operator vendor fees", exact: true })).toBeVisible();
+  await expect(readiness.getByText("Not collected", { exact: true })).toHaveCount(1);
+  await expect(readiness.getByText("Private to each vendor; self-reporting available", { exact: true })).toBeVisible();
+  await expect(readiness.getByText("Record in operating finance", { exact: true })).toHaveCount(2);
+  await page.getByRole("button", { name: "90 days", exact: true }).click();
+  await expect(page.getByLabel("Reporting period", { exact: true })).toHaveValue("90");
+  await page.getByRole("button", { name: "Reset all filters", exact: true }).click();
+  await expect(page.getByLabel("Reporting period", { exact: true })).toHaveValue("30");
+  await expect(page.getByLabel("Current market", { exact: true })).toHaveValue("all");
+});

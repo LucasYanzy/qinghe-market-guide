@@ -84,6 +84,7 @@ export function schoolOverview(db, range = "30", marketId = null, options = {}) 
     });
   const daily = db.prepare(`SELECT pickup_date AS date, COUNT(*) AS orders,
     COUNT(CASE WHEN status='completed' THEN 1 END) AS completed,
+    COUNT(DISTINCT CASE WHEN status='completed' THEN client_id END) AS participants,
     COUNT(CASE WHEN status='cancelled' THEN 1 END) AS cancelled,
     COUNT(CASE WHEN payment_method='snap_ebt' AND status!='cancelled' THEN 1 END) AS snapOrders,
     SUM(CASE WHEN status='completed' THEN COALESCE(final_total_cents,total_cents) ELSE 0 END) AS revenueCents
@@ -92,11 +93,17 @@ export function schoolOverview(db, range = "30", marketId = null, options = {}) 
   const days = new Map(daily.map((d) => [d.date, d]));
   const timeline = range === "all" ? daily : Array.from({ length: period.days }, (_, i) => {
     const date = shiftDate(from, i);
-    return days.get(date) ?? { date, orders: 0, completed: 0, cancelled: 0, snapOrders: 0, revenueCents: 0 };
+    return days.get(date) ?? { date, orders: 0, completed: 0, cancelled: 0, snapOrders: 0, revenueCents: 0, participants: 0 };
   });
+  const previousTimeline = period.previous ? db.prepare(`SELECT pickup_date AS date,COUNT(*) AS orders,
+    COUNT(CASE WHEN status='completed' THEN 1 END) AS completed,
+    COUNT(DISTINCT CASE WHEN status='completed' THEN client_id END) AS participants,
+    COALESCE(SUM(CASE WHEN status='completed' THEN COALESCE(final_total_cents,total_cents) ELSE 0 END),0) AS revenueCents
+    FROM orders WHERE pickup_date BETWEEN ? AND ? AND (?=0 OR market_id=?) GROUP BY pickup_date ORDER BY pickup_date`)
+    .all(period.previous.from,period.previous.to,scope,scope) : null;
   const scopedMarkets = markets.filter((m) => !marketId || m.id === marketId);
   return {
-    range, marketId, from: range === "all" ? null : from, to, updatedAt: new Date().toISOString(),
+    range, marketId, from: range === "all" ? null : from, to, updatedAt: new Date().toISOString(), previousTimeline,
     sampleData: !!db.prepare("SELECT 1 FROM app_metadata WHERE key='analytics_sample'").get(),
     analytics: schoolAnalytics(db, period, marketId), timezone: "America/New_York",
     summary: { ...summary, repeatParticipants: repeat,

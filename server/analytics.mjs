@@ -1,5 +1,7 @@
 import { marketDay } from "./db.mjs";
 import { HttpError } from "./services.mjs";
+import { businessAnalytics } from "./business-analytics.mjs";
+import { operatorFinance } from './financial-reports.mjs';
 
 const DAY = 86400000;
 export const shiftDate = (date, offset) => new Date(Date.parse(`${date}T12:00:00Z`) + offset * DAY).toISOString().slice(0, 10);
@@ -22,7 +24,9 @@ export function productPerformance(db, period, marketId = null, vendorId = null)
   const filter = "i.quantity>0 AND o.status='completed' AND o.pickup_date BETWEEN ? AND ? AND (?=0 OR o.market_id=?) AND (?=0 OR i.retailer_id=?)";
   const products = db.prepare(`SELECT i.product_id AS productId,i.name,i.unit,o.market_id AS marketId,m.name AS marketName,
       i.retailer_id AS vendorId,u.business_name AS vendorName,SUM(i.quantity) AS quantity,
-      SUM(ROUND(i.price_cents*i.quantity)) AS revenueCents,COUNT(DISTINCT o.id) AS orders,COUNT(DISTINCT o.client_id) AS buyers
+      SUM(ROUND(i.price_cents*i.quantity)) AS revenueCents,COUNT(DISTINCT o.id) AS orders,COUNT(DISTINCT o.client_id) AS buyers,
+      MIN(i.price_cents) AS minPriceCents,MAX(i.price_cents) AS maxPriceCents,
+      COUNT(DISTINCT o.pickup_date) AS sellingDays,MAX(o.pickup_date) AS lastSoldOn
     FROM effective_order_items i JOIN orders o ON o.id=i.order_id JOIN markets m ON m.id=o.market_id
     JOIN vendor_directory u ON u.id=i.retailer_id WHERE ${filter}
     GROUP BY i.product_id,i.name,i.unit,o.market_id,i.retailer_id ORDER BY revenueCents DESC,i.product_id,i.name`).all(...params);
@@ -102,7 +106,9 @@ export function schoolAnalytics(db, period, marketId = null) {
     WHERE o.status IN ('pending','confirmed') AND o.pickup_date BETWEEN ? AND ? AND (?=0 OR o.market_id=?) ORDER BY o.pickup_date,o.id LIMIT 20`).all(...params);
   const overdue = db.prepare(`SELECT COUNT(*) AS count FROM orders WHERE status IN ('pending','confirmed')
     AND pickup_date BETWEEN ? AND ? AND (?=0 OR market_id=?) AND pickup_date<?`).get(...params, marketDay()).count;
-  return { current, previous, customers, inventory: inventorySummary, products, ...vendorActivity, slots, heatmap, payments,
+  return { current, previous, customers, inventory: inventorySummary, products,
+    previousProducts: period.previous ? productPerformance(db, period.previous, marketId) : null,
+    business: businessAnalytics(db, period, marketId), finance: operatorFinance(db, period, marketId), ...vendorActivity, slots, heatmap, payments,
     operations: { overdue, outstanding },
   };
 }

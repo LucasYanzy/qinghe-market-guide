@@ -109,3 +109,39 @@ test('SNAP 预估失败不显示为可用，重新核对恢复后可提交且保
     await expect(page).toHaveURL('/orders');
   } finally { await admin.dispose(); }
 });
+
+test('购物袋数量不变时，商品资格和价格更新会重新核对，核对入口与付款提示保留', async ({ page, playwright, baseURL }) => {
+  const admin = await playwright.request.newContext({ baseURL });
+  const vendor = await playwright.request.newContext({ baseURL });
+  try {
+    const { bag } = await prepare(page, admin, true);
+    const submit = bag.getByRole('button', { name: '确认预购', exact: true });
+    await expect(submit).toBeEnabled();
+    await expect(bag.locator('.payment-preference')).toHaveClass(/is-verified/);
+    await bag.getByRole('textbox').fill('Keep my items and note');
+    expect((await vendor.post('/api/auth/login', { data: credentials('retailer') })).ok()).toBe(true);
+    const product = (await (await vendor.get('/api/retailer/products')).json()).find((p: { id: number }) => p.id === 1);
+    const update = async (eligibility: string, price: number) => {
+      const response = await vendor.put('/api/retailer/products/1', { data: { ...product, active: !!product.active, organic: !!product.organic, snap_eligibility: eligibility, price_cents: price } });
+      expect(response.ok(), await response.text()).toBe(true);
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    };
+    await update('ineligible', 500);
+    await expect(submit).toBeDisabled();
+    await expect(bag.locator('.cart-checkout-status')).toHaveText('购物袋中暂无已确认的 SNAP 合资格食品');
+    await expect(bag.locator('.payment-preference')).toHaveClass(/needs-verification/);
+    await bag.getByRole('button', { name: '查看付款核对', exact: true }).click();
+    await expect(bag.locator('.cart-payment-check')).toBeFocused();
+    await update('eligible', 450);
+    await expect(submit).toBeEnabled();
+    await expect(bag.locator('.snap-split')).toContainText('$4.50');
+    await expect(bag.locator('.payment-preference')).toHaveClass(/is-verified/);
+    await expect(bag.getByRole('textbox')).toHaveValue('Keep my items and note');
+    await submit.click();
+    await bag.getByRole('button', { name: '确认并提交预购', exact: true }).click();
+    await expect(page).toHaveURL('/orders');
+    const [order] = await (await page.request.get('/api/orders')).json();
+    expect(order.total_cents).toBe(450);
+    expect(order.payment_method).toBe('snap_ebt');
+  } finally { await admin.dispose(); await vendor.dispose(); }
+});

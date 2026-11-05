@@ -30,9 +30,11 @@ test("invalid deployment options fail without echoing environment secrets", () =
 });
 
 test("reverse-proxy origin checks, malformed origins and immutable assets work together", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "qinghe-http-"));
+  const directory = mkdtempSync(join(tmpdir(), "qinghe-http-"));
+  const dir = join(directory, ".worktree", "dist");
   const { mkdirSync } = await import("node:fs");
-  mkdirSync(join(dir, "assets"));
+  mkdirSync(join(dir, "assets"), { recursive: true });
+  writeFileSync(join(dir, ".private"), "not public");
   writeFileSync(join(dir, "assets", "app-a1b2.js"), "export {};");
   writeFileSync(join(dir, "index.html"), "<!doctype html><title>Qinghe</title>");
   const db = openDatabase(":memory:");
@@ -52,12 +54,14 @@ test("reverse-proxy origin checks, malformed origins and immutable assets work t
     assert.match(asset.headers.get("cache-control"), /immutable/);
     const page = await fetch(`${base}/admin/operations`);
     assert.equal(page.status, 200);
+    assert.match(await page.text(), /<title>Qinghe<\/title>/);
+    assert.doesNotMatch(await (await fetch(`${base}/.private`)).text(), /not public/);
     assert.match(page.headers.get("cache-control"), /no-store/);
     assert.match(page.headers.get("content-security-policy"), /frame-ancestors 'none'/);
     assert.equal((await fetch(`${base}/api/no-such-api`)).status, 404);
   } finally {
     await new Promise((resolve) => server.close(resolve));
-    db.close(); rmSync(dir, { recursive: true, force: true });
+    db.close(); rmSync(directory, { recursive: true, force: true });
   }
 });
 

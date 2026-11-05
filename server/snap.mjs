@@ -30,6 +30,7 @@ export function snapPlan(db, marketId, vendorId, items) {
   return {
     marketId, marketName: market.name, totalCents, eligibleCents, unknownCents, otherCents: totalCents - eligibleCents,
     snapAvailable: marketVerified && vendorVerified, snapUnavailableReason,
+    marketConfirmed: marketVerified, vendorConfirmed: vendorVerified,
     snapModel: market.snap_model,
     marketVerifiedOn: market.snap_verified_on, vendorVerifiedOn: vendor?.snap_verified_on ?? "",
     instructions: market.snap_note,
