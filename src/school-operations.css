@@ -40,14 +40,8 @@
 .ops-items small { display: block; font-size: 13px; color: #667461; margin-top: 8px; }
 .ops-items strong { white-space: nowrap; }
 .ops-total { display: flex; justify-content: space-between; gap: 12px; font-size: 17px; }
-.ops-pickup, .ops-form { display: grid; gap: 18px; align-content: start; min-width: 0; }
-.ops-pickup h4 { font-size: 18px; }
-.ops-pickup label, .ops-form label, .ops-cancel label { display: grid; gap: 9px; font-size: 14px; min-width: 0; }
-.ops-pickup input[pattern] { font-size: 28px; letter-spacing: 7px; width: 100%; }
-.ops-pickup small { color: #667461; font-size: 12px; line-height: 1.8; }
-.ops-money-fields { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
-.ops-money-fields label { font-size: 12px; }
-.ops-money-fields input { width: 100%; padding: 10px; }
+.ops-form { display: grid; gap: 18px; align-content: start; min-width: 0; }
+.ops-form label, .ops-cancel label { display: grid; gap: 9px; font-size: 14px; min-width: 0; }
 .ops-cancel { border-top: 1px solid #d9e1d0; padding-top: 18px; }
 .ops-cancel summary, .ops-history summary { cursor: pointer; font-size: 14px; padding: 10px 0; }
 .ops-cancel label { margin: 15px 0; }
@@ -86,16 +80,10 @@
   .ops-packing p { line-height: 1.8; }
 }
 
-.shopping-date-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin: 18px 0; font-size: 16px; color: #304c39; }
-.shopping-date-picker input { padding: 12px; border: 1px solid #bac8b3; border-radius: 7px; background: white; color: #304c39; font-size: 16px; }
-.customer-pickup-code { display: grid; gap: 12px; margin: 18px 0; padding: 20px; border: 1px solid #bac8b3; border-radius: 10px; background: #edf2e5; }
-.customer-pickup-code strong { font-size: 36px; letter-spacing: 8px; color: #304c39; }
-.customer-pickup-code small { font-size: 13px; color: #667461; line-height: 1.8; }
 .impact-planning { border: 1px solid #cdd9c2; padding: 18px; border-radius: 12px; }
 .impact-planning summary { cursor: pointer; font-size: 16px; color: #304c39; }
 .impact-planning > p { margin: 16px 0; font-size: 14px; line-height: 1.8; color: #667461; }
 
-.ops-payment-presets { display: flex; flex-wrap: wrap; gap: 10px; }
 .ops-payment-summary p { font-size: 14px; line-height: 1.8; color: #667461; margin: 12px 0; }
 .ops-payment-summary > div { display: flex; flex-wrap: wrap; gap: 24px; }
 .ops-payment-summary span { display: grid; gap: 10px; font-size: 14px; }

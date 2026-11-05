@@ -49,7 +49,7 @@ test("visitors use the real order and inventory workflow without an account or e
   await expect(pickup.getByLabel('6 位取货码', { exact: true })).toHaveValue('');
   await pickup.getByLabel('6 位取货码', { exact: true }).fill(code);
   await pickup.getByRole('button', { name: '已收全额现金', exact: true }).click();
-  await pickup.getByRole('button', { name: '登记交付与现场收款', exact: true }).click();
+  await pickup.getByRole('button', { name: '核验并完成交付', exact: true }).click();
   await expect(order.locator('.status-badge')).toHaveText('已完成');
   await role(page, "顾客");
   await page.getByRole("navigation", { name: "主导航", exact: true }).getByRole("link", { name: "我的预购", exact: true }).click();

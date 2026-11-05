@@ -279,7 +279,7 @@ test.describe('English with a Chinese browser and a different device time zone',
     await page.locator('.ops-order-row').filter({ hasText: order.id }).click();
     await page.getByRole('button', { name: 'Full amount received in cash', exact: true }).click();
     await page.getByLabel('6-digit pickup code', { exact: true }).fill(order.pickup_code === '000000' ? '111111' : '000000');
-    await page.getByRole('button', { name: 'Record pickup and on-site payment', exact: true }).click();
+    await page.getByRole('button', { name: 'Verify & complete pickup', exact: true }).click();
     await expect(page.getByRole('alert').first()).toContainText("Pickup code does not match. Check the customer's order.");
     await expectEnglish(page);
   });
