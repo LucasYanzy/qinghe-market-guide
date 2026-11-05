@@ -55,6 +55,7 @@ export type SnapStatus = "unconfirmed" | "accepted" | "unavailable";
 export interface SnapVendorPolicy { market_id: number; snap_status: SnapStatus; snap_verified_on: string; snap_note: string }
 export interface CheckoutQuote {
   marketId: number; marketName: string; totalCents: number; eligibleCents: number; otherCents: number; unknownCents: number;
+  snapUnavailableReason?: "market_unconfirmed" | "market_unavailable" | "vendor_unconfirmed" | "vendor_unavailable" | null;
   snapAvailable: boolean; snapModel: Market["snap_model"]; marketVerifiedOn: string; vendorVerifiedOn: string; instructions: string;
   items: { productId: number; name: string; quantity: number; lineCents: number; snapEligibility: Product["snap_eligibility"] }[];
 }

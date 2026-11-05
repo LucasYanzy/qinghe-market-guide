@@ -39,12 +39,18 @@ test("SNAP defaults to unconfirmed and requires both a verified market and parti
   const quote = () => request("/checkout/quote", { role: "public", method: "POST", body: { items } });
   assert.equal((await request("/markets")).data[0].snap_status, "unconfirmed");
   assert.equal((await quote()).data.snapAvailable, false);
+  assert.equal((await quote()).data.snapUnavailableReason, "market_unconfirmed");
   await request("/admin/markets/1/snap", { method: "PUT", body: marketPolicy });
   assert.equal((await quote()).data.snapAvailable, false);
+  assert.equal((await quote()).data.snapUnavailableReason, "vendor_unconfirmed");
   await request("/admin/markets/1/vendors/2/snap", { method: "PUT", body: vendorPolicy });
   assert.equal((await quote()).data.snapAvailable, true);
+  assert.equal((await quote()).data.snapUnavailableReason, null);
   await request("/admin/markets/1/vendors/2/snap", { method: "PUT", body: { snap_status: "unavailable", snap_verified_on: "", snap_note: "" } });
   assert.equal((await quote()).data.snapAvailable, false);
+  assert.equal((await quote()).data.snapUnavailableReason, "vendor_unavailable");
+  await request("/admin/markets/1/snap", { method: "PUT", body: { ...marketPolicy, snap_status: "unavailable" } });
+  assert.equal((await quote()).data.snapUnavailableReason, "market_unavailable");
 });
 
 test("SNAP verification enforces admin access, evidence, real dates, and an on-site model", async () => {

@@ -1,4 +1,11 @@
 export const operationsEnglish: Record<string, string> = {
+  "市场尚未确认 SNAP/EBT 收款流程。": "The market has not confirmed its SNAP/EBT payment process.",
+  "该市场目前不接受 SNAP/EBT。": "This market does not currently accept SNAP/EBT.",
+  "商户尚未确认接受 SNAP/EBT。": "The vendor has not confirmed SNAP/EBT acceptance.",
+  "该商户目前不接受 SNAP/EBT。": "This vendor does not currently accept SNAP/EBT.",
+  "暂时无法核对 SNAP/EBT，请重新核对或选择常规到场付款。": "We could not check SNAP/EBT. Check again or use standard payment at pickup.",
+  "改用常规到场付款": "Use standard payment at pickup",
+  "请切换为顾客身份后预购。": "Switch to the customer role to place a preorder.",
   "接单备货": "Accept & prepare",
   "已核验交付": "Pickup verified & completed",
   "请输入顾客提供的 6 位取货码。": "Enter the 6-digit code from the customer.",
