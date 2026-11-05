@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { CalendarDays, Check, ClipboardList, Package, Plus, Printer, RefreshCw, Search, ShieldCheck, Users } from "lucide-react";
 import { api, money } from "./api";
@@ -8,6 +8,7 @@ import { reportToday } from "./schoolReports";
 import { matchesSearch, quantityUnit } from "./translations/translate";
 import { translatePreviewContent } from "./translations/preview";
 import "./school-operations.css";
+import { PickupForm } from "./PickupForm";
 import { OrderAdjustmentPanel } from './OrderAdjustment';
 import type { OrderAdjustment } from './types';
 
@@ -87,16 +88,7 @@ function OrderDetail({ order: o, busy, mutate, refresh, close }: { order: Operat
     {o.receipt && <div className="ops-advice"><ShieldCheck size={22} /><p>{t("现场收款登记")}<br />{t("现金")} {money(o.receipt.cash_cents)} · {t("银行卡")} {money(o.receipt.card_cents)} · SNAP {money(o.receipt.snap_cents)}<br />{o.receipt.reference}</p></div>}
   </section>;
 }
-export function PickupForm({ orderId, total, snapLimit, busy, submit }: { orderId: string; total: number; snapLimit: number; busy: boolean; submit: (body: object) => Promise<unknown> }) {
-  const { t } = useLanguage(); const [code, setCode] = useState(""), [cash, setCash] = useState(""), [card, setCard] = useState("0"), [snap, setSnap] = useState("0"), [reference, setReference] = useState(""), [error, setError] = useState<Message>("");
-  const cents = (s: string) => /^\d+(?:\.\d{1,2})?$/.test(s) ? Math.round(Number(s) * 100) : -1;
-  const handle = async (event: FormEvent) => {
-    event.preventDefault(); setError("");
-    if ([cash, card, snap].some((s) => cents(s) < 0) || cents(cash) + cents(card) + cents(snap) !== total) return setError("现场收款登记合计必须等于订单金额。");
-    try { await submit({ pickupCode: code, cashCents: cents(cash), cardCents: cents(card), snapCents: cents(snap), reference }); } catch (e) { setError(e as Error); }
-  };
-  return <form className="ops-pickup" aria-label={t("取货核验与现场登记")} onSubmit={handle}><h4>{t("核对顾客取货码")}</h4><label>{t("6 位取货码")}<input autoComplete="off" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required value={code} onChange={(e) => setCode(e.target.value)} placeholder="000000" /></label><p>{t("请顾客出示订单。商品交付且现场收款完成后，再登记以下金额。")}</p><div className="ops-payment-presets"><button type="button" className="button" disabled={busy} onClick={() => { setCash((total / 100).toFixed(2)); setCard("0"); setSnap("0"); }}>{t("已收全额现金")}</button><button type="button" className="button" disabled={busy} onClick={() => { setCash("0"); setCard((total / 100).toFixed(2)); setSnap("0"); }}>{t("已收全额银行卡")}</button></div><div className="ops-money-fields">{[["现金", cash, setCash], ["银行卡", card, setCard], ["SNAP / EBT", snap, setSnap]].map(([label, value, setter]) => <label key={String(label)}>{t(String(label))} USD<input type="number" min="0" max={label === "SNAP / EBT" ? snapLimit / 100 : total / 100} step="0.01" required disabled={label === "SNAP / EBT" && !snapLimit} value={String(value)} onChange={(e) => (setter as (value: string) => void)(e.target.value)} /></label>)}</div><label>{t("现场小票参考号（SNAP 必填）")}<input maxLength={100} required={cents(snap) > 0} value={reference} onChange={(e) => setReference(e.target.value)} /></label><small>{t("仅登记已完成的现场收款，不发起扣款。不要填写卡号、PIN 或福利余额。")}</small>{error && <p role="alert" className="form-error">{t(error)}</p>}<button className="button primary full-width" disabled={busy}><ShieldCheck size={20} />{t("登记交付与现场收款")}</button><input type="hidden" value={orderId} readOnly /></form>;
-}
+
 function SessionForm({ markets, marketId, date, busy, mutate }: { markets: Market[]; marketId: number | null; date: string; busy: boolean; mutate: Mutate }) {
   const { t } = useLanguage(); const [market, setMarket] = useState(String(marketId ?? markets[0]?.id ?? ""));
   return <form className="panel ops-form" aria-label={t("建立开市场次")} onSubmit={(e) => { e.preventDefault(); const f = new FormData(e.currentTarget); void mutate("/admin/sessions", { marketId: Number(market), date, startsAt: f.get("start"), endsAt: f.get("end"), cutoff: f.get("cutoff"), slotMinutes: Number(f.get("minutes")), capacity: Number(f.get("capacity")) }).catch(() => {}); }}><h3>{t("建立开市场次")}</h3><p>{date} · America/New_York</p><MarketSelect markets={markets} value={market} onChange={setMarket} /><div className="ops-form-pair"><label>{t("开始时间")}<input name="start" type="time" defaultValue="10:00" required /></label><label>{t("结束时间")}<input name="end" type="time" defaultValue="16:00" required /></label></div><label>{t("当日接单截止时间")}<input name="cutoff" type="time" defaultValue="09:00" required /></label><div className="ops-form-pair"><label>{t("每个自提时段（分钟）")}<input name="minutes" type="number" min="15" max="240" defaultValue="60" required /></label><label>{t("每时段最多订单")}<input name="capacity" type="number" min="1" max="1000" defaultValue="20" required /></label></div><p className="ops-advice">{t("保存为草稿，不会立即接单。该市场之后只按已开放场次接单，请核对日期和容量。")}</p><button className="button primary" disabled={busy || !market || date < reportToday()}><Plus size={20} />{t("保存场次草稿")}</button></form>;

@@ -62,7 +62,7 @@ const SchoolAdmin = lazy(() => import("./SchoolAdmin"));
 const Prices = lazy(() => import("./Prices"));
 const SchoolScreen = lazy(() => import("./SchoolScreen"));
 import { SnapCheckout, SnapFoodLabel, SnapOrderPlan } from "./SnapProgram";
-import { PickupForm } from "./SchoolOperations";
+import { PickupForm } from "./PickupForm";
 import { canRestoreShoppingDraft, readShoppingDraft, saveShoppingDraft, shoppingToday, type Cart, type CheckoutDraft } from "./shoppingDraft";
 import { MotionGrid, ScrollActions, usePageMotion } from "./motion";
 import { useCartFeedback } from "./cartFeedback";
@@ -1547,13 +1547,13 @@ function CartModal({
             </button>
           }
         />
-      ) : review ? (
-        <PreorderReview items={entries.flatMap(({ product, quantity }) => product ? [{ product, quantity }] : [])}
+      ) : <>
+        {review && <PreorderReview items={entries.flatMap(({ product, quantity }) => product ? [{ product, quantity }] : [])}
           total={total} date={pickupDate} slot={slot} paymentMethod={draft.paymentMethod ?? "pay_at_pickup"} note={note}
           onBack={() => { restoreCheckoutFocus.current = true; setReview(null); }}
-          onConfirm={() => void submit()} />
-      ) : (
-        <form ref={checkoutForm} tabIndex={-1} aria-label={t("我的新鲜购物袋")} onSubmit={requestReview}>
+          onConfirm={() => void submit()} />}
+        {/* Keep the SNAP quote and payment controls mounted when reviewing a preorder. */}
+        <form hidden={!!review} ref={checkoutForm} tabIndex={-1} aria-label={t("我的新鲜购物袋")} onSubmit={requestReview}>
           <fieldset className="form-fields" disabled={busy}>
             <div className="cart-continue">
               <span>{t("已选 {count} 件", { count: entries.reduce((sum, item) => sum + item.quantity, 0) })}</span>
@@ -1705,7 +1705,7 @@ function CartModal({
             </button>
           </fieldset>
         </form>
-      )}
+      </>}
     </Modal>
   );
 }
@@ -1878,6 +1878,7 @@ function Orders({
                   {t(statusLabels[o.status])}
                 </span>
               </div>
+              {user.role === "retailer" && ["pending", "confirmed"].includes(o.status) && <div className="vendor-order-steps" aria-label={t("交付进度")}><span aria-current={o.status === "pending" ? "step" : undefined}><b>{o.status === "confirmed" ? <Check size={12} /> : "1"}</b>{t("接单备货")}</span><i aria-hidden="true" /><span aria-current={o.status === "confirmed" ? "step" : undefined}><b>2</b>{t("核验交付")}</span></div>}
               {user.role === "client" && <p className={`order-next-step status-${o.status}`}>
                 <CheckCircle2 size={16} />
                 {t(o.status === "pending"
@@ -1920,6 +1921,7 @@ function Orders({
               </p>}
               {o.note && <p className="order-note">{t("备注：")}{translatePreviewContent(o.note, t)}</p>}
               {user.role === "client" && o.pickup_code && ["pending", "confirmed"].includes(o.status) && <div className="customer-pickup-code"><span>{t("到场后将取货码告诉商户")}</span><strong>{o.pickup_code}</strong><small>{t(o.status === "pending" ? "待确认订单请等待备货确认后再到场。" : "商户核验取货码并登记现场收款后，订单才会完成。")}</small></div>}
+              {user.role === "retailer" && o.status === "pending" && <p className="vendor-order-hint">{t("接单仅确认备货；顾客到场后，还需取货码核验交付。")}</p>}
               <SnapOrderPlan order={o} />
               <OrderAdjustmentPanel order={o} customer={user.role==='client'} refresh={refresh} />
               <div className="order-card-bottom">
@@ -1950,7 +1952,8 @@ function Orders({
                   )}
                 </div>
               </div>
-              {user.role === "retailer" && o.status === "confirmed" && o.adjustment?.status!=='proposed' && <PickupForm orderId={o.id} total={o.total_cents} snapLimit={o.payment_method === "snap_ebt" ? o.snap_eligible_cents : 0} busy={busy === o.id} submit={async (body) => { if (busy) return; setBusy(o.id); try { await api(`/orders/${o.id}/pickup`, { method: "POST", body: JSON.stringify(body) }); refresh(); notify("订单已完成"); } finally { setBusy(""); } }} />}
+              {user.role === "retailer" && o.status === "confirmed" && o.adjustment?.status!=='proposed' && <PickupForm orderId={o.id} total={o.total_cents} snapLimit={o.payment_method === "snap_ebt" ? o.snap_eligible_cents : 0} busy={!!busy} submit={async (body) => { if (busy) return; setBusy(o.id); try { await api(`/orders/${o.id}/pickup`, { method: "POST", body: JSON.stringify(body) }); refresh(); notify("订单已完成"); } finally { setBusy(""); } }} />}
+              {o.status === "completed" && o.receipt && <div className="order-handover-done"><CheckCircle2 size={20} /><div><strong>{t("已核验交付")}</strong><span>{[["现金", o.receipt.cash_cents], ["银行卡", o.receipt.card_cents], ["SNAP / EBT", o.receipt.snap_cents]].filter(([, amount]) => Number(amount) > 0).map(([label, amount]) => `${t(String(label))} ${money(Number(amount))}`).join(" · ")}</span></div><Check size={17} /></div>}
             </article>
           ))}
         </div>

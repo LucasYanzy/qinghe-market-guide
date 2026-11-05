@@ -71,10 +71,10 @@ test('服务台核对取货码与现场金额后交付，清单与操作日志�
   await page.locator('.ops-order-row').filter({ hasText: order.id }).click();
   await page.getByRole('button', { name: '已收全额现金', exact: true }).click();
   await page.getByLabel('6 位取货码', { exact: true }).fill('000000');
-  await page.getByRole('button', { name: '登记交付与现场收款', exact: true }).click();
+  await page.getByRole('button', { name: '核验并完成交付', exact: true }).click();
   await expect(page.getByRole('alert').first()).toContainText('取货码不匹配');
   await page.getByLabel('6 位取货码', { exact: true }).fill(order.pickup_code);
-  await page.getByRole('button', { name: '登记交付与现场收款', exact: true }).click();
+  await page.getByRole('button', { name: '核验并完成交付', exact: true }).click();
   await page.getByRole('button', { name: '1 已交付', exact: true }).click();
   await page.locator('.ops-order-row').filter({ hasText: order.id }).click();
   await expect(page.getByRole('region', { name: '订单处理详情', exact: true })).toContainText('$9.00');
