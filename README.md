@@ -12,6 +12,7 @@
 - **公开免登录 Demo**：[直接打开完整应用](https://lucasyanzy.github.io/qinghe-market-guide/)。顾客可选购、预购和查看订单，商户可编辑商品、处理订单，学校可配置市场、代办现场运营和查看统计。顶部一键切换身份，无需账号或密码。每个标签页使用独立演示数据库，刷新保留，可重置；不会向真实商户发送订单或收取付款。
 - **架构说明**：[docs/architecture.md](docs/architecture.md)。公开 Demo 与完整应用使用独立运行入口，共享完整界面、日程、翻译、数据库结构、路由和业务逻辑；价格分析与学校模块按需加载。
 - **部署手册**：[docs/deployment.md](docs/deployment.md)。包含浏览器 Demo 发布、Node 24、Docker / Railway、持久化卷、反向代理、备份恢复及回滚流程。
+- **决策数据研究与实施建议**：[经营与 University 统计研究](docs/decision-analytics-research.md)及[指标字典](docs/decision-analytics-metrics.csv)。基于外部资料与现有代码审计，说明商品受欢迎程度、场次表现、库存、季节和天气应如何联合分析；属于待实现的研究规格。
 
 ```sh
 npm ci
