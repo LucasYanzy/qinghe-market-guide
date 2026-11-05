@@ -47,20 +47,45 @@ test("学校看板显示交易、履约、回访与自提分布，趋势可切�
   await expect(page.locator(".analytics-stat-primary > strong")).toHaveText("$7.00");
   await expect(page.locator(".analytics-stat").filter({ hasText: "平均完成订单金额" }).locator(":scope > strong")).toHaveText("$7.00");
   await expect(page.getByRole("table", { name: "每周自提时段预购分布", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "完成交易额", exact: true }).click();
+  const demand = page.getByRole("table", { name: "每周自提时段预购分布", exact: true });
+  await expect(demand.locator("tbody tr")).toHaveCount(1);
+  await demand.getByRole("button", { name: /: 2$/ }).click();
+  await expect(page.locator(".decision-demand-readout")).toContainText("2 笔有效预购");
+  await page.getByRole("group", { name: "趋势指标", exact: true }).getByRole("button", { name: "完成交易额", exact: true }).click();
   await page.getByLabel("趋势汇总粒度", { exact: true }).selectOption("week");
-  await expect(page.getByRole("button", { name: "完成交易额", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("group", { name: "趋势指标", exact: true }).getByRole("button", { name: "完成交易额", exact: true })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "SNAP 意向", exact: true }).click();
   await page.getByRole("tab", { name: "市场与商户", exact: true }).click();
   await expect(page.getByRole("heading", { name: "跨市场经营对比", exact: true })).toBeVisible();
   await page.getByLabel("市场对比排序", { exact: true }).selectOption("participants");
   await page.getByRole("tab", { name: /商品与库存/ }).click();
+  await page.locator(".decision-data-table summary").filter({ hasText: "查看商品数据明细" }).click();
   await expect(page.getByRole("row").filter({ hasText: "Analytics UI greens" }).first()).toContainText("$4.00");
-  await expect(page.getByRole("heading", { name: "补货与售罄提醒", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "预购库存提醒", exact: true })).toBeVisible();
   await page.getByRole("tab", { name: "SNAP 与服务", exact: true }).click();
   await expect(page.locator(".analytics-snap-numbers")).toContainText("$4.00");
   await expect(page.locator(".analytics-snap-numbers")).toContainText("$3.00");
   await expect(page.locator(".analytics-snap-numbers")).toContainText("50.0%");
+});
+
+test("商品排行支持指标切换、键盘选择和搜索，商户可以查看自己的购买记录", async ({ page }) => {
+  const { market } = await fixture(page);
+  await page.goto(`/admin?market=${market.id}&view=products`);
+  const panel = page.getByRole("region", { name: "商品需求分析", exact: true });
+  await expect(panel.getByRole("button", { name: "购买人数", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await panel.getByRole("button", { name: "完成交易额", exact: true }).click();
+  await expect(panel.locator(".decision-bar-name b").first()).toHaveText("$4.00");
+  await panel.locator(".decision-bar-row").filter({ hasText: "Analytics unverified food" }).press("Enter");
+  await expect(page.getByRole("complementary", { name: "选中商品详情" })).toContainText("Analytics unverified food");
+  await expect(page.getByRole("complementary", { name: "选中商品详情" })).toContainText("$3.00");
+  await page.getByRole("searchbox", { name: "搜索商品分析" }).fill("greens");
+  await expect(panel.locator(".decision-bar-row")).toHaveCount(1);
+  await expect(page.getByRole("complementary", { name: "选中商品详情" })).toContainText("Analytics UI greens");
+  await login(page, "retailer");
+  await page.goto("/retailer");
+  await expect(page.getByRole("region", { name: "商品需求分析" })).toBeVisible();
+  await page.getByLabel("商品分析周期", { exact: true }).selectOption("7");
+  await expect(page.getByRole("region", { name: "商品需求分析" })).toContainText("Analytics UI greens");
 });
 
 test("自定义日期与市场筛选可分享和刷新，非法日期范围可修正", async ({ page }) => {
@@ -96,7 +121,7 @@ test("CSV 导出遵循当前市场和日期范围，使用成交快照且不含�
   expect(download.suggestedFilename()).toContain(`products-${market.id}`);
   expect(csv).toContain("Analytics UI greens"); expect(csv).toContain(market.name); expect(csv).toContain(today);
   expect(csv).not.toContain("client@qinghe.demo"); expect(csv).toContain("非核销记录");
-  await expect(page.getByRole("status")).toContainText("报表已生成");
+  await expect(page.locator(".analytics-export-status")).toContainText("报表已生成");
 });
 
 for (const width of [320, 390, 768]) {

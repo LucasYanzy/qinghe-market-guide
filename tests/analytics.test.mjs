@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { openDatabase, marketDay } from "../server/db.mjs";
 import { schoolOverview } from "../server/admin.mjs";
-import { reportPeriod, shiftDate } from "../server/analytics.mjs";
+import { productPerformance, reportPeriod, shiftDate } from "../server/analytics.mjs";
 import { aggregateTimeline, changePercent, csvText } from "../src/schoolReports.ts";
 
 function fixture() {
@@ -68,6 +68,31 @@ test("first-time and returning customers use scoped completed history and do not
     assert.equal(second.newParticipants, 1); assert.equal(second.returningParticipants, 0);
     const first = schoolOverview(db, "custom", 1, { from, to: today }).analytics.customers;
     assert.equal(first.once, 2); assert.equal(first.twoToThree, 0);
+  } finally { db.close(); }
+});
+
+test("product demand deduplicates buyers and same-session split orders, excludes zero fulfillment and isolates vendors", () => {
+  const { db, from, today } = fixture();
+  try {
+    const period = reportPeriod("custom", { from, to: today });
+    let tomato = productPerformance(db, period, 1, 2).find((p) => p.name === "Original tomato");
+    assert.equal(tomato.buyers, 2); assert.equal(tomato.orders, 2); assert.equal(tomato.repeatBuyers, 0);
+    const add = (id, date) => {
+      db.prepare("INSERT INTO orders (id,client_id,market_id,status,total_cents,pickup_date,pickup_slot) VALUES (?,1,1,'completed',350,?,'10:00–12:00')").run(id, date);
+      db.prepare("INSERT INTO order_items VALUES (?,1,'Original tomato','磅',350,1,2)").run(id);
+    };
+    add("SPLIT-ORDER", from);
+    const session = db.prepare("INSERT INTO market_sessions (market_id,date,starts_at,ends_at,cutoff,slot_minutes,capacity) VALUES (1,?,'09:00','13:00','08:00',30,10)").run(from).lastInsertRowid;
+    db.prepare("UPDATE orders SET market_session_id=? WHERE id='SPLIT-ORDER'").run(session);
+    tomato = productPerformance(db, period, 1, 2).find((p) => p.name === "Original tomato");
+    assert.equal(tomato.buyers, 2); assert.equal(tomato.orders, 3); assert.equal(tomato.repeatBuyers, 0);
+    add("REPEAT-OCCASION", today);
+    tomato = productPerformance(db, period, 1, 2).find((p) => p.name === "Original tomato");
+    assert.equal(tomato.buyers, 2); assert.equal(tomato.repeatBuyers, 1);
+    db.prepare("INSERT INTO fulfillment_items VALUES ('COMPLETED-A',2,0)").run();
+    assert.equal(productPerformance(db, period, 1, 2).some((p) => p.name === "Original broccoli"), false);
+    const other = productPerformance(db, period, null, 11);
+    assert.equal(other.length, 1); assert.equal(other[0].vendorId, 11); assert.equal(other[0].buyers, 1);
   } finally { db.close(); }
 });
 
@@ -138,5 +163,11 @@ test("custom analytics API validates query dates and retains administrator-only 
     assert.equal((await fetch(`${base}/admin/overview?range=custom&from=${marketDay()}&to=${marketDay()}`)).status, 401);
     const valid = await fetch(`${base}/admin/overview?range=custom&from=${marketDay()}&to=${marketDay()}`, { headers });
     assert.equal(valid.status, 200); assert.equal((await valid.json()).timeline.length, 1);
+    assert.equal((await fetch(`${base}/retailer/analytics`, { headers })).status, 403);
+    assert.equal((await fetch(`${base}/retailer/analytics`)).status, 401);
+    const vendorLogin = await fetch(`${base}/auth/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: "retailer@qinghe.demo", password: "MarketDemo2026!" }) });
+    const vendorHeaders = { Cookie: vendorLogin.headers.get("set-cookie").split(";")[0] };
+    assert.equal((await fetch(`${base}/retailer/analytics?range=custom`, { headers: vendorHeaders })).status, 400);
+    assert.equal((await fetch(`${base}/retailer/analytics?range=7`, { headers: vendorHeaders })).status, 200);
   } finally { await new Promise((resolve) => server.close(resolve)); db.close(); }
 });

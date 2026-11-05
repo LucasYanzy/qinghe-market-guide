@@ -10,6 +10,7 @@ import { simpleEnglish } from "./simple.ts";
 import { releaseEnglish } from "./release.ts";
 
 import { continuityEnglish } from "./continuity.ts";
+import { analyticsEnglish } from "./analytics.ts";
 
 export const english: Record<string, string> = {
   "商品或自提信息已更新，请重新确认预购。": "Your items or pickup details changed. Please review your preorder again.",
@@ -50,4 +51,5 @@ export const english: Record<string, string> = {
   ...schoolEnglish,
   ...marketEnglish,
   ...simpleEnglish,
+  ...analyticsEnglish,
 };

@@ -16,6 +16,28 @@ export function reportPeriod(range = "30", { from, to, today = marketDay() } = {
   return { from, to, days, previous: { from: shiftDate(from, -days), to: shiftDate(from, -1) } };
 }
 
+export function productPerformance(db, period, marketId = null, vendorId = null) {
+  const scope = marketId ?? 0, vendor = vendorId ?? 0;
+  const params = [period.from, period.to, scope, scope, vendor, vendor];
+  const filter = "i.quantity>0 AND o.status='completed' AND o.pickup_date BETWEEN ? AND ? AND (?=0 OR o.market_id=?) AND (?=0 OR i.retailer_id=?)";
+  const products = db.prepare(`SELECT i.product_id AS productId,i.name,i.unit,o.market_id AS marketId,m.name AS marketName,
+      i.retailer_id AS vendorId,u.business_name AS vendorName,SUM(i.quantity) AS quantity,
+      SUM(ROUND(i.price_cents*i.quantity)) AS revenueCents,COUNT(DISTINCT o.id) AS orders,COUNT(DISTINCT o.client_id) AS buyers
+    FROM effective_order_items i JOIN orders o ON o.id=i.order_id JOIN markets m ON m.id=o.market_id
+    JOIN vendor_directory u ON u.id=i.retailer_id WHERE ${filter}
+    GROUP BY i.product_id,i.name,i.unit,o.market_id,i.retailer_id ORDER BY revenueCents DESC,i.product_id,i.name`).all(...params);
+  const repeat = db.prepare(`SELECT i.product_id AS productId,i.name,i.unit,o.market_id AS marketId,i.retailer_id AS vendorId,o.client_id
+    FROM effective_order_items i JOIN orders o ON o.id=i.order_id WHERE ${filter}
+    GROUP BY i.product_id,i.name,i.unit,o.market_id,i.retailer_id,o.client_id
+    HAVING COUNT(DISTINCT COALESCE(CAST(o.market_session_id AS TEXT),
+      (SELECT CAST(s.id AS TEXT) FROM market_sessions s WHERE s.market_id=o.market_id AND s.date=o.pickup_date),
+      'date:'||o.market_id||':'||o.pickup_date))>=2`).all(...params);
+  const key = (p) => JSON.stringify([p.productId,p.name,p.unit,p.marketId,p.vendorId]);
+  const repeats = new Map();
+  for (const row of repeat) repeats.set(key(row), (repeats.get(key(row)) ?? 0) + 1);
+  return products.map((p) => ({ ...p, repeatBuyers: repeats.get(key(p)) ?? 0 }));
+}
+
 function periodSummary(db, from, to, scope) {
   const s = db.prepare(`SELECT COUNT(*) AS orders,
     COUNT(CASE WHEN status='completed' THEN 1 END) AS completed,
@@ -56,12 +78,7 @@ export function schoolAnalytics(db, period, marketId = null) {
     categories: [...new Set(inventory.map((p) => p.category))].map((name) => ({ name, products: inventory.filter((p) => p.category === name).length })),
     alerts: inventory.filter((p) => p.stock <= 5).slice(0, 20),
   };
-  const products = db.prepare(`SELECT i.product_id AS productId,i.name,i.unit,o.market_id AS marketId,m.name AS marketName,
-      i.retailer_id AS vendorId,u.business_name AS vendorName, SUM(i.quantity) AS quantity,
-      SUM(ROUND(i.price_cents*i.quantity)) AS revenueCents,COUNT(DISTINCT o.id) AS orders
-    FROM effective_order_items i JOIN orders o ON o.id=i.order_id JOIN markets m ON m.id=o.market_id JOIN vendor_directory u ON u.id=i.retailer_id
-    WHERE i.quantity>0 AND o.status='completed' AND o.pickup_date BETWEEN ? AND ? AND (?=0 OR o.market_id=?)
-    GROUP BY i.product_id,i.name,i.unit,o.market_id,i.retailer_id ORDER BY revenueCents DESC,i.product_id,i.name`).all(...params);
+  const products = productPerformance(db, period, marketId);
   const vendorActivity = db.prepare(`SELECT COUNT(DISTINCT i.retailer_id) AS sellingVendors,COUNT(DISTINCT i.product_id) AS soldProducts
     FROM effective_order_items i JOIN orders o ON o.id=i.order_id
     WHERE i.quantity>0 AND o.status='completed' AND o.pickup_date BETWEEN ? AND ? AND (?=0 OR o.market_id=?)`).get(...params);

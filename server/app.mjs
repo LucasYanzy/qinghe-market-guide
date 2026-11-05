@@ -13,6 +13,7 @@ import { marketDay, hashPassword } from "./db.mjs";
 import { forecastPrices } from "./forecast.mjs";
 import { createAdminRouter } from "./admin.mjs";
 import { createWorkflowsRouter } from "./workflows.mjs";
+import { productPerformance, reportPeriod } from "./analytics.mjs";
 import { daySchema, pickupOptions, recordPickup } from "./operations.mjs";
 import {
   getOrders,
@@ -403,6 +404,12 @@ export function createApp(
       res.json(db.prepare("SELECT * FROM products WHERE id=?").get(product.id));
     },
   );
+  app.get("/api/retailer/analytics", requireUser, role("retailer"), (req, res) => {
+    const range = z.enum(["7", "30", "90"]).parse(req.query.range ?? "30");
+    const period = reportPeriod(range);
+    res.json({ from: period.from, to: period.to, products: productPerformance(db, period, null, req.user.id),
+      sampleData: !!db.prepare("SELECT 1 FROM app_metadata WHERE key='analytics_sample'").get() });
+  });
   app.get(
     "/api/retailer/dashboard",
     requireUser,
