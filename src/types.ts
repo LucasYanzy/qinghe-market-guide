@@ -76,6 +76,21 @@ export interface BusinessAnalytics {
   tenderMix: { reports: number; classifiedCents: number; unclassifiedCents: number; channels: TenderBreakdown };
   fees: { invoices: number; billedCents: number; paidCents: number; outstandingCents: number; overdueCents: number; periodReceiptsCents: number };
 }
+export interface FinanceTotals { incomeCents: number; expenseCents: number; incomeEntries: number; expenseEntries: number; netCents: number | null }
+export interface OperatorFinance {
+  current: FinanceTotals; previous: FinanceTotals | null;
+  series: { date: string; incomeCents: number | null; expenseCents: number | null }[];
+  previousSeries: OperatorFinance['series'] | null;
+  categories: { kind: 'income' | 'expense'; category: string; entries: number; amountCents: number }[];
+  entries: { id: number | string; marketId: number | null; marketName: string | null; date: string; kind: 'income' | 'expense'; category: string; amountCents: number; description: string; reference: string; version: number; source: 'manual' | 'invoice' }[];
+  totalEntries: number;
+}
+export interface MerchantProfitability {
+  reports: number; grossCovered: number; completeCovered: number; salesCents: number | null;
+  grossCoveredSalesCents: number | null; goodsCostCents: number | null; grossProfitCents: number | null;
+  completeSalesCents: number | null; operatingSurplusCents: number | null;
+  rows: { sessionId: number; date: string; marketName: string; salesCents: number; goodsCostCents: number | null; operatingCostCents: number | null; grossProfitCents: number | null; operatingSurplusCents: number | null }[];
+}
 export interface SchoolAnalytics {
   current: ReportSummary;
   previous: (ReportSummary & { from: string; to: string }) | null;
@@ -88,6 +103,7 @@ export interface SchoolAnalytics {
   products: ProductPerformance[];
   previousProducts: ProductPerformance[] | null;
   business: BusinessAnalytics;
+  finance: OperatorFinance;
   sellingVendors: number; soldProducts: number;
   slots: { slot: string; orders: number; completed: number; revenueCents: number }[];
   heatmap: { weekday: number; slot: string; orders: number }[];
@@ -117,7 +133,8 @@ export interface SchoolOverview {
     orders: number; completed: number; participants: number; revenueCents: number;
     snapMarkets: SnapVendorPolicy[];
   }[];
-  timeline: { date: string; orders: number; completed: number; cancelled: number; snapOrders: number; revenueCents: number }[];
+  timeline: { date: string; orders: number; completed: number; cancelled: number; snapOrders: number; revenueCents: number; participants?: number }[];
+  previousTimeline: { date: string; orders: number; completed: number; participants: number; revenueCents: number }[] | null;
 }
 export interface OrderItem {
   product_id: number;

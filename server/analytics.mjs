@@ -1,6 +1,7 @@
 import { marketDay } from "./db.mjs";
 import { HttpError } from "./services.mjs";
 import { businessAnalytics } from "./business-analytics.mjs";
+import { operatorFinance } from './financial-reports.mjs';
 
 const DAY = 86400000;
 export const shiftDate = (date, offset) => new Date(Date.parse(`${date}T12:00:00Z`) + offset * DAY).toISOString().slice(0, 10);
@@ -107,7 +108,7 @@ export function schoolAnalytics(db, period, marketId = null) {
     AND pickup_date BETWEEN ? AND ? AND (?=0 OR market_id=?) AND pickup_date<?`).get(...params, marketDay()).count;
   return { current, previous, customers, inventory: inventorySummary, products,
     previousProducts: period.previous ? productPerformance(db, period.previous, marketId) : null,
-    business: businessAnalytics(db, period, marketId), ...vendorActivity, slots, heatmap, payments,
+    business: businessAnalytics(db, period, marketId), finance: operatorFinance(db, period, marketId), ...vendorActivity, slots, heatmap, payments,
     operations: { overdue, outstanding },
   };
 }

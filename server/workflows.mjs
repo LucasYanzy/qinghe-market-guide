@@ -170,7 +170,7 @@ export function createWorkflowsRouter(db) {
   });
 
   router.get('/vendor/sessions',authenticated,(req,res)=>res.json(db.prepare(`SELECT v.*,s.date,s.starts_at,s.ends_at,s.cancelled,s.notice,m.name AS market_name,
-    r.gross_cents,r.transactions,r.note AS sales_note,r.tenders_json,r.version AS sales_version FROM session_vendors v JOIN market_sessions s ON s.id=v.session_id
+    r.gross_cents,r.transactions,r.goods_cost_cents,r.operating_cost_cents,r.note AS sales_note,r.tenders_json,r.version AS sales_version FROM session_vendors v JOIN market_sessions s ON s.id=v.session_id
     JOIN markets m ON m.id=s.market_id LEFT JOIN vendor_sales_reports r ON r.session_id=v.session_id AND r.retailer_id=v.retailer_id
     WHERE v.retailer_id=? ORDER BY s.date DESC`).all(req.user.id).map(withTenders)));
   router.get('/admin/sessions/:id/vendors',(req,res)=>res.json(db.prepare(`SELECT v.*,u.business_name AS name,u.email FROM session_vendors v JOIN vendor_directory u ON u.id=v.retailer_id WHERE v.session_id=? ORDER BY v.booth,u.business_name`).all(id.parse(req.params.id))));
@@ -230,9 +230,11 @@ export function createWorkflowsRouter(db) {
   });
 
   const sales=(req,res)=>{
-    const p=z.object({sessionId:id,vendorId:id,grossCents:z.number().int().min(0).max(100000000),transactions:z.number().int().min(0).max(100000),note:z.string().trim().max(500),version:version.default(0),tenders:tendersSchema.nullable().optional()}).strict().parse(req.body);
+    const cost=z.number().int().min(0).max(100000000).nullable().optional();
+    const p=z.object({sessionId:id,vendorId:id,grossCents:z.number().int().min(0).max(100000000),transactions:z.number().int().min(0).max(100000),note:z.string().trim().max(500),version:version.default(0),tenders:tendersSchema.nullable().optional(),goodsCostCents:cost,operatingCostCents:cost}).strict().parse(req.body);
     if (p.tenders && tenderTotal(p.tenders)!==p.grossCents) throw new HttpError(400,'分类收款合计必须等于总销售额。');
     if (req.user.role!=='admin' && (req.user.role!=='retailer'||req.user.id!==p.vendorId)) throw new HttpError(403,'当前账号无权进行此操作。');
+    if (req.user.role==='admin' && (p.goodsCostCents!==undefined || p.operatingCostCents!==undefined)) throw new HttpError(403,'商户成本仅由商户本人填报。');
     res.json(transaction(db,()=>{
       const s=db.prepare('SELECT * FROM market_sessions WHERE id=?').get(p.sessionId);
       if (!s || s.date>marketDay() || s.cancelled || !db.prepare("SELECT 1 FROM session_vendors WHERE session_id=? AND retailer_id=? AND status='checked_in'").get(p.sessionId,p.vendorId)) throw new HttpError(409,'仅已签到且已到营业日期的商户可以填报销售。');
@@ -242,14 +244,44 @@ export function createWorkflowsRouter(db) {
       db.prepare(`INSERT INTO vendor_sales_reports (session_id,retailer_id,gross_cents,transactions,note,version,recorded_by,tenders_json) VALUES (?,?,?,?,?,?,?,?)
         ON CONFLICT(session_id,retailer_id) DO UPDATE SET gross_cents=excluded.gross_cents,transactions=excluded.transactions,note=excluded.note,version=excluded.version,recorded_by=excluded.recorded_by,tenders_json=excluded.tenders_json,updated_at=CURRENT_TIMESTAMP`)
         .run(p.sessionId,p.vendorId,p.grossCents,p.transactions,p.note,p.version+1,req.user.id,tenders);
-      audit(db,req.user.id,'session',p.sessionId,'sales_reported',p);return {ok:true};
+      for (const [key,column] of [['goodsCostCents','goods_cost_cents'],['operatingCostCents','operating_cost_cents']])
+        if (p[key]!==undefined) db.prepare(`UPDATE vendor_sales_reports SET ${column}=? WHERE session_id=? AND retailer_id=?`).run(p[key],p.sessionId,p.vendorId);
+      const {goodsCostCents,operatingCostCents,...publicReport}=p;
+      audit(db,req.user.id,'session',p.sessionId,'sales_reported',publicReport);return {ok:true};
     }));
   };
   router.post('/admin/sales-reports',sales);
   router.post('/vendor/sales-reports',authenticated,sales);
-  router.get('/admin/sales-reports',(req,res)=>res.json(db.prepare(`SELECT r.*,u.business_name AS vendor_name,m.name AS market_name,s.date FROM vendor_sales_reports r
+  router.get('/admin/sales-reports',(req,res)=>res.json(db.prepare(`SELECT r.session_id,r.retailer_id,r.gross_cents,r.transactions,r.note,r.version,r.tenders_json,r.updated_at,u.business_name AS vendor_name,m.name AS market_name,s.date FROM vendor_sales_reports r
     JOIN vendor_directory u ON u.id=r.retailer_id JOIN market_sessions s ON s.id=r.session_id JOIN markets m ON m.id=s.market_id
     WHERE (?=0 OR m.id=?) ORDER BY s.date DESC,r.retailer_id LIMIT 500`).all(Number(req.query.marketId)||0,Number(req.query.marketId)||0).map(withTenders)));
+  router.post('/admin/finance/entries',(req,res)=>{
+    const p=z.object({marketId:id.nullable(),date:daySchema,kind:z.enum(['income','expense']),
+      category:z.enum(['grant','donation','sponsorship','other_income','site','insurance','labor','transport','marketing','equipment','other_expense']),
+      amountCents:z.number().int().min(0).max(100000000),description:reason,reference:z.string().trim().max(100).default(''),requestKey:z.string().uuid()}).strict().parse(req.body);
+    if (p.date>marketDay() || (p.kind==='income')!==['grant','donation','sponsorship','other_income'].includes(p.category)) throw new HttpError(400,'收支日期或分类无效。');
+    res.json(transaction(db,()=>{
+      if (p.marketId && !db.prepare('SELECT 1 FROM markets WHERE id=?').get(p.marketId)) throw new HttpError(404,'市场不存在。');
+      const existing=db.prepare('SELECT id,request_json FROM operator_entries WHERE request_key=?').get(p.requestKey);
+      const encoded=JSON.stringify(p);
+      if (existing) {
+        if (existing.request_json!==encoded) throw new HttpError(409,'登记请求已变化，请重新提交。');
+        return {id:existing.id};
+      }
+      const entry=db.prepare('INSERT INTO operator_entries(market_id,recorded_on,kind,category,amount_cents,description,reference,request_key,request_json,recorded_by) VALUES (?,?,?,?,?,?,?,?,?,?)')
+        .run(p.marketId,p.date,p.kind,p.category,p.amountCents,p.description,p.reference,p.requestKey,encoded,req.user.id);
+      audit(db,req.user.id,'finance',entry.lastInsertRowid,'finance_recorded',{kind:p.kind,category:p.category});
+      return {id:Number(entry.lastInsertRowid)};
+    }));
+  });
+  router.post('/admin/finance/entries/:id/void',(req,res)=>{
+    const p=z.object({reason,version}).strict().parse(req.body),entryId=id.parse(req.params.id);
+    res.json(transaction(db,()=>{
+      const result=db.prepare('UPDATE operator_entries SET voided_at=CURRENT_TIMESTAMP,void_reason=?,version=version+1 WHERE id=? AND version=? AND voided_at IS NULL').run(p.reason,entryId,p.version);
+      if (!result.changes) throw new HttpError(409,'收支记录已变化，请刷新后核对。');
+      audit(db,req.user.id,'finance',entryId,'finance_voided',{reason:p.reason});return {ok:true};
+    }));
+  });
   const invoices=(vendorId=null)=>db.prepare(`SELECT i.*,u.business_name AS vendor_name,m.name AS market_name,
     COALESCE((SELECT SUM(amount_cents) FROM invoice_payments WHERE invoice_id=i.id),0) AS paid_cents FROM vendor_invoices i
     JOIN vendor_directory u ON u.id=i.retailer_id JOIN markets m ON m.id=i.market_id WHERE (?=0 OR i.retailer_id=?) ORDER BY i.id DESC LIMIT 500`).all(vendorId??0,vendorId??0);

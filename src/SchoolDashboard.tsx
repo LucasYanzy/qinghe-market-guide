@@ -12,17 +12,20 @@ import { quantityUnit } from "./translations/translate";
 import ProductDemand from "./ProductDemand";
 import MarketComparison from "./MarketComparison";
 import BusinessAnalytics from "./BusinessAnalytics";
+import ReportCenter from "./ReportCenter";
+import FinanceReport, { financeCategoryNames } from "./FinanceReport";
+import "./reports.css";
 import { tenderChannels } from '../server/tenders.mjs';
 import "./school-dashboard.css";
 import "./analytics-experience.css";
 
-const viewNames = { overview: "数据总览", network: "市场与商户", products: "商品与库存", snap: "SNAP 与服务", business: "经营与覆盖" };
-const reportNames = { summary: "核心指标", daily: "每日趋势", markets: "市场对比", vendors: "商户表现", products: "商品排行", slots: "自提时段", snap: "付款意向", business: "经营与覆盖" };
+const viewNames = { overview: "数据总览", network: "市场与商户", products: "商品与库存", snap: "SNAP 与服务", business: "经营与覆盖", reports: "报表中心", finance: "运营收支" };
+const reportNames = { summary: "核心指标", daily: "每日趋势", markets: "市场对比", vendors: "商户表现", products: "商品排行", slots: "自提时段", snap: "付款意向", business: "经营与覆盖", finance: "运营收支" };
 type ExportKind = keyof typeof reportNames;
 const rate = (n: number | null) => n === null ? "—" : `${n.toFixed(1)}%`;
 
-export default function SchoolDashboard({ data, navigate, selectMarket }: {
-  data: SchoolOverview; navigate: (page: Page) => void; selectMarket: (id: number | null) => void;
+export default function SchoolDashboard({ data, navigate, selectMarket, onSaved }: {
+  data: SchoolOverview; navigate: (page: Page) => void; selectMarket: (id: number | null) => void; onSaved: () => void;
 }) {
   const { t, language } = useLanguage();
   const [view, setView] = useState<DashboardView>(() => {
@@ -40,6 +43,7 @@ export default function SchoolDashboard({ data, navigate, selectMarket }: {
   const exportReport = () => {
     const vendors = data.vendors.filter((v) => !data.marketId || v.marketIds.includes(data.marketId) || v.orders > 0 || v.products > 0);
     const content: Record<ExportKind, (string | number | null)[][]> = {
+      finance: [[t('日期'),t('所属市场'),t('收支类别'),t('金额（USD）'),t('说明'),t('来源')],...a.finance.entries.map(r=>[r.date,r.marketName?t(r.marketName):t('全校公共'),t(financeCategoryNames[r.category]),(r.kind==='expense'?-1:1)*r.amountCents/100,r.description,t(r.source==='invoice'?'商户账单收款':'人工登记')])],
       business: [[t("指标"), t("本期")], ...([
         ["现金登记", a.business.receipts.cashCents / 100], ["银行卡登记", a.business.receipts.cardCents / 100],
         ["SNAP/EBT 登记", a.business.receipts.snapCents / 100], ["缺收款记录的完成订单", current.completed - a.business.receipts.orders],
@@ -49,7 +53,7 @@ export default function SchoolDashboard({ data, navigate, selectMarket }: {
         ["尚未确认出勤", a.business.attendance.unconfirmed], ["待补销售填报", a.business.attendance.checkedIn - a.business.reports.reports],
         ["商户申报销售额", a.business.reports.reports ? a.business.reports.grossCents / 100 : null],
         ["商户申报交易笔数", a.business.reports.reports ? a.business.reports.transactions : null],
-        ["商户进货、运输与人工成本", null], ["场地、保险与运营人力成本", null], ["资助、捐赠与公益补贴", null],
+        ["已登记运营收入", a.finance.current.incomeEntries ? a.finance.current.incomeCents / 100 : null], ["已登记运营支出", a.finance.current.expenseEntries ? a.finance.current.expenseCents / 100 : null], ["已登记净收支", a.finance.current.netCents === null ? null : a.finance.current.netCents / 100],
       ] as [string, number | null][]).map(([label, value]) => [t(label), value]),
         ...tenderChannels.map(c => [`${t('商户申报收款分类')} · ${c.label}`, a.business.tenderMix.reports ? a.business.tenderMix.channels[c.key] / 100 : null]),
         [t('已分类填报'), a.business.tenderMix.reports],
@@ -62,7 +66,7 @@ export default function SchoolDashboard({ data, navigate, selectMarket }: {
         ["订单完成率（%）", current.completionRate, prev?.completionRate], ["订单取消率（%）", current.cancellationRate, prev?.cancellationRate],
         ["待履约金额（USD）", current.reservedCents / 100, prev ? prev.reservedCents / 100 : null], ["有完成订单的商户", a.sellingVendors, null],
       ] as [string, number | null, number | null | undefined][]).map(([label, value, prior]) => [t(label), value, prior ?? null])],
-      daily: [[t("自提日期"), t("预购订单"), t("已完成订单"), t("已取消"), t("已完成交易额（USD）"), t("SNAP 意向订单")], ...data.timeline.map((d) => [d.date, d.orders, d.completed, d.cancelled, d.revenueCents / 100, d.snapOrders])],
+      daily: [[t("自提日期"), t("预购订单"), t("已完成订单"), t("已取消"), t("已完成交易额（USD）"), t("SNAP 意向订单"), t("每日去重顾客")], ...data.timeline.map((d) => [d.date, d.orders, d.completed, d.cancelled, d.revenueCents / 100, d.snapOrders, d.participants ?? null])],
       markets: [[t("市场"), t("预购订单"), t("已完成订单"), t("已取消"), t("参与顾客"), t("已完成交易额（USD）")], ...data.markets.map((m) => [t(m.name), m.orders, m.completed, m.cancelled, m.participants, m.revenueCents / 100])],
       vendors: [[t("商户"), t("预购订单"), t("已完成订单"), t("参与顾客"), t("已完成交易额（USD）")], ...vendors.map((v) => [t(v.name), v.orders, v.completed, v.participants, v.revenueCents / 100])],
       products: [[t("商品"), t("市场"), t("商户"), t("购买人数"), t("完成订单数"), t("完成交付数量"), t("单位"), t("已完成交易额（USD）"), t("跨场次复购买家"), t("成交均价（USD）"), t("最低成交单价（USD）"), t("最高成交单价（USD）"), t("每单平均购买量"), t("有成交的日期数"), t("最近成交日期")], ...a.products.map((p) => [t(p.name), t(p.marketName), t(p.vendorName), p.buyers, p.orders, p.quantity, quantityUnit(language, p.unit, p.quantity), p.revenueCents / 100, p.repeatBuyers, p.quantity ? Math.round(p.revenueCents / p.quantity) / 100 : null, p.minPriceCents / 100, p.maxPriceCents / 100, p.quantity / p.orders, p.sellingDays, p.lastSoldOn])],
@@ -71,7 +75,7 @@ export default function SchoolDashboard({ data, navigate, selectMarket }: {
     };
     const rows = [[t("学校运营统计报表"), t(data.sampleData ? "合成演示样本" : "数据库记录")],
       [t("统计范围"), exportKind === "markets" ? t("全部市场对比") : t(data.markets.find((m) => m.id === data.marketId)?.name ?? "全部市场")],
-      [t("自提日期"), data.from ?? t("全部时间"), data.to, "America/New_York"],
+      [t(exportKind === "finance" ? "发生日期" : "自提日期"), data.from ?? t("全部时间"), data.to, "America/New_York"],
       [t("上期"), prev?.from ?? "", prev?.to ?? ""], [t("生成时间"), data.updatedAt],
       [t("统计说明"), t("当前订单状态；完成交易额不等同于支付到账。SNAP 仅为付款意向，非核销记录。")], [], ...content[exportKind]];
     const url = URL.createObjectURL(new Blob([csvText(rows)], { type: "text/csv;charset=utf-8" }));
@@ -81,6 +85,7 @@ export default function SchoolDashboard({ data, navigate, selectMarket }: {
   return <div className="analytics-dashboard">
     <section className="analytics-intro"><div><span className="eyebrow">QINGHE / ANALYTICS</span><h2>{t("市场经营分析")}</h2><p>{t("价格与销量看需求，出勤与收款看经营。")}</p></div><div className="analytics-export"><label className="sr-only" htmlFor="analytics-export-kind">{t("选择导出报表")}</label><select id="analytics-export-kind" value={exportKind} onChange={(e) => { setExportKind(e.target.value as ExportKind); setExported(false); }}>{Object.entries(reportNames).map(([value, name]) => <option key={value} value={value}>{t(name)}</option>)}</select><button className="button primary" onClick={exportReport}><Download size={15} />{t("导出 CSV")}</button>{exported && <span role="status" className="analytics-export-status">{t("报表已生成")}</span>}</div></section>
     {data.sampleData && <div className="analytics-sample"><Layers3 size={17} /><div><strong>{t("合成演示样本")}</strong><span>{t("当前交易、顾客与付款意向为生成样例，用于评审统计功能，不代表真实运营或 SNAP 核销。")}</span></div></div>}
+    <button className="report-open-summary business-link" onClick={()=>setView("reports")}>{t("打开经营摘要与报表目录")}<ArrowRight size={15}/></button>
     <div className="analytics-metrics">
       <Stat label={t("已完成交易额")} value={money(current.revenueCents)} icon={<Wallet size={18} />} note={t("仅计已完成自提订单")} delta={changePercent(current.revenueCents, prev?.revenueCents)} comparable={!!prev} baselineZero={prev?.revenueCents === 0} prominent />
       <Stat label={t(data.marketId ? "当前市场预购" : "全平台预购")} value={current.orders} icon={<ShoppingBag size={18} />} note={t("含待履约、已完成与已取消订单")} delta={changePercent(current.orders, prev?.orders)} comparable={!!prev} baselineZero={prev?.orders === 0} />
@@ -103,6 +108,8 @@ export default function SchoolDashboard({ data, navigate, selectMarket }: {
       {view === "network" && <Network data={data} selectMarket={selectMarket} navigate={navigate} />}
       {view === "products" && <Products data={data} />}
       {view === "business" && <BusinessAnalytics data={data} navigate={navigate} />}
+      {view === "reports" && <ReportCenter data={data} open={setView}/>}
+      {view === "finance" && <FinanceReport key={`${data.marketId}:${data.from}:${data.to}`} finance={a.finance} data={data} onSaved={onSaved}/>}
       {view === "snap" && <>
         <SnapImpact data={data} manage={(id) => { selectMarket(id); navigate("school-markets"); }} />
         <Payments data={data} />

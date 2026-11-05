@@ -89,10 +89,10 @@ export default function SchoolAdmin({ page, demo, navigate, refresh, notify }: {
       : !data || data.marketId !== marketId || data.range !== range || (range === "custom" && (data.from !== from || data.to !== to)) ? <div className="loading-panel" role="status"><LoaderCircle className="spin" />{t("正在汇总全盘数据…")}</div>
       : <>
         {data.sampleData && page !== "school" && <div className="analytics-sample"><CircleHelp size={17} /><div><strong>{t("合成演示样本")}</strong><span>{t("当前交易、顾客与付款意向为生成样例，用于评审统计功能，不代表真实运营或 SNAP 核销。")}</span></div></div>}
-        {page !== "school-markets" && page !== "school-operations" && <p className="school-period">{t(demo ? "演示数据库" : "运营数据库")} · {data.from ?? t("全部时间")} — {data.to} · {t("按自提日期统计，美国东部时间")}</p>}
+        {page !== "school-markets" && page !== "school-operations" && <p className="school-period">{t(demo ? "演示数据库" : "运营数据库")} · {data.from ?? t("全部时间")} — {data.to} · {t(page === "school" ? "订单按自提日期、运营收支按发生日期统计，美国东部时间" : "按自提日期统计，美国东部时间")}</p>}
         {page === "school-operations" && <SchoolOperations data={data} selectedMarketId={marketId} refresh={refresh} />}
         {page === 'school-community' && <SchoolWorkflows data={data} marketId={marketId} onSaved={reload} />}
-        {page === "school" && <SchoolDashboard data={data} navigate={navigate} selectMarket={setMarketId} />}
+        {page === "school" && <SchoolDashboard onSaved={reload} data={data} navigate={navigate} selectMarket={setMarketId} />}
         {page === "school-vendors" && <Vendors data={data} manage={manage} />}
         {page === "school-impact" && <Impact data={data} selectMarket={setMarketId} manage={manage} planningOpen={planningOpen} setPlanningOpen={setPlanningOpen} />}
         {page === "school-markets" && <MarketManagement data={data} selectedId={marketId} onSelect={setMarketId} onSaved={saved} />}

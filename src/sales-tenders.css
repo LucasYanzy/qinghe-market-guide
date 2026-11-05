@@ -14,3 +14,8 @@
 .sales-tender-details dl > div { display: flex; justify-content: space-between; gap: 12px; }
 .sales-tender-details dd { margin: 0; font-variant-numeric: tabular-nums; }
 @media (max-width: 380px) { .sales-tender-fields { grid-template-columns: minmax(0,1fr); } .sales-classification { padding: 12px; } }
+
+.sales-costs { border: 1px solid #dce7e8; border-radius: 8px; padding: 15px; font-size: 12px; }
+.sales-costs summary { cursor: pointer; color: #3b7184; padding: 4px 0; }
+.sales-costs p,.sales-costs > small { display: block; line-height: 1.8; color: #738b96; margin: 12px 0; }
+.sales-costs > label { margin: 12px 0; }

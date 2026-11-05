@@ -214,3 +214,18 @@ test("custom analytics API validates query dates and retains administrator-only 
     assert.equal((await fetch(`${base}/retailer/analytics?range=7`, { headers: vendorHeaders })).status, 200);
   } finally { await new Promise((resolve) => server.close(resolve)); db.close(); }
 });
+
+test('report-center daily customers are distinct within each date and prior timelines respect market scope',()=>{
+  const {db,from,today,previous}=fixture();
+  try {
+    db.prepare("INSERT INTO orders(id,client_id,market_id,status,total_cents,pickup_date,pickup_slot) VALUES ('RETURNING-TODAY',1,1,'completed',200,?,'10:00–12:00')").run(today);
+    const data=schoolOverview(db,'custom',null,{from,to:today});
+    assert.equal(data.timeline.find(r=>r.date===from).participants,1);
+    assert.equal(data.timeline.find(r=>r.date===today).participants,2);
+    assert.equal(data.analytics.current.participants,2);
+    assert.equal(data.previousTimeline.find(r=>r.date===previous).participants,1);
+    const other=schoolOverview(db,'custom',2,{from,to:today});
+    assert.deepEqual(other.previousTimeline,[]);
+    assert.equal(other.timeline.find(r=>r.date===from).participants,1);
+  } finally {db.close();}
+});

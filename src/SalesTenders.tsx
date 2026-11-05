@@ -8,13 +8,16 @@ export function salesValues(form: FormData) {
   return {
     grossCents: Math.round(Number(form.get('gross')) * 100),
     tenders: form.get('classified') ? Object.fromEntries(tenderChannels.map(c => [c.key, Math.round(Number(form.get(`tender_${c.key}`)) * 100)])) : null,
+    ...(form.has('goodsCost') ? { goodsCostCents: form.get('goodsCost') === '' ? null : Math.round(Number(form.get('goodsCost')) * 100), operatingCostCents: form.get('operatingCost') === '' ? null : Math.round(Number(form.get('operatingCost')) * 100) } : {}),
   };
 }
 
-export function SalesFields({ initial }: { initial?: { gross_cents: number | null; tenders: TenderBreakdown | null } }) {
+export function SalesFields({ initial, includeCosts = false }: { initial?: { gross_cents: number | null; tenders: TenderBreakdown | null; goods_cost_cents?: number | null; operating_cost_cents?: number | null }; includeCosts?: boolean }) {
   const { t } = useLanguage();
   const [gross, setGross] = useState(initial?.gross_cents == null ? '' : String(initial.gross_cents / 100));
   const [classified, setClassified] = useState(!!initial?.tenders);
+  const [goodsCost,setGoodsCost] = useState(initial?.goods_cost_cents == null ? '' : String(initial.goods_cost_cents/100));
+  const [operatingCost,setOperatingCost] = useState(initial?.operating_cost_cents == null ? '' : String(initial.operating_cost_cents/100));
   const [values, setValues] = useState(() => Object.fromEntries(tenderChannels.map(c => [c.key, String((initial?.tenders?.[c.key] ?? 0) / 100)])));
   const grossInput = useRef<HTMLInputElement>(null);
   const sum = tenderChannels.reduce((n, c) => n + Math.round(Number(values[c.key]) * 100), 0);
@@ -33,6 +36,7 @@ export function SalesFields({ initial }: { initial?: { gross_cents: number | nul
       </fieldset> : <p className="helper-text">{t('未分类时只记录总销售额，各类别保持未知。')}</p>}
       <p className="helper-text">{t('此处只登记已完成的销售，不代表市场或商户已获准接受这些计划，也不记录补助发放额或银行结算。')}</p>
     </div>
+    {includeCosts && <details className="sales-costs" open={initial?.goods_cost_cents != null || initial?.operating_cost_cents != null}><summary>{t('成本与申报利润（仅自己可见）')}</summary><p>{t('填写本场已售商品对应的成本，不是全部进货付款。留空表示未知；已确认没有费用时填写 0。')}</p><label>{t('已售商品成本（USD）')}<input name="goodsCost" type="number" min="0" max="1000000" step="0.01" value={goodsCost} onChange={e=>setGoodsCost(e.target.value)}/></label><label>{t('本场经营费用（USD）')}<input name="operatingCost" type="number" min="0" max="1000000" step="0.01" value={operatingCost} onChange={e=>setOperatingCost(e.target.value)}/></label><small>{t('经营费用可含本场运输、人工和摊位费；不要再次包含已售商品成本。')}</small><div className="sales-tender-balance balanced"><span>{t('申报毛利')} <strong>{gross!==''&&goodsCost!=='' ? money(Math.round((Number(gross)-Number(goodsCost))*100)) : '—'}</strong></span><span>{t('申报经营结余')} <strong>{gross!==''&&goodsCost!==''&&operatingCost!=='' ? money(Math.round((Number(gross)-Number(goodsCost)-Number(operatingCost))*100)) : '—'}</strong></span></div></details>}
   </>;
 }
 
