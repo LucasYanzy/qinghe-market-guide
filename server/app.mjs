@@ -9,6 +9,7 @@ import {
 import { resolve, join, sep } from "node:path";
 import { existsSync } from "node:fs";
 import { z } from "zod";
+import catalogOptions from "../references/catalog-options.json" with { type: "json" };
 import { marketDay, hashPassword } from "./db.mjs";
 import { forecastPrices } from "./forecast.mjs";
 import { createAdminRouter } from "./admin.mjs";
@@ -29,18 +30,9 @@ const productSchema = z.object({
   market_id: z.number().int().positive().optional(),
   snap_eligibility: z.enum(["eligible", "ineligible", "unknown"]).optional(),
   name: z.string().trim().min(1).max(50),
-  category: z.enum(["叶菜类", "根茎类", "果实类"]),
-  art: z.enum([
-    "tomato",
-    "broccoli",
-    "carrot",
-    "lettuce",
-    "pumpkin",
-    "cucumber",
-    "potato",
-    "onion",
-  ]),
-  unit: z.enum(["磅", "颗", "把", "个", "袋"]),
+  category: z.enum(catalogOptions.categories),
+  art: z.enum(Object.keys(catalogOptions.artLabels)),
+  unit: z.enum(catalogOptions.units),
   price_cents: z.number().int().min(1).max(100000),
   stock: z.number().min(0).max(10000).refine(n => Math.abs(n*1000-Math.round(n*1000))<1e-7),
   description: z.string().trim().max(500),

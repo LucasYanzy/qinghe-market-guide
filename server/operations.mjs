@@ -4,6 +4,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { marketDay, hashPassword } from "./db.mjs";
 import { HttpError, updateOrderStatus } from "./services.mjs";
 import { notifyOrder } from "./notifications.mjs";
+import catalogOptions from "../references/catalog-options.json" with { type: "json" };
 
 export const validDay = (value) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && value >= "1970-01-01" && !Number.isNaN(Date.parse(`${value}T12:00:00Z`)) && new Date(`${value}T12:00:00Z`).toISOString().slice(0, 10) === value;
 export const daySchema = z.string().refine(validDay, "日期无效。");
@@ -152,9 +153,9 @@ export function createOperationsRouter(db) {
     res.json(db.prepare("SELECT p.*,m.name AS market_name FROM products p JOIN markets m ON m.id=p.market_id WHERE (?=0 OR p.market_id=?) ORDER BY available_date DESC,p.id DESC").all(scope, scope));
   });
   router.post("/operations/products", (req, res) => {
-    const p = z.object({ marketId: z.number().int().positive(), vendorId: z.number().int().positive(), name: z.string().trim().min(1).max(50), unit: z.enum(["磅", "颗", "把", "个", "袋"]),
+    const p = z.object({ marketId: z.number().int().positive(), vendorId: z.number().int().positive(), name: z.string().trim().min(1).max(50), unit: z.enum(catalogOptions.units),
       priceCents: z.number().int().min(1).max(100000), stock: z.number().min(0).max(10000), date: daySchema,
-      category: z.enum(["叶菜类", "根茎类", "果实类"]), snapEligibility: z.enum(["eligible", "ineligible", "unknown"]).default("unknown"),
+      category: z.enum(catalogOptions.categories), snapEligibility: z.enum(["eligible", "ineligible", "unknown"]).default("unknown"),
     }).strict().parse(req.body);
     if (p.date < marketDay()) throw new HttpError(400, "不能上架过去日期的商品。");
     if (Math.abs(p.stock*1000-Math.round(p.stock*1000))>1e-7 || p.unit!=="磅" && !Number.isInteger(p.stock)) throw new HttpError(400,"库存数量无效；称重商品最多支持三位小数，其他商品需为整数。");

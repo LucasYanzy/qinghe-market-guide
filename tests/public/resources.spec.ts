@@ -10,7 +10,7 @@ test("read-only quotes and rejected writes do not export the demo database", asy
     };
   });
   await page.goto("./");
-  await expect(page.locator(".product-card")).toHaveCount(8);
+  await expect(page.locator(".product-card")).toHaveCount(38);
   const result = await page.evaluate(async () => {
     const before = (window as any).databaseSaves;
     const products = await (await fetch("/api/products")).json();

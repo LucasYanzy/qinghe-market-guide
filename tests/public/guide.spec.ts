@@ -20,7 +20,7 @@ test("visitors use the real order and inventory workflow without an account or e
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("./");
   await expect(toolbar(page).getByRole("button", { name: "顾客", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator(".product-card")).toHaveCount(8);
+  await expect(page.locator(".product-card")).toHaveCount(38);
   await expect(page.getByRole("textbox", { name: /邮箱|密码/ })).toHaveCount(0);
   await page.getByRole("button", { name: "将藤熟番茄加入购物袋", exact: true }).click();
   await page.getByRole("button", { name: /^购物袋/ }).click();
@@ -108,7 +108,7 @@ test("guide deep links, English and phone roles work in the interactive build", 
 
 test("reset clears only this visitor's data and a new tab gets independent state", async ({ page, context }) => {
   await page.goto("./");
-  await expect(page.locator(".product-card")).toHaveCount(8);
+  await expect(page.locator(".product-card")).toHaveCount(38);
   await page.getByRole("button", { name: "将藤熟番茄加入购物袋", exact: true }).click();
   await page.getByRole("button", { name: /^购物袋/ }).click();
   await bag(page).getByRole("button", { name: "确认预购", exact: true }).click();
@@ -122,7 +122,7 @@ test("reset clears only this visitor's data and a new tab gets independent state
   await another.close();
   await toolbar(page).getByRole("button", { name: "重置", exact: true }).click();
   await page.getByRole("button", { name: "确认重置", exact: true }).click();
-  await expect(page.locator(".product-card")).toHaveCount(8);
+  await expect(page.locator(".product-card")).toHaveCount(38);
   await page.getByRole("navigation", { name: "主导航", exact: true }).getByRole("link", { name: "我的预购", exact: true }).click();
   await expect(page.locator(".order-card")).toHaveCount(0);
 });

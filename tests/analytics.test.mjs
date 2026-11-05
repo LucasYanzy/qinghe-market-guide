@@ -157,8 +157,8 @@ test("inventory remains a current snapshot under historical filters and excludes
   try {
     db.exec("UPDATE products SET stock=CASE WHEN id=1 THEN 0 WHEN id=2 THEN 3 ELSE 20 END");
     const live = schoolOverview(db, "custom", null, { from, to: shiftDate(today, -1) }).analytics.inventory;
-    assert.equal(live.listed, 8); assert.equal(live.available, 7); assert.equal(live.lowStock, 1); assert.equal(live.soldOut, 1);
-    assert.equal(live.categories.reduce((n, c) => n + c.products, 0), 8);
+    assert.equal(live.listed, 38); assert.equal(live.available, 37); assert.equal(live.lowStock, 1); assert.equal(live.soldOut, 1);
+    assert.equal(live.categories.reduce((n, c) => n + c.products, 0), 38);
     db.exec("UPDATE markets SET preorders_enabled=0 WHERE id=1");
     assert.equal(schoolOverview(db).analytics.inventory.listed, 0);
     db.exec("UPDATE markets SET preorders_enabled=1 WHERE id=1; DELETE FROM market_vendors WHERE market_id=1");

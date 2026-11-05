@@ -48,6 +48,7 @@ import {
 } from "lucide-react";
 import { api, ApiError, money } from "./api";
 import { BasketArt, Produce } from "./Produce";
+import catalogOptions from "../references/catalog-options.json" with { type: "json" };
 import MarketGuide, { HelpCenter } from "./MarketGuide";
 import { NextMarketHero } from "./MarketVisit";
 import { Inbox, VendorPortal } from "./WorkflowPortal";
@@ -295,7 +296,7 @@ function App() {
   const [revision, setRevision] = useState(0);
   const [search, setSearch] = useState("");
   const searchInput = useRef<HTMLInputElement>(null);
-  const [category, setCategory] = useState("全部蔬菜");
+  const [category, setCategory] = useState("全部商品");
   const [sort, setSort] = useState("recommended");
   const [inStock, setInStock] = useState(false);
   const filterOptions = useRef<HTMLDetailsElement>(null);
@@ -532,11 +533,11 @@ function App() {
   };
   const cartTotal = products.reduce((total, product) => total + Math.round(product.price_cents * (cart[product.id] ?? 0)), 0);
   const resetFilters = () => {
-    setSearch(""); setCategory("全部蔬菜"); setInStock(false); setSort("recommended");
+    setSearch(""); setCategory("全部商品"); setInStock(false); setSort("recommended");
   };
   let visible = products.filter(
     (p) =>
-      (category === "全部蔬菜" || p.category === category) &&
+      (category === "全部商品" || p.category === category) &&
       (!inStock || p.stock > 0) &&
       matchesSearch(search, p.name, p.farm),
   );
@@ -759,7 +760,7 @@ function App() {
             <>
               <NextMarketHero navigate={navigate} />
               <div className="shop-shortcuts">
-                <a href="#today-produce">{t("挑选今日蔬菜")}<ArrowRight size={16} /></a>
+                <a href="#today-produce">{t("挑选今日好物")}<ArrowRight size={16} /></a>
                 <PageLink page="about" navigate={navigate}>{t("了解预购流程")}<ChevronRight size={14} /></PageLink>
               </div>
               <div className="section-heading" id="today-produce" tabIndex={-1}>
@@ -780,16 +781,16 @@ function App() {
                 <div
                   className="category-tabs"
                   role="group"
-                  aria-label={t("蔬菜分类")}
+                  aria-label={t("商品分类")}
                 >
-                  {["全部蔬菜", "叶菜类", "根茎类", "果实类"].map((c) => (
+                  {["全部商品", ...catalogOptions.categories].map((c) => (
                     <button
                       key={c}
                       className={category === c ? "selected" : ""}
                       aria-pressed={category === c}
                       onClick={() => setCategory(c)}
                     >
-                      {c === "全部蔬菜" && <Sprout size={16} />} {t(c)}
+                      {c === "全部商品" && <Sprout size={16} />} {t(c)}
                     </button>
                   ))}
                 </div>
@@ -798,8 +799,8 @@ function App() {
                     <Search size={17} />
                     <input
                       ref={searchInput}
-                      aria-label={t("搜索蔬菜或农场")}
-                      placeholder={t("找找你喜欢的蔬菜…")}
+                      aria-label={t("搜索商品或农场")}
+                      placeholder={t("找找你喜欢的商品…")}
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                     />
@@ -832,11 +833,11 @@ function App() {
                   <span aria-live="polite" aria-atomic="true"><span key={visible.length} className="result-count">{t("发现 {count} 款新鲜好物", { count: visible.length })}</span></span>
                   <span className="quantity-hint">{t("鼠标长按 + / − 可连续调整")}</span>
                 </div>
-                {visible.length > 0 && (category !== "全部蔬菜" || search || sort !== "recommended" || inStock) && <button className="text-button" onClick={() => { setCategory("全部蔬菜"); setSearch(""); setSort("recommended"); setInStock(false); }}>{t("清除筛选")}</button>}
+                {visible.length > 0 && (category !== "全部商品" || search || sort !== "recommended" || inStock) && <button className="text-button" onClick={() => { setCategory("全部商品"); setSearch(""); setSort("recommended"); setInStock(false); }}>{t("清除筛选")}</button>}
               </div>
-              {(category !== "全部蔬菜" || search || inStock || sort !== "recommended") && (
+              {(category !== "全部商品" || search || inStock || sort !== "recommended") && (
                 <div className="active-filters" role="group" aria-label={t("当前筛选条件")}>
-                  {category !== "全部蔬菜" && <button className="filter-chip" onClick={() => setCategory("全部蔬菜")} aria-label={t("移除分类筛选")}><span>{t(category)}</span><X size={12} /></button>}
+                  {category !== "全部商品" && <button className="filter-chip" onClick={() => setCategory("全部商品")} aria-label={t("移除分类筛选")}><span>{t(category)}</span><X size={12} /></button>}
                   {search && <button className="filter-chip" onClick={() => setSearch("")} aria-label={t("清除搜索")}><Search size={12} /><span>{search}</span><X size={12} /></button>}
                   {inStock && <button className="filter-chip" onClick={() => setInStock(false)} aria-label={t("移除库存筛选")}><span>{t("仅看有库存")}</span><X size={12} /></button>}
                   {sort !== "recommended" && <button className="filter-chip" onClick={() => setSort("recommended")} aria-label={t("恢复推荐排序")}><span>{t(sort === "price-up" ? "价格从低到高" : "价格从高到低")}</span><X size={12} /></button>}
@@ -860,7 +861,7 @@ function App() {
                 <Empty
                   icon={<Search />}
                   title={
-                    t(products.length ? "还没找到这份新鲜" : "{date} 暂无可预购商品",{date:shoppingDate})
+                    t(products.length ? "还没有匹配的商品" : "{date} 暂无可预购商品",{date:shoppingDate})
                   }
                   text={
                     t(products.length
@@ -2401,26 +2402,17 @@ function ProductEditor({
             />
           </label>
           <div className="form-row">
-            <label>{t("蔬菜分类")}<select
+            <label>{t("商品分类")}<select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
               >
-                {["叶菜类", "根茎类", "果实类"].map((c) => (
+                {catalogOptions.categories.map((c) => (
                   <option value={c} key={c}>{t(c)}</option>
                 ))}
               </select>
             </label>
             <label>{t("商品插画")}<select value={art} onChange={(e) => setArt(e.target.value)}>
-                {Object.entries({
-                  tomato: "番茄",
-                  broccoli: "西兰花",
-                  carrot: "胡萝卜",
-                  lettuce: "生菜",
-                  pumpkin: "南瓜",
-                  cucumber: "黄瓜",
-                  potato: "土豆",
-                  onion: "洋葱",
-                }).map(([k, v]) => (
+                {Object.entries(catalogOptions.artLabels).map(([k, v]) => (
                   <option value={k} key={k}>
                     {t(v)}
                   </option>
@@ -2440,7 +2432,7 @@ function ProductEditor({
               />
             </label>
             <label>{t("计价单位")}<select value={unit} onChange={(e) => setUnit(e.target.value)}>
-                {["磅", "颗", "把", "个", "袋"].map((u) => (
+                {catalogOptions.units.map((u) => (
                   <option value={u} key={u}>{t(u)}</option>
                 ))}
               </select>

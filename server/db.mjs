@@ -3,6 +3,7 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { randomBytes, randomInt, scryptSync } from "node:crypto";
 import { migrateWorkflows } from "./workflow-schema.mjs";
+import { addResearchDemoProducts } from "./demo-catalog.mjs";
 
 export const marketDay = (date = new Date()) =>
   new Intl.DateTimeFormat("en-CA", {
@@ -77,6 +78,8 @@ export function openDatabase(
   `);
   migrateSchoolManagement(db);
   if (demo && !db.prepare("SELECT id FROM users LIMIT 1").get()) seed(db);
+  if (demo) db.prepare("UPDATE users SET name=? WHERE email=? AND name=?")
+    .run("Lin", "client@qinghe.demo", "林同学");
   if (demo && !db.prepare("SELECT id FROM users WHERE email=?").get("admin@qinghe.demo")) {
     db.prepare("INSERT INTO users (email,name,password_hash,role) VALUES (?,?,?,'admin')")
       .run("admin@qinghe.demo", "Rutgers 学校管理方", hashPassword("MarketDemo2026!"));
@@ -92,6 +95,7 @@ export function openDatabase(
   migrateSnap(db);
   migrateOperations(db);
   migrateWorkflows(db);
+  if (demo) addResearchDemoProducts(db, marketDay());
   return db;
 }
 
@@ -199,7 +203,7 @@ function seed(db) {
     user.run(
       1,
       "client@qinghe.demo",
-      "林同学",
+      "Lin",
       hashPassword("MarketDemo2026!"),
       "client",
     );

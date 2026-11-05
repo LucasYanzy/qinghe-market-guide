@@ -56,12 +56,12 @@ test("seeded catalogue uses the Eastern business date; filters and market addres
   const pickupMarket = db.prepare("SELECT name,address FROM markets WHERE id=?").get(products.data[0].market_id);
   assert.equal(products.data[0].market_name, pickupMarket.name);
   assert.equal(products.data[0].market_address, pickupMarket.address);
-  assert.equal(products.data.length, 8);
+  assert.equal(products.data.length, 38);
   assert.ok(products.data.every((p) => p.available_date === marketDay()));
   const leaves = await request(
     "/products?category=" + encodeURIComponent("叶菜类"),
   );
-  assert.equal(leaves.data.length, 2);
+  assert.equal(leaves.data.length, 3);
   const search = await request(
     "/products?search=" + encodeURIComponent("番茄"),
   );
@@ -77,7 +77,7 @@ test("authentication and retailer access are enforced", async () => {
   );
   assert.equal(
     (await request("/retailer/products", { cookie: retailer })).data.length,
-    8,
+    38,
   );
   assert.equal(
     (
@@ -329,7 +329,7 @@ test("a second database connection reads persisted listings and orders", () => {
   const second = openDatabase(join(directory, "test.sqlite"));
   assert.equal(
     second.prepare("SELECT COUNT(*) AS count FROM products").get().count,
-    9,
+    39,
   );
   assert.equal(
     second.prepare("SELECT COUNT(*) AS count FROM orders").get().count,

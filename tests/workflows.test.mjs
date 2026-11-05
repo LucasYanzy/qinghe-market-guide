@@ -109,7 +109,7 @@ test('application review preserves customer history and role permissions, with r
   assert.equal((await request(`/vendor/applications/${id}`,client,'PATCH',{description:'Updated supply details',version:1})).status,200);
   assert.equal((await request(`/admin/applications/${id}`,admin,'PATCH',{status:'approved',note:'Welcome',version:2})).status,200);
   assert.equal((await request(`/admin/applications/${id}`,admin,'PATCH',{status:'approved',note:'Again',version:2})).status,409);
-  const me=(await request('/auth/me',client)).data.user;assert.equal(me.role,'client');assert.deepEqual(me.roles.sort(),['client','retailer']);assert.equal(me.name,'林同学');
+  const me=(await request('/auth/me',client)).data.user;assert.equal(me.role,'client');assert.deepEqual(me.roles.sort(),['client','retailer']);assert.equal(me.name,'Lin');
   assert.ok((await request('/orders',client)).data.some(o=>o.id===oldOrder.id));
   assert.equal((await request('/auth/role',client,'POST',{role:'admin'})).status,403);
   assert.equal((await request('/auth/role',client,'POST',{role:'retailer'})).status,200);

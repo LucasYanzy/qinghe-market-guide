@@ -37,11 +37,11 @@ test("筛选默认收起，键盘展开后可设置并一键清除全部条件",
   await summary.click();
   await expect(summary).toHaveAttribute("data-active", "true");
   await page.getByRole("button", { name: "叶菜类", exact: true }).click();
-  await page.getByLabel("搜索蔬菜或农场", { exact: true }).fill("no-such-vegetable");
+  await page.getByLabel("搜索商品或农场", { exact: true }).fill("no-such-vegetable");
   await expect(page.locator(".product-card")).toHaveCount(0);
   await page.getByRole("button", { name: "清除筛选", exact: true }).click();
   await expect(page.locator(".product-card")).toHaveCount(count);
-  await expect(page.getByLabel("搜索蔬菜或农场", { exact: true })).toHaveValue("");
+  await expect(page.getByLabel("搜索商品或农场", { exact: true })).toHaveValue("");
   await expect(summary).toHaveAttribute("data-active", "false");
   await summary.click();
   await expect(page.getByLabel("商品排序", { exact: true })).toHaveValue("recommended");

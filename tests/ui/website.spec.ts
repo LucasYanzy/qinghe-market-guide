@@ -45,7 +45,7 @@ test("网站导航支持浏览器前进后退，购物袋不会因切页丢失",
 
 test("首页入口能定位商品，并进入完整的访客指南", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("link", { name: "挑选今日蔬菜", exact: true }).click();
+  await page.getByRole("link", { name: "挑选今日好物", exact: true }).click();
   await expect(page).toHaveURL(/#today-produce$/);
   await expect(page.locator("#today-produce")).toBeInViewport();
   await page.getByRole("link", { name: "了解预购流程", exact: true }).click();

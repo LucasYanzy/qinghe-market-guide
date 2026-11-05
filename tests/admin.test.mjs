@@ -92,7 +92,7 @@ test("pausing preorders blocks stale carts atomically and keeps existing fulfill
   await request("/admin/markets/1", { cookie: admin, method: "PUT", body: { ...input, preorders_enabled: true, active: false } });
   assert.equal((await request("/orders", { cookie: client, method: "POST", body: orderInput })).status, 409);
   await request("/admin/markets/1", { cookie: admin, method: "PUT", body: { ...input, preorders_enabled: true } });
-  assert.equal((await request("/products")).data.length, 8);
+  assert.equal((await request("/products")).data.length, 38);
 });
 
 test("global statistics deduplicate customers and orders across items, vendors and markets", () => {
@@ -101,7 +101,7 @@ test("global statistics deduplicate customers and orders across items, vendors a
     stats.prepare("INSERT INTO users (id,email,name,password_hash,role) VALUES (4,'second-client@test.local','Second client','unused','client'),(5,'second-vendor@test.local','Second vendor','unused','retailer')").run();
     stats.prepare("INSERT INTO markets (id,name,subtitle,address,latitude,longitude,hours,description) VALUES (2,'Second market','','Address',40.52,-74.45,'Hours','')").run();
     stats.prepare(`INSERT INTO products (id,market_id,retailer_id,name,category,art,unit,price_cents,stock,farm,description,available_date)
-      VALUES (9,2,5,'Product','叶菜类','lettuce','个',400,10,'Second vendor','',?)`).run(marketDay());
+      VALUES (1001,2,5,'Product','叶菜类','lettuce','个',400,10,'Second vendor','',?)`).run(marketDay());
     const old = new Date(`${marketDay()}T12:00:00Z`); old.setUTCDate(old.getUTCDate() - 120);
     const insertOrder = stats.prepare("INSERT INTO orders (id,client_id,market_id,status,total_cents,pickup_date,pickup_slot) VALUES (?,?,?,?,?,?,'10:00–12:00')");
     for (const values of [
@@ -110,7 +110,7 @@ test("global statistics deduplicate customers and orders across items, vendors a
       ["E", 4, 1, "cancelled", 999, marketDay()], ["F", 4, 1, "completed", 350, old.toISOString().slice(0, 10)],
     ]) insertOrder.run(...values);
     const item = stats.prepare("INSERT INTO order_items VALUES (?,?,?,'个',?,?,?)");
-    for (const values of [["A", 1, "Tomato", 350, 2, 2], ["A", 2, "Broccoli", 280, 1, 2], ["B", 9, "Product", 400, 1, 5], ["C", 1, "Tomato", 350, 1, 2], ["D", 2, "Broccoli", 280, 1, 2], ["E", 1, "Tomato", 999, 1, 2], ["F", 1, "Tomato", 350, 1, 2]]) item.run(...values);
+    for (const values of [["A", 1, "Tomato", 350, 2, 2], ["A", 2, "Broccoli", 280, 1, 2], ["B", 1001, "Product", 400, 1, 5], ["C", 1, "Tomato", 350, 1, 2], ["D", 2, "Broccoli", 280, 1, 2], ["E", 1, "Tomato", 999, 1, 2], ["F", 1, "Tomato", 350, 1, 2]]) item.run(...values);
     const overview = schoolOverview(stats, "7");
     assert.equal(overview.summary.orders, 5);
     assert.equal(overview.summary.completed, 2);
