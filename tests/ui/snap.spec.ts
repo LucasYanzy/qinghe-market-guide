@@ -99,11 +99,11 @@ test("未确认的市场不开放 SNAP 付款；预估失败仍允许选择普�
   await page.goto("/"); await page.getByRole("button", { name: "将藤熟番茄加入购物袋", exact: true }).click();
   await page.getByRole("button", { name: /^购物袋/ }).click();
   const cart = page.getByRole("dialog", { name: "我的新鲜购物袋", exact: true });
-  await expect(cart.getByText("本次 SNAP/EBT 接受条件尚未确认", { exact: true })).toBeVisible();
+  await expect(cart.getByText("市场尚未确认 SNAP/EBT 收款流程。", { exact: true })).toBeVisible();
   await cart.getByRole("button", { name: "切换付款偏好", exact: true }).click();
   await cart.getByRole("radio", { name: "SNAP/EBT", exact: true }).check();
   await expect(cart.getByRole("button", { name: "登录后预购", exact: true })).toBeDisabled();
-  await expect(cart.locator('.cart-checkout-blocker')).toContainText('市场的 SNAP 受理条件尚未核实');
+  await expect(cart.locator('.cart-checkout-status')).toHaveText('市场尚未确认 SNAP/EBT 收款流程。');
   await expect(cart.locator('.payment-preference')).toHaveClass(/needs-verification/);
   await cart.getByRole('button', { name: '查看付款核对', exact: true }).click();
   await expect(cart.locator('.cart-payment-check')).toBeFocused();
@@ -116,12 +116,13 @@ test("未确认的市场不开放 SNAP 付款；预估失败仍允许选择普�
   await expect(cart.getByRole("button", { name: "登录后预购", exact: true })).toBeEnabled();
   await cart.getByRole("button", { name: "切换付款偏好", exact: true }).click();
   await cart.getByRole("radio", { name: "SNAP/EBT", exact: true }).check();
-  await expect(cart.locator('.cart-checkout-blocker')).toContainText('Quote unavailable');
+  await expect(cart.locator('.cart-checkout-status')).toContainText('暂时无法核对 SNAP/EBT');
+  await expect(cart.locator('.snap-quote-error')).toContainText('Quote unavailable');
   await expect(cart.getByRole("button", { name: "登录后预购", exact: true })).toBeDisabled();
   await cart.getByRole('button', { name: '改用常规到场付款', exact: true }).click();
   await expect(cart.getByRole("button", { name: "登录后预购", exact: true })).toBeEnabled();
   await page.unroute("**/api/checkout/quote"); await cart.getByRole("button", { name: "重新核对", exact: true }).click();
-  await expect(cart.getByText("本次 SNAP/EBT 接受条件尚未确认", { exact: true })).toBeVisible();
+  await expect(cart.getByText("市场尚未确认 SNAP/EBT 收款流程。", { exact: true })).toBeVisible();
 });
 
 for (const width of [320, 390]) {

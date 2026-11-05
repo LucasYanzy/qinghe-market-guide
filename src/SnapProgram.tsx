@@ -82,38 +82,63 @@ function SnapVendorEditor({ marketId, vendor, onSaved }: { marketId: number; ven
   </details>;
 }
 
-export type SnapCheckoutStatus = { itemsKey: string; ready: boolean; message: Message };
-export function SnapCheckout({ itemsKey, method, onStatus, onUseStandard }: {
-  itemsKey: string; method: "pay_at_pickup" | "snap_ebt";
-  onStatus: (status: SnapCheckoutStatus) => void;
-  onUseStandard: () => void;
+export interface SnapCheckoutState { key: string; ready: boolean; message: string }
+const snapUnavailableMessages = {
+  market_unconfirmed: "市场尚未确认 SNAP/EBT 收款流程。",
+  market_unavailable: "该市场目前不接受 SNAP/EBT。",
+  vendor_unconfirmed: "商户尚未确认接受 SNAP/EBT。",
+  vendor_unavailable: "该商户目前不接受 SNAP/EBT。",
+};
+function checkoutMessage(quote: CheckoutQuote) {
+  if (!quote.snapAvailable) return quote.snapUnavailableReason
+    ? snapUnavailableMessages[quote.snapUnavailableReason] : "本次 SNAP/EBT 接受条件尚未确认";
+  return quote.eligibleCents > 0 ? "本次可预约现场 SNAP/EBT 付款" : "购物袋中暂无已确认的 SNAP 合资格食品";
+}
+export function SnapCheckout({ itemsKey, quoteKey, method, active, onState, onRegularPayment }: {
+  itemsKey: string; quoteKey: string; method: "pay_at_pickup" | "snap_ebt"; active: boolean;
+  onState: (state: SnapCheckoutState) => void; onRegularPayment: () => void;
 }) {
   const { t } = useLanguage();
   const [quote, setQuote] = useState<CheckoutQuote>(), [error, setError] = useState<Message>("");
   const [retry, setRetry] = useState(0);
   useEffect(() => {
-    let active = true; setQuote(undefined); setError(""); onStatus({ itemsKey, ready: false, message: '正在核对现场付款条件…' });
-    api<CheckoutQuote>("/checkout/quote", { method: "POST", body: JSON.stringify({ items: JSON.parse(itemsKey) }) })
-      .then((q) => { if (active) {
-        setQuote(q);
-        const ready = q.snapAvailable && q.eligibleCents > 0;
-        onStatus({ itemsKey, ready, message: ready ? '本次可预约现场 SNAP/EBT 付款' : q.marketConfirmed === false ? '市场的 SNAP 受理条件尚未核实，暂不能提交 SNAP 预购。' : q.vendorConfirmed === false ? '此商户的 SNAP 参与状态尚未核实，暂不能提交 SNAP 预购。' : q.snapAvailable ? '购物袋中暂无已确认的 SNAP 合资格食品' : '本次 SNAP/EBT 接受条件尚未确认' });
-      } })
-      .catch((e: Error) => { if (active) { setError(e); onStatus({ itemsKey, ready: false, message: e }); } });
-    return () => { active = false; };
-  }, [itemsKey, retry, onStatus]);
+    let current = true;
+    const controller = new AbortController();
+    setQuote(undefined); setError("");
+    onState({ key: quoteKey, ready: false, message: "正在核对现场付款条件…" });
+    api<CheckoutQuote>("/checkout/quote", { method: "POST", signal: controller.signal, body: JSON.stringify({ items: JSON.parse(itemsKey) }) })
+      .then((q) => {
+        if (current) {
+          setQuote(q);
+          onState({ key: quoteKey, ready: q.snapAvailable && q.eligibleCents > 0, message: checkoutMessage(q) });
+        }
+      })
+      .catch((e: Error) => {
+        if (current) {
+          setError(e);
+          onState({ key: quoteKey, ready: false, message: "暂时无法核对 SNAP/EBT，请重新核对或选择常规到场付款。" });
+        }
+      });
+    return () => { current = false; controller.abort(); };
+  }, [itemsKey, quoteKey, retry, onState]);
+  useEffect(() => {
+    if (!active) return;
+    const refresh = () => { if (!document.hidden) setRetry(value => value + 1); };
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
+  }, [active]);
   const available = !!quote?.snapAvailable && quote.eligibleCents > 0;
   return <section className="snap-checkout" aria-label={t("现场付款方式与 SNAP 拆分")}>
-    {quote ? <><div className="snap-quote-status"><CreditCard size={16} /><strong>{t(available ? "本次可预约现场 SNAP/EBT 付款" : quote.snapAvailable ? "购物袋中暂无已确认的 SNAP 合资格食品" : "本次 SNAP/EBT 接受条件尚未确认")}</strong></div>
+    {quote ? <><div className="snap-quote-status"><CreditCard size={16} /><strong>{t(checkoutMessage(quote))}</strong></div>
       {method === "snap_ebt" && available && <><dl className="snap-split"><div><dt>{t("SNAP 合资格食品预估")}</dt><dd>{money(quote.eligibleCents)}</dd></div><div><dt>{t("其他方式付款预估")}</dt><dd>{money(quote.otherCents)}</dd></div></dl>
         {!!quote.unknownCents && <p>{t("资格未确认的商品按其他付款方式预留。")}</p>}
         <details className="snap-item-breakdown"><summary>{t("查看逐项资格与金额")}</summary><ul>{quote.items.map((item) => <li key={item.productId}><span>{t(item.name)} × {item.quantity}<SnapFoodLabel eligibility={item.snapEligibility} /></span><strong>{money(item.lineCents)}</strong></li>)}</ul></details>
         <p>{t(quote.snapModel === "market_tokens" ? "到服务台办理 EBT，领取适用于参与商户的 SNAP 代币，再到摊位自提。" : "到参与商户的现场 EBT 终端付款并自提。")}</p><p>{t(quote.instructions)}</p>
         <small>{t("市场核实")} {quote.marketVerifiedOn} · {t("商户核实")} {quote.vendorVerifiedOn}</small></>}
-      {!available && <><p>{t("食品合资格、市场接受和商户参与需同时满足。请先联系市场确认，也可到场选择其他付款方式。")}</p><p>{t(quote.marketConfirmed === false ? '市场的 SNAP 受理条件尚未核实，暂不能提交 SNAP 预购。' : quote.vendorConfirmed === false ? '此商户的 SNAP 参与状态尚未核实，暂不能提交 SNAP 预购。' : '食品资格不等于商户接受 SNAP；下单前还需核对市场与商户受理状态。')}</p></>}
-    </> : error ? <p className="snap-quote-error">{t(error)} {t("暂时无法预估 SNAP 拆分，提交时仍会核对商品与库存。")}{method === "snap_ebt" && t("请重试后再提交 SNAP 付款意向。") } <button type="button" className="text-button" onClick={() => setRetry((v) => v + 1)}>{t("重新核对")}</button></p>
+      {!available && <p>{t("食品合资格、市场接受和商户参与需同时满足。请先联系市场确认，也可到场选择其他付款方式。")}</p>}
+    </> : error ? <p className="snap-quote-error">{t(error)} {t("暂时无法预估 SNAP 拆分，提交时仍会核对商品与库存。")}{method === "snap_ebt" && t("请重试后再提交 SNAP 付款意向。") }</p>
       : <p>{t("正在核对现场付款条件…")}</p>}
-    {method === 'snap_ebt' && !available && <button type="button" className="button snap-standard-action" onClick={onUseStandard}>{t('改用常规到场付款')}</button>}
+    {(quote || error) && <div className="snap-checkout-actions"><button type="button" className="text-button" onClick={() => setRetry(value => value + 1)}>{t("重新核对")}</button>{method === "snap_ebt" && !available && <button type="button" className="text-button" onClick={onRegularPayment}>{t("改用常规到场付款")}</button>}</div>}
     <p className="snap-checkout-note">{t("此处是付款意向与金额预估，不代表 EBT 已扣款。可用余额不足时，余款须用其他方式支付；不要在备注中填写卡号或 PIN。")}</p>
     <a href={snapSources.food} target="_blank" rel="noreferrer">{t("查看 SNAP 可购买食品规则")}<ExternalLink size={11} /></a>
   </section>;

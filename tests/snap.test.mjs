@@ -40,17 +40,23 @@ test("SNAP defaults to unconfirmed and requires both a verified market and parti
   assert.equal((await request("/markets")).data[0].snap_status, "unconfirmed");
   const initial = (await quote()).data;
   assert.equal(initial.snapAvailable, false);
+  assert.equal(initial.snapUnavailableReason, "market_unconfirmed");
   assert.equal(initial.marketConfirmed, false); assert.equal(initial.vendorConfirmed, false);
   await request("/admin/markets/1/snap", { method: "PUT", body: marketPolicy });
   const marketOnly = (await quote()).data;
   assert.equal(marketOnly.snapAvailable, false);
+  assert.equal(marketOnly.snapUnavailableReason, "vendor_unconfirmed");
   assert.equal(marketOnly.marketConfirmed, true); assert.equal(marketOnly.vendorConfirmed, false);
   await request("/admin/markets/1/vendors/2/snap", { method: "PUT", body: vendorPolicy });
   const ready = (await quote()).data;
   assert.equal(ready.snapAvailable, true);
+  assert.equal(ready.snapUnavailableReason, null);
   assert.equal(ready.marketConfirmed, true); assert.equal(ready.vendorConfirmed, true);
   await request("/admin/markets/1/vendors/2/snap", { method: "PUT", body: { snap_status: "unavailable", snap_verified_on: "", snap_note: "" } });
   assert.equal((await quote()).data.snapAvailable, false);
+  assert.equal((await quote()).data.snapUnavailableReason, "vendor_unavailable");
+  await request("/admin/markets/1/snap", { method: "PUT", body: { ...marketPolicy, snap_status: "unavailable" } });
+  assert.equal((await quote()).data.snapUnavailableReason, "market_unavailable");
 });
 
 test("SNAP verification enforces admin access, evidence, real dates, and an on-site model", async () => {
