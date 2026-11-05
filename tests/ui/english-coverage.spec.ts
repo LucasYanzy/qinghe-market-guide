@@ -289,7 +289,7 @@ for (const width of [320, 390]) {
   test(`All English roles fit at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 });
     await english(page);
-    for (const [role, paths] of [['client', ['/', '/markets', '/help', '/orders']], ['retailer', ['/retailer', '/retailer/inventory']], ['admin', ['/admin', '/admin/markets', '/admin/vendors', '/admin/impact', '/admin/operations']]] as const) {
+    for (const [role, paths] of [['client', ['/', '/markets', '/help', '/orders']], ['retailer', ['/retailer', '/retailer/inventory']], ['admin', ['/admin', '/admin?view=reports', '/admin?view=finance', '/admin/markets', '/admin/vendors', '/admin/impact', '/admin/operations']]] as const) {
       await login(page, role);
       for (const path of paths) {
         await visit(page, path);

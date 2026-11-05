@@ -33,8 +33,8 @@ test("学校管理页面显示全局数据，可切换周期、搜索商户并�
   await page.request.post("/api/auth/login", { data: login });
   await page.goto("/admin");
   await expect(page.getByText("全平台预购", { exact: true })).toBeVisible();
-  await page.getByLabel("统计周期").selectOption("7");
-  await expect(page.getByLabel("统计周期")).toHaveValue("7");
+  await page.getByRole("combobox", { name: "统计周期", exact: true }).selectOption("7");
+  await expect(page.getByRole("combobox", { name: "统计周期", exact: true })).toHaveValue("7");
   await expect(page.getByText("全平台预购", { exact: true })).toBeVisible();
   const nav = page.getByRole("navigation", { name: "主导航", exact: true });
   await nav.getByRole("link", { name: "商户总览", exact: true }).click();
@@ -43,7 +43,7 @@ test("学校管理页面显示全局数据，可切换周期、搜索商户并�
   await expect(page.getByText("没有符合搜索条件的商户。", { exact: true })).toBeVisible();
   await page.goBack();
   await expect(page).toHaveURL(/\/admin\?range=7$/);
-  await expect(page.getByLabel("统计周期")).toHaveValue("7");
+  await expect(page.getByRole("combobox", { name: "统计周期", exact: true })).toHaveValue("7");
   await page.goForward();
   await expect(page).toHaveURL(/\/admin\/vendors\?range=7$/);
 });

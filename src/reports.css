@@ -75,6 +75,7 @@
 @media (max-width: 700px) { .finance-category-grid,.report-observations { grid-template-columns: minmax(0,1fr); } .report-observations article { padding: 17px; } .finance-kpis { grid-template-columns: minmax(0,1fr); gap: 10px; } .finance-kpis > article { padding: 17px; } .finance-kpis strong { margin: 9px 0; font-size: 27px; } }
 @media (max-width: 600px) { .report-library-grid,.finance-entry-fields { grid-template-columns: minmax(0,1fr); } .report-story { padding: 17px; } .report-center-heading h3 { font-size: 22px; } .report-library-heading { gap: 12px; } .report-search { flex: 1; } .report-search input { width: 100%; } .report-story-heading > div > strong { font-size: 27px; } }
 .report-trend { min-width: 0; }
+.decision-table-scroll { min-width: 0; max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
 .report-trend-selection { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; min-height: 26px; font-variant-numeric: tabular-nums; }
 .report-trend-selection > span { color: #637c89; font-size: 12px; }
 .report-trend-selection > strong { color: #1b5776; font-size: 20px; }

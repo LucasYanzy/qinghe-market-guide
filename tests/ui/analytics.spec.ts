@@ -131,9 +131,10 @@ for (const width of [320, 390, 768]) {
   test(`统计看板在 ${width}px 可切换全部分区且不横向溢出`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 }); await login(page);
     await page.goto("/admin");
-    for (const name of [/数据总览/, /市场与商户/, /商品与库存/, /经营与覆盖/, /SNAP 与服务/]) {
+    for (const name of [/数据总览/, /市场与商户/, /商品与库存/, /经营与覆盖/, /报表中心/, /运营收支/, /SNAP 与服务/]) {
       await page.getByRole("tab", { name }).click();
       await expect(page.getByRole("tabpanel")).toBeVisible();
+      await page.getByRole("tabpanel").locator("details").evaluateAll(elements => elements.forEach(element => element.setAttribute("open", "")));
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     }
     await page.getByRole("button", { name: "Switch to English", exact: true }).click();
@@ -197,18 +198,26 @@ test("趋势支持键盘选日期、隐藏折线，经营页说明收款与缺�
   await page.getByRole("tab", { name: "经营与覆盖", exact: true }).click();
   await expect(page.getByRole("heading", { name: "平台订单收款登记", exact: true })).toBeVisible();
   await expect(page.locator(".business-panel").filter({ hasText: "平台订单收款登记" }).locator(".business-lead strong")).toHaveText("$7.00");
-  await expect(page.getByText("尚未采集", { exact: true })).toHaveCount(4);
-  await expect(page.locator(".business-readiness")).toContainText("暂不计算利润");
+  const readiness = page.locator(".business-readiness");
+  await expect(readiness.getByText("尚未采集", { exact: true })).toHaveCount(1);
+  await expect(readiness.getByText("商户私有，可自行填报", { exact: true })).toBeVisible();
+  await expect(readiness.getByText("可在运营收支登记", { exact: true })).toHaveCount(2);
+  await expect(readiness).toContainText("缺失记录不按零处理");
   await page.getByLabel("选择导出报表", { exact: true }).selectOption("business");
   const exported = page.waitForEvent("download");
   await page.getByRole("button", { name: "导出 CSV", exact: true }).click();
   const csv = await readFile((await (await exported).path())!, "utf8");
   expect(csv).toContain('"现金登记","7"');
-  expect(csv).toContain('"商户进货、运输与人工成本",""');
+  expect(csv).toContain('"已登记运营收入",""');
+  expect(csv).toContain('"已登记运营支出",""');
+  expect(csv).toContain('"已登记净收支",""');
+  expect(csv).not.toContain('"商户进货、运输与人工成本"');
   await page.getByRole("button", { name: "Switch to English", exact: true }).click();
   await expect(page.getByRole("tab", { name: "Business & coverage", exact: true })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("heading", { name: "Operator vendor fees", exact: true })).toBeVisible();
-  await expect(page.getByText("Not collected", { exact: true })).toHaveCount(4);
+  await expect(readiness.getByText("Not collected", { exact: true })).toHaveCount(1);
+  await expect(readiness.getByText("Private to each vendor; self-reporting available", { exact: true })).toBeVisible();
+  await expect(readiness.getByText("Record in operating finance", { exact: true })).toHaveCount(2);
   await page.getByRole("button", { name: "90 days", exact: true }).click();
   await expect(page.getByLabel("Reporting period", { exact: true })).toHaveValue("90");
   await page.getByRole("button", { name: "Reset all filters", exact: true }).click();
