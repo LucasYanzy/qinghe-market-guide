@@ -65,6 +65,13 @@ export interface ReportSummary {
 export interface ProductPerformance {
   productId: number; name: string; unit: string; marketId: number; marketName: string;
   vendorId: number; vendorName: string; quantity: number; revenueCents: number; orders: number; buyers: number; repeatBuyers: number;
+  minPriceCents: number; maxPriceCents: number; sellingDays: number; lastSoldOn: string;
+}
+export interface BusinessAnalytics {
+  receipts: { orders: number; cashCents: number; cardCents: number; snapCents: number };
+  attendance: { assignments: number; checkedIn: number; absent: number; unconfirmed: number; sessions: number };
+  reports: { reports: number; grossCents: number; transactions: number };
+  fees: { invoices: number; billedCents: number; paidCents: number; outstandingCents: number; overdueCents: number; periodReceiptsCents: number };
 }
 export interface SchoolAnalytics {
   current: ReportSummary;
@@ -76,6 +83,8 @@ export interface SchoolAnalytics {
     alerts: { id: number; name: string; unit: string; stock: number; category: string; snap_eligibility: Product["snap_eligibility"]; marketId: number; marketName: string; vendorName: string }[];
   };
   products: ProductPerformance[];
+  previousProducts: ProductPerformance[] | null;
+  business: BusinessAnalytics;
   sellingVendors: number; soldProducts: number;
   slots: { slot: string; orders: number; completed: number; revenueCents: number }[];
   heatmap: { weekday: number; slot: string; orders: number }[];

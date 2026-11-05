@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { openDatabase, marketDay } from "../server/db.mjs";
 import { schoolOverview } from "../server/admin.mjs";
 import { productPerformance, reportPeriod, shiftDate } from "../server/analytics.mjs";
+import { businessAnalytics } from "../server/business-analytics.mjs";
 import { aggregateTimeline, changePercent, csvText } from "../src/schoolReports.ts";
 
 function fixture() {
@@ -50,12 +51,44 @@ test("analytics deduplicate order totals, preserve product snapshots, and compar
     assert.equal(a.products.reduce((n, p) => n + p.revenueCents, 0), 2400);
     assert.equal(a.products.find((p) => p.name === "Original tomato").quantity, 4);
     assert.equal(a.products.find((p) => p.name === "Original tomato").marketId, 1);
+    const tomato = a.products.find((p) => p.name === "Original tomato");
+    assert.equal(tomato.minPriceCents, 350); assert.equal(tomato.maxPriceCents, 450);
+    assert.equal(tomato.sellingDays, 2); assert.equal(tomato.lastSoldOn, today);
+    assert.equal(a.previousProducts.length, 0);
     assert.equal(data.timeline.length, 7); assert.equal(data.timeline.reduce((n, d) => n + d.revenueCents, 0), 2400);
     assert.equal(data.timeline.reduce((n, d) => n + d.cancelled, 0), 1);
     assert.equal(data.markets.find((m) => m.id === 1).cancelled, 1);
     const scoped = schoolOverview(db, "custom", 2, { from, to: today });
     assert.equal(scoped.analytics.current.revenueCents, 500); assert.equal(scoped.analytics.previous.revenueCents, 0);
     assert.equal(scoped.analytics.current.participants, 1); assert.equal(scoped.markets.length, 2);
+  } finally { db.close(); }
+});
+
+test("business coverage keeps vendor receipts, reported sales and operator fees separate with Eastern recording dates", () => {
+  const { db, from, today, previous } = fixture();
+  try {
+    const addSession = (market, date, cancelled = 0) => Number(db.prepare(`INSERT INTO market_sessions
+      (market_id,date,starts_at,ends_at,cutoff,slot_minutes,capacity,cancelled) VALUES (?,?,'09:00','13:00','08:00',30,10,?)`).run(market, date, cancelled).lastInsertRowid);
+    const current = addSession(1, from), cancelled = addSession(1, today, 1), outside = addSession(2, today), future = addSession(1, shiftDate(today, 1));
+    for (const [session, vendor, status] of [[current,2,'checked_in'],[current,11,'confirmed'],[cancelled,2,'checked_in'],[outside,11,'checked_in'],[future,2,'planned']])
+      db.prepare("INSERT INTO session_vendors(session_id,retailer_id,status) VALUES (?,?,?)").run(session,vendor,status);
+    for (const [session, vendor, gross] of [[current,2,9000],[cancelled,2,99999],[outside,11,3000]])
+      db.prepare("INSERT INTO vendor_sales_reports(session_id,retailer_id,gross_cents,transactions,note,recorded_by) VALUES (?,?,?,4,'test',2)").run(session,vendor,gross);
+    db.prepare("INSERT INTO order_receipts(order_id,cash_cents,card_cents,snap_cents,recorded_by) VALUES ('COMPLETED-A',100,200,700,2),('COMPLETED-B',500,0,0,2),('CANCELLED',8000,0,0,2)").run();
+    const invoice = (market, due, amount, status = 'issued') => Number(db.prepare("INSERT INTO vendor_invoices(market_id,retailer_id,description,amount_cents,due_on,status,created_by) VALUES (?,2,'test',?,?,?,2)").run(market,amount,due,status).lastInsertRowid);
+    const due = invoice(1,from,5000), old = invoice(1,previous,4000), other = invoice(2,from,2000), voided = invoice(1,from,8000,'void');
+    const pay = (id, cents, stamp) => db.prepare("INSERT INTO invoice_payments(invoice_id,amount_cents,reference,recorded_by,created_at) VALUES (?,?,'test',2,?)").run(id,cents,stamp);
+    pay(due,1000,`${from} 12:00:00`); pay(due,500,`${from} 02:00:00`);
+    pay(old,700,`${today} 12:00:00`); pay(other,1000,`${today} 12:00:00`); pay(voided,8000,`${today} 12:00:00`);
+    const scoped = businessAnalytics(db, { from, to: today }, 1);
+    assert.deepEqual({ ...scoped.receipts }, { orders:1,cashCents:100,cardCents:200,snapCents:700 });
+    assert.deepEqual({ ...scoped.attendance }, { assignments:2,checkedIn:1,absent:0,unconfirmed:1,sessions:1 });
+    assert.deepEqual({ ...scoped.reports }, { reports:1,grossCents:9000,transactions:4 });
+    assert.deepEqual(scoped.fees, { invoices:1,billedCents:5000,paidCents:1500,outstandingCents:3500,overdueCents:3500,periodReceiptsCents:1700 });
+    assert.equal(businessAnalytics(db, { from, to: today }, 2).reports.grossCents, 3000);
+    assert.equal(businessAnalytics(db, { from, to: today }).receipts.orders, 2);
+    const empty = businessAnalytics(db, { from:'2000-01-01',to:'2000-01-02' });
+    assert.equal(empty.attendance.assignments,0); assert.equal(empty.fees.periodReceiptsCents,0);
   } finally { db.close(); }
 });
 

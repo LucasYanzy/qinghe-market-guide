@@ -1,6 +1,6 @@
 import type { SchoolOverview } from "./types";
 
-export type DashboardView = "overview" | "network" | "products" | "snap";
+export type DashboardView = "overview" | "network" | "products" | "snap" | "business";
 export type ReportRange = "7" | "30" | "90" | "all" | "custom";
 export const reportToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 export function reportDate(date: string, days: number) {

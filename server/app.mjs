@@ -408,6 +408,7 @@ export function createApp(
     const range = z.enum(["7", "30", "90"]).parse(req.query.range ?? "30");
     const period = reportPeriod(range);
     res.json({ from: period.from, to: period.to, products: productPerformance(db, period, null, req.user.id),
+      previousProducts: productPerformance(db, period.previous, null, req.user.id),
       sampleData: !!db.prepare("SELECT 1 FROM app_metadata WHERE key='analytics_sample'").get() });
   });
   app.get(
@@ -449,7 +450,7 @@ export function createApp(
       },
     }));
     app.get("/{*path}", (_req, res) =>
-      res.sendFile(join(staticDir, "index.html")),
+      res.sendFile("index.html", { root: staticDir }),
     );
   }
   app.use((error, _req, res, _next) => {
