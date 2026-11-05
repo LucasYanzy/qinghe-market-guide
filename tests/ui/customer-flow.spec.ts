@@ -179,10 +179,10 @@ test("结账会话过期后恢复同一顾客的购物袋，连续提交只创�
   await expect(cart.getByRole("textbox")).toHaveValue("重新登录继续");
   await expect(cart.locator(".quantity-control")).toHaveText("2");
   expect(submissions).toBe(1);
-  await cart.locator("form").evaluate((form: HTMLFormElement) => { form.requestSubmit(); form.requestSubmit(); });
+  await cart.locator("form:visible").evaluate((form: HTMLFormElement) => { form.requestSubmit(); form.requestSubmit(); });
   await expect(cart.getByRole("heading", { name: "提交前确认预购", exact: true })).toBeVisible();
   expect(submissions).toBe(1);
-  await cart.locator("form").evaluate((form: HTMLFormElement) => { form.requestSubmit(); form.requestSubmit(); });
+  await cart.locator("form:visible").evaluate((form: HTMLFormElement) => { form.requestSubmit(); form.requestSubmit(); });
   await expect(page).toHaveURL("/orders");
   await expect(page.locator(".order-note").filter({ hasText: "重新登录继续" })).toBeVisible();
   expect(submissions).toBe(2);
