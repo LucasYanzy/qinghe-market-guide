@@ -4,9 +4,20 @@ import { useLanguage, type Message } from './i18n';
 import './workflows.css';
 
 export function useWorkflow<T>(path:string|null, revision=0) {
-  const [data,setData]=useState<T>(),[error,setError]=useState<Message>(''),[loading,setLoading]=useState(true);
-  useEffect(()=>{let current=true;if(!path){setData(undefined);setError('');setLoading(false);return;}setLoading(true);setError('');api<T>(path).then(next=>{if(current)setData(next);}).catch(e=>{if(current)setError(e);}).finally(()=>{if(current)setLoading(false);});return()=>{current=false;};},[path,revision]);
-  return {data,error,loading};
+  const [state,setState]=useState<{path:string|null;data?:T;error:Message;loading:boolean}>(()=>({path,error:'',loading:!!path}));
+  useEffect(()=>{
+    let current=true;
+    if(!path){setState({path,data:undefined,error:'',loading:false});return;}
+    const controller=new AbortController();
+    setState(previous=>({path,data:previous.path===path?previous.data:undefined,error:'',loading:true}));
+    api<T>(path,{signal:controller.signal})
+      .then(data=>{if(current)setState({path,data,error:'',loading:false});})
+      .catch(error=>{if(current)setState(previous=>({...previous,error,loading:false}));});
+    return()=>{current=false;controller.abort();};
+  },[path,revision]);
+  // Scope changes must hide the previous response during the render itself,
+  // before effects run, so old rows cannot be submitted for a new session.
+  return state.path===path?state:{data:undefined,error:'',loading:!!path};
 }
 export function useWorkflowAction(reload:()=>void) {
   const [busy,setBusy]=useState(false),[error,setError]=useState<Message>('');const running=useRef(false);

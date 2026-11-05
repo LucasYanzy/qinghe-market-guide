@@ -5,7 +5,7 @@ import { demoStorageKey as storageKey, reportStorage } from "./state";
 let SQL: SqlJsStatic;
 let current: DatabaseSync;
 let restored: Uint8Array | undefined;
-
+let savedChanges: number | undefined;
 
 export async function initializeSqlite() {
   SQL = await initSqlJs({ locateFile: () => wasmUrl });
@@ -24,6 +24,7 @@ export class DatabaseSync {
     try { this.database = new SQL.Database(restored); }
     catch { this.database = new SQL.Database(); }
     current = this;
+    savedChanges = undefined;
   }
   exec(sql: string) {
     this.database.exec(sql);
@@ -42,7 +43,13 @@ export class DatabaseSync {
     };
     return {
       all: rows,
-      get: (...parameters: any[]) => rows(...parameters)[0],
+      get: (...parameters: any[]) => {
+        const statement = this.database.prepare(sql);
+        try {
+          statement.bind(parameters);
+          return statement.step() ? statement.getAsObject() : undefined;
+        } finally { statement.free(); }
+      },
       run: (...parameters: any[]) => {
         this.database.run(sql, parameters);
         return { changes: this.database.getRowsModified(), lastInsertRowid: this.database.exec("SELECT last_insert_rowid() AS id")[0]?.values[0][0] ?? 0 };
@@ -54,13 +61,18 @@ export class DatabaseSync {
 
 export function persistDemo() {
   try {
+    // Skip full export/base64/storage work when a request, such as a quote or
+    // validation error, has not changed the database.
+    const changes = () => Number(current.database.exec("SELECT total_changes()")[0].values[0][0]);
+    if (changes() === savedChanges) return;
     const bytes = current.database.export();
     current.database.exec("PRAGMA foreign_keys = ON");
     let binary = "";
     for (let offset = 0; offset < bytes.length; offset += 8192)
       binary += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
     sessionStorage.setItem(storageKey, btoa(binary));
+    savedChanges = changes();
     reportStorage(true);
-  } catch { reportStorage(false); }
+  } catch { savedChanges = undefined; reportStorage(false); }
 
 }
