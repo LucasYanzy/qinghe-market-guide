@@ -1918,7 +1918,7 @@ function Orders({
                 {t("付款偏好：SNAP/EBT。请与商户确认是否接受及商品资格，到场完成付款。")}
               </p>}
               {o.note && <p className="order-note">{t("备注：")}{translatePreviewContent(o.note, t)}</p>}
-              {user.role === "client" && o.pickup_code && ["pending", "confirmed"].includes(o.status) && <div className="customer-pickup-code"><span>{t("向现场工作人员出示取货码")}</span><strong>{o.pickup_code}</strong><small>{t("待确认订单请等待备货确认后再到场。")}</small></div>}
+              {user.role === "client" && o.pickup_code && ["pending", "confirmed"].includes(o.status) && <div className="customer-pickup-code"><span>{t("到场后将取货码告诉商户")}</span><strong>{o.pickup_code}</strong><small>{t(o.status === "pending" ? "待确认订单请等待备货确认后再到场。" : "商户核验取货码并登记现场收款后，订单才会完成。")}</small></div>}
               <SnapOrderPlan order={o} />
               <OrderAdjustmentPanel order={o} customer={user.role==='client'} refresh={refresh} />
               <div className="order-card-bottom">
@@ -1947,23 +1947,9 @@ function Orders({
                       {t(busy === o.id ? "正在确认…" : "Accept preorder")}
                     </button>
                   )}
-                  {user.role === "retailer" && o.status === "confirmed" && !o.market_session_id && !o.adjustment && (
-                    <button
-                      className="button primary"
-                      disabled={!!busy}
-                      onClick={() => void update(o, "completed")}
-                    >
-                      {busy === o.id ? (
-                        <LoaderCircle size={16} className="spin" />
-                      ) : (
-                        <CheckCircle2 size={16} />
-                      )}
-                      {t(busy === o.id ? "正在更新…" : "确认已自提并收款")}
-                    </button>
-                  )}
                 </div>
               </div>
-              {user.role === "retailer" && o.status === "confirmed" && (!!o.market_session_id||!!o.adjustment) && o.adjustment?.status!=='proposed' && <PickupForm orderId={o.id} total={o.total_cents} snapLimit={o.payment_method === "snap_ebt" ? o.snap_eligible_cents : 0} busy={busy === o.id} submit={async (body) => { if (busy) return; setBusy(o.id); try { await api(`/orders/${o.id}/pickup`, { method: "POST", body: JSON.stringify(body) }); refresh(); notify("订单已完成"); } finally { setBusy(""); } }} />}
+              {user.role === "retailer" && o.status === "confirmed" && o.adjustment?.status!=='proposed' && <PickupForm orderId={o.id} total={o.total_cents} snapLimit={o.payment_method === "snap_ebt" ? o.snap_eligible_cents : 0} busy={busy === o.id} submit={async (body) => { if (busy) return; setBusy(o.id); try { await api(`/orders/${o.id}/pickup`, { method: "POST", body: JSON.stringify(body) }); refresh(); notify("订单已完成"); } finally { setBusy(""); } }} />}
             </article>
           ))}
         </div>

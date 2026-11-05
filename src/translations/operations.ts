@@ -21,6 +21,8 @@ export const operationsEnglish: Record<string, string> = {
   "更换自提日期会清空当前购物袋，是否继续？": "Changing the pickup date clears your bag. Continue?",
   "剩余 {count} 个名额": "Places available: {count}",
   "向现场工作人员出示取货码": "Show this pickup code to staff",
+  "到场后将取货码告诉商户": "Give this pickup code to the vendor when you arrive",
+  "商户核验取货码并登记现场收款后，订单才会完成。": "The order is completed after the vendor verifies your pickup code and records the on-site payment.",
   "待确认订单请等待备货确认后再到场。": "Wait for your order to be confirmed before coming to collect it.",
   "查看市场规划示意图": "View market planning diagram",
   "仅用于规划位置与半径，不作为现场导航、实际覆盖或工作完成凭证。": "Planning locations and radii only. This diagram does not verify navigation, actual coverage or completed work.",

@@ -85,9 +85,10 @@ test("pausing preorders blocks stale carts atomically and keeps existing fulfill
   assert.equal((await request("/products")).data.length, 0);
   assert.equal((await request("/orders", { cookie: client, method: "POST", body: orderInput })).status, 409);
   assert.equal(db.prepare("SELECT stock FROM products WHERE id=1").get().stock, stock);
-  for (const status of ["confirmed", "completed"]) {
-    assert.equal((await request(`/orders/${pending.data.id}/status`, { cookie: retailer, method: "PATCH", body: { status } })).status, 200);
-  }
+  assert.equal((await request(`/orders/${pending.data.id}/status`, { cookie: retailer, method: "PATCH", body: { status: "confirmed" } })).status, 200);
+  assert.equal((await request(`/orders/${pending.data.id}/pickup`, { cookie: retailer, method: "POST", body: {
+    pickupCode: pending.data.pickup_code, cashCents: pending.data.total_cents, cardCents: 0, snapCents: 0,
+  } })).status, 200);
   await request("/admin/markets/1", { cookie: admin, method: "PUT", body: { ...input, preorders_enabled: true, active: false } });
   assert.equal((await request("/orders", { cookie: client, method: "POST", body: orderInput })).status, 409);
   await request("/admin/markets/1", { cookie: admin, method: "PUT", body: { ...input, preorders_enabled: true } });
