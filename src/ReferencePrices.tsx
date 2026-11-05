@@ -1,7 +1,7 @@
 import { useLanguage } from "./i18n";
 import { useState } from "react";
 import { BookOpen, FileText, Search } from "lucide-react";
-import archive from "../references/externship-market-prices.json";
+import archive from "../references/externship-market-prices.json" with { type: "json" };
 import { money } from "./api";
 
 export default function ReferencePrices() {

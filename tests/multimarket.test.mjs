@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { openDatabase, marketDay } from "../server/db.mjs";
 import { createApp } from "../server/app.mjs";
-let db, server, base;
+let db, server, base, transferredProductId;
 const cookies = {};
 const market = { name: "Second campus", subtitle: "Demo", address: "Campus road", latitude: 40.523, longitude: -74.458,
   hours: "Demo 10:00–16:00 ET", description: "Demo", community: "Busch", coverage_radius_km: 2, active: true, preorders_enabled: true };
@@ -41,6 +41,7 @@ test("schools assign vendors to several markets; product creation enforces marke
   assert.equal((await request("/retailer/markets", { role: "retailer" })).data.length, 2);
   const created = await request("/retailer/products", { role: "retailer", method: "POST", body: { ...product, market_id: 2 } });
   assert.equal(created.status, 201); assert.equal(created.data.market_id, 2);
+  transferredProductId = created.data.id;
   assert.equal((await request("/retailer/products", { role: "retailer" })).data.find((p) => p.id === created.data.id).market_name, market.name);
   const overview = await request("/admin/overview?marketId=2");
   assert.equal(overview.data.marketId, 2); assert.equal(overview.data.summary.totalMarkets, 1);
@@ -49,15 +50,15 @@ test("schools assign vendors to several markets; product creation enforces marke
 });
 
 test("listing transfers protect outstanding orders and retain the order's original market", async () => {
-  const order = await request("/orders", { role: "client", method: "POST", body: { items: [{ productId: 9, quantity: 2 }], pickupSlot: "10:00–12:00" } });
+  const order = await request("/orders", { role: "client", method: "POST", body: { items: [{ productId: transferredProductId, quantity: 2 }], pickupSlot: "10:00–12:00" } });
   assert.equal(order.status, 201);
-  const moved = await request("/retailer/products/9", { role: "retailer", method: "PUT", body: { ...product, market_id: 1 } });
+  const moved = await request(`/retailer/products/${transferredProductId}`, { role: "retailer", method: "PUT", body: { ...product, market_id: 1 } });
   assert.equal(moved.status, 409);
-  assert.equal(db.prepare("SELECT market_id FROM products WHERE id=9").get().market_id, 2);
+  assert.equal(db.prepare("SELECT market_id FROM products WHERE id=?").get(transferredProductId).market_id, 2);
   await fulfill(order.data);
   assert.equal((await request("/admin/overview?marketId=2")).data.summary.revenueCents, 800);
   assert.equal((await request("/admin/overview?marketId=1")).data.summary.revenueCents, 0);
-  assert.equal((await request("/retailer/products/9", { role: "retailer", method: "PUT", body: { ...product, market_id: 1 } })).status, 200);
+  assert.equal((await request(`/retailer/products/${transferredProductId}`, { role: "retailer", method: "PUT", body: { ...product, market_id: 1 } })).status, 200);
   const scoped = (await request("/admin/overview?marketId=2")).data;
   assert.equal(scoped.summary.orders, 1); assert.equal(scoped.summary.participants, 1);
   assert.equal(scoped.vendors[0].revenueCents, 800);
@@ -104,7 +105,7 @@ test("membership migration runs once and does not restore revoked market access"
     connection.prepare("DELETE FROM market_vendors").run(); connection.close();
     connection = openDatabase(path);
     assert.equal(connection.prepare("SELECT COUNT(*) AS n FROM market_vendors").get().n, 0);
-    assert.equal(connection.prepare("SELECT COUNT(*) AS n FROM products").get().n, 8);
+    assert.equal(connection.prepare("SELECT COUNT(*) AS n FROM products").get().n, 38);
     assert.deepEqual(connection.prepare("PRAGMA foreign_key_check").all(), []);
   } finally { connection?.close(); rmSync(directory, { recursive: true, force: true }); }
 });

@@ -1,4 +1,5 @@
 import { workflowEnglish } from "./workflows.ts";
+import { catalogEnglish } from "./catalog.ts";
 import { screenEnglish } from "./screen.ts";
 import { operationsEnglish } from "./operations.ts";
 import { previewEnglish } from "./preview.ts";
@@ -54,4 +55,5 @@ export const english: Record<string, string> = {
   ...marketEnglish,
   ...simpleEnglish,
   ...analyticsEnglish,
+  ...catalogEnglish,
 };

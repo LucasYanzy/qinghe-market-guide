@@ -27,16 +27,16 @@ test("组合筛选可逐项撤销，重置同时恢复排序、搜索和库存�
   await expect(page.locator(".product-card").first()).toBeVisible();
   const allCount = await page.locator(".product-card").count();
   await page.getByRole("button", { name: "根茎类", exact: true }).click();
-  await page.getByRole("textbox", { name: "搜索蔬菜或农场" }).fill("土豆");
+  await page.getByRole("textbox", { name: "搜索商品或农场" }).fill("土豆");
   await page.locator(".product-filter-options > summary").click();
   await page.getByRole("checkbox", { name: "仅看有库存" }).check();
   await page.getByLabel("商品排序").selectOption("price-down");
   await page.locator(".product-filter-options > summary").click();
   const filters = page.getByRole("group", { name: "当前筛选条件" });
-  await expect(page.locator(".product-card")).toHaveCount(1);
+  await expect(page.locator(".product-card")).toHaveCount(3);
   await expect(filters.locator(".filter-chip")).toHaveCount(4);
   await filters.getByRole("button", { name: "清除搜索", exact: true }).click();
-  await expect(page.locator(".product-card")).toHaveCount(3);
+  await expect(page.locator(".product-card")).toHaveCount(11);
   await expect(page.getByRole("button", { name: "根茎类", exact: true })).toHaveAttribute("aria-pressed", "true");
   await filters.getByRole("button", { name: "重置全部", exact: true }).click();
   await expect(page.locator(".product-card")).toHaveCount(allCount);
@@ -97,7 +97,7 @@ test("减少动态效果时可完成筛选和加购，切页后内容始终可�
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
   await page.getByRole("button", { name: "果实类", exact: true }).click();
-  await expect(page.locator(".product-card")).toHaveCount(3);
+  await expect(page.locator(".product-card")).toHaveCount(13);
   await page.getByRole("button", { name: "将藤熟番茄加入购物袋", exact: true }).click();
   await expect(page.getByRole("button", { name: /^购物袋/ })).toContainText("1");
   expect(await page.evaluate(() => document.getAnimations().filter((a) => a.playState === "running").length)).toBe(0);

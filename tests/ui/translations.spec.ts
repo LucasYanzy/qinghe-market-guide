@@ -75,10 +75,10 @@ test('English covers every public page, FAQs, navigation, metadata, and reloads'
 
 test('English product search, details, cart, sign-in, live notifications, orders, and errors work', async ({ page }) => {
   await english(page);
-  await page.getByRole('textbox', { name: 'Search vegetables or farms', exact: true }).fill('TOMATO');
-  await expect(page.locator('.product-card')).toHaveCount(1);
+  await page.getByRole('textbox', { name: 'Search produce or farms', exact: true }).fill('TOMATO');
+  await expect(page.locator('.product-card')).toHaveCount(2);
   await page.getByRole('button', { name: '切换为中文', exact: true }).click();
-  await expect(page.locator('.product-card')).toHaveCount(1);
+  await expect(page.locator('.product-card')).toHaveCount(2);
   await page.getByRole('button', { name: 'Switch to English', exact: true }).click();
   await page.getByRole('button', { name: 'View Vine-ripened Tomatoes', exact: true }).click();
   await expectEnglish(page);

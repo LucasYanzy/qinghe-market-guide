@@ -869,6 +869,23 @@ main {
 .art-bg-onion {
   background: #f1e9ef;
 }
+.art-bg-honey, .art-bg-banana, .art-bg-citrus, .art-bg-spaghetti-squash {
+  background: #f6f0df;
+}
+.art-bg-ginger, .art-bg-garlic, .art-bg-pear, .art-bg-butternut {
+  background: #f1ebe0;
+}
+.art-bg-avocado, .art-bg-jalapeno, .art-bg-zucchini, .art-bg-acorn-squash,
+.art-bg-cabbage, .art-bg-beans {
+  background: #edf1e5;
+}
+.art-bg-mango, .art-bg-orange, .art-bg-peach, .art-bg-apple,
+.art-bg-cherry-pepper, .art-bg-bell-pepper, .art-bg-sweet-potato {
+  background: #f6ede4;
+}
+.art-bg-plum, .art-bg-grapes, .art-bg-beet, .art-bg-red-potato, .art-bg-radish {
+  background: #f1e9ef;
+}
 .organic-badge {
   position: absolute;
   display: flex;

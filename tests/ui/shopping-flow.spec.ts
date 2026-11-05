@@ -103,6 +103,6 @@ test("辅助页面空购物袋可直接回到商品，筛选支持点外部和 E
   await expect(summary).toBeFocused();
   await expect(page.getByLabel("商品排序", { exact: true })).not.toBeVisible();
   await summary.click();
-  await page.getByLabel("搜索蔬菜或农场", { exact: true }).click();
+  await page.getByLabel("搜索商品或农场", { exact: true }).click();
   await expect(page.getByLabel("商品排序", { exact: true })).not.toBeVisible();
 });

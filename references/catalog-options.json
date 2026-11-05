@@ -1,0 +1,15 @@
+{
+  "categories": ["叶菜类", "根茎类", "果实类", "新鲜水果", "农场特产"],
+  "units": ["磅", "颗", "把", "个", "袋", "盒", "篮", "瓶", "块", "头"],
+  "artLabels": {
+    "tomato": "番茄", "broccoli": "西兰花", "carrot": "胡萝卜", "lettuce": "生菜",
+    "pumpkin": "南瓜", "cucumber": "黄瓜", "potato": "土豆", "onion": "洋葱",
+    "honey": "本地蜂蜜", "ginger": "生姜", "garlic": "大蒜", "banana": "香蕉",
+    "avocado": "牛油果", "mango": "芒果", "orange": "橙子", "citrus": "柠檬 / 青柠",
+    "peach": "桃子", "plum": "李子", "pear": "梨", "apple": "苹果", "grapes": "无籽红葡萄",
+    "cherry-pepper": "樱桃辣椒", "jalapeno": "墨西哥辣椒", "bell-pepper": "红甜椒",
+    "zucchini": "绿西葫芦", "spaghetti-squash": "金丝瓜", "acorn-squash": "橡子南瓜",
+    "butternut": "奶油南瓜", "cabbage": "卷心菜", "beans": "四季豆", "beet": "甜菜根",
+    "sweet-potato": "红薯", "red-potato": "红土豆", "radish": "樱桃红萝卜"
+  }
+}

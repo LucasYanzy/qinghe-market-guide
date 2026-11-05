@@ -63,8 +63,8 @@ test('English covers all public routes, expanded help, prices, forecasts and pro
 
 test('English product detail, bag, authentication, live notifications and API parameters are complete', async ({ page }) => {
   await english(page);
-  await page.getByRole('textbox', { name: 'Search vegetables or farms', exact: true }).fill('TOMATO');
-  await expect(page.locator('.product-card')).toHaveCount(1);
+  await page.getByRole('textbox', { name: 'Search produce or farms', exact: true }).fill('TOMATO');
+  await expect(page.locator('.product-card')).toHaveCount(2);
   await page.getByRole('button', { name: /^View Vine-ripened [Tt]omatoes$/, exact: true }).click();
   await expectEnglish(page);
   await page.getByRole('button', { name: 'Add to bag', exact: true }).click();

@@ -35,6 +35,11 @@ export function quantityUnit(language: Language, unit: string, count: number): s
     "把": ["bunch", "bunches"],
     "个": ["item", "items"],
     "袋": ["bag", "bags"],
+    "盒": ["box", "boxes"],
+    "篮": ["basket", "baskets"],
+    "瓶": ["jar", "jars"],
+    "块": ["piece", "pieces"],
+    "头": ["bulb", "bulbs"],
   };
   return Object.hasOwn(forms, unit) ? forms[unit][count === 1 ? 0 : 1] : translate(language, unit);
 }

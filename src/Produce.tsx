@@ -1,4 +1,5 @@
 import { useLanguage } from "./i18n";
+import { extraProduceArt } from "./ProduceExtras";
 
 export function Produce({
   kind,
@@ -8,6 +9,7 @@ export function Produce({
   className?: string;
 }) {
   const art: Record<string, React.ReactNode> = {
+    ...extraProduceArt,
     tomato: (
       <>
         <path

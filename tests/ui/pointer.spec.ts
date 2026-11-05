@@ -78,7 +78,7 @@ test("弹窗遮罩只接受完整左键轻点，右键和拖出弹窗不会误�
 
 test("清除搜索后光标回到输入框，可直接输入下一次搜索", async ({ page }) => {
   await page.goto("/");
-  const search = page.getByRole("textbox", { name: "搜索蔬菜或农场", exact: true });
+  const search = page.getByRole("textbox", { name: "搜索商品或农场", exact: true });
   await search.fill("番茄");
   await page.locator(".search-field").getByRole("button", { name: "清除搜索", exact: true }).click();
   await expect(search).toBeFocused();
