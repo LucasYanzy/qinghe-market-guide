@@ -1,3 +1,4 @@
+import type { TenderBreakdown } from '../server/tenders.mjs';
 export type Role = "client" | "retailer" | "admin";
 export interface User {
   id: number;
@@ -71,6 +72,7 @@ export interface BusinessAnalytics {
   receipts: { orders: number; cashCents: number; cardCents: number; snapCents: number };
   attendance: { assignments: number; checkedIn: number; absent: number; unconfirmed: number; sessions: number };
   reports: { reports: number; grossCents: number; transactions: number };
+  tenderMix: { reports: number; classifiedCents: number; unclassifiedCents: number; channels: TenderBreakdown };
   fees: { invoices: number; billedCents: number; paidCents: number; outstandingCents: number; overdueCents: number; periodReceiptsCents: number };
 }
 export interface SchoolAnalytics {

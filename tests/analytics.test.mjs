@@ -4,6 +4,7 @@ import { openDatabase, marketDay } from "../server/db.mjs";
 import { schoolOverview } from "../server/admin.mjs";
 import { productPerformance, reportPeriod, shiftDate } from "../server/analytics.mjs";
 import { businessAnalytics } from "../server/business-analytics.mjs";
+import { tenderChannels, emptyTenders } from '../server/tenders.mjs';
 import { aggregateTimeline, changePercent, csvText } from "../src/schoolReports.ts";
 
 function fixture() {
@@ -87,6 +88,15 @@ test("business coverage keeps vendor receipts, reported sales and operator fees 
     assert.deepEqual(scoped.fees, { invoices:1,billedCents:5000,paidCents:1500,outstandingCents:3500,overdueCents:3500,periodReceiptsCents:1700 });
     assert.equal(businessAnalytics(db, { from, to: today }, 2).reports.grossCents, 3000);
     assert.equal(businessAnalytics(db, { from, to: today }).receipts.orders, 2);
+    assert.equal(scoped.tenderMix.reports, 0);
+    assert.equal(scoped.tenderMix.unclassifiedCents, 9000);
+    assert.deepEqual(scoped.tenderMix.channels, emptyTenders());
+    const channels = Object.fromEntries(tenderChannels.map((c, i) => [c.key, (i + 1) * 250]));
+    db.prepare('UPDATE vendor_sales_reports SET tenders_json=? WHERE session_id=?').run(JSON.stringify(channels), current);
+    const mixed = businessAnalytics(db, { from, to: today });
+    assert.deepEqual(mixed.tenderMix, { reports: 1, classifiedCents: 9000, unclassifiedCents: 3000, channels });
+    assert.equal(mixed.reports.grossCents, 12000); // Categories are a breakdown, not additional sales.
+    assert.equal(businessAnalytics(db, { from, to: today }, 2).tenderMix.reports, 0);
     const empty = businessAnalytics(db, { from:'2000-01-01',to:'2000-01-02' });
     assert.equal(empty.attendance.assignments,0); assert.equal(empty.fees.periodReceiptsCents,0);
   } finally { db.close(); }

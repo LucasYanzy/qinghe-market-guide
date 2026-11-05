@@ -70,4 +70,7 @@ export function migrateWorkflows(db) {
       COALESCE(NULLIF(p.business_name,''),u.name) AS business_name
       FROM users u LEFT JOIN vendor_profiles p ON p.retailer_id=u.id;
   `);
+  // NULL preserves the distinction between old unclassified sales and explicit zeroes.
+  if (!db.prepare('PRAGMA table_info(vendor_sales_reports)').all().some(c => c.name === 'tenders_json'))
+    db.exec('ALTER TABLE vendor_sales_reports ADD COLUMN tenders_json TEXT');
 }

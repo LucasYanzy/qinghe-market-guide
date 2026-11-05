@@ -5,11 +5,14 @@ import { HttpError } from './services.mjs';
 import { daySchema, audit } from './operations.mjs';
 import { marketDay } from './db.mjs';
 import { notifyOrder, notifyUser } from './notifications.mjs';
+import { tenderChannels, tenderTotal } from './tenders.mjs';
 
 const id = z.coerce.number().int().positive();
 const version = z.number().int().min(0);
 const quantity = z.number().min(0).max(100).refine(n => Math.abs(n*1000-Math.round(n*1000))<1e-7);
 const reason = z.string().trim().min(1).max(500);
+const tendersSchema = z.object(Object.fromEntries(tenderChannels.map(c => [c.key, z.number().int().min(0).max(100000000)]))).strict();
+const withTenders = ({ tenders_json, ...row }) => ({ ...row, tenders: tenders_json ? JSON.parse(tenders_json) : null });
 function transaction(db, run) {
   db.exec('BEGIN IMMEDIATE');
   try { const result = run(); db.exec('COMMIT'); return result; }
@@ -167,9 +170,9 @@ export function createWorkflowsRouter(db) {
   });
 
   router.get('/vendor/sessions',authenticated,(req,res)=>res.json(db.prepare(`SELECT v.*,s.date,s.starts_at,s.ends_at,s.cancelled,s.notice,m.name AS market_name,
-    r.gross_cents,r.transactions,r.version AS sales_version FROM session_vendors v JOIN market_sessions s ON s.id=v.session_id
+    r.gross_cents,r.transactions,r.note AS sales_note,r.tenders_json,r.version AS sales_version FROM session_vendors v JOIN market_sessions s ON s.id=v.session_id
     JOIN markets m ON m.id=s.market_id LEFT JOIN vendor_sales_reports r ON r.session_id=v.session_id AND r.retailer_id=v.retailer_id
-    WHERE v.retailer_id=? ORDER BY s.date DESC`).all(req.user.id)));
+    WHERE v.retailer_id=? ORDER BY s.date DESC`).all(req.user.id).map(withTenders)));
   router.get('/admin/sessions/:id/vendors',(req,res)=>res.json(db.prepare(`SELECT v.*,u.business_name AS name,u.email FROM session_vendors v JOIN vendor_directory u ON u.id=v.retailer_id WHERE v.session_id=? ORDER BY v.booth,u.business_name`).all(id.parse(req.params.id))));
   const changeAttendance=(req,res)=>{
     const p=z.object({vendorId:id,status:z.enum(['planned','confirmed','absent','checked_in']),booth:z.string().trim().max(40).default(''),note:z.string().trim().max(300).default(''),version:version.default(0)}).strict().parse(req.body);
@@ -227,16 +230,18 @@ export function createWorkflowsRouter(db) {
   });
 
   const sales=(req,res)=>{
-    const p=z.object({sessionId:id,vendorId:id,grossCents:z.number().int().min(0).max(100000000),transactions:z.number().int().min(0).max(100000),note:z.string().trim().max(500),version:version.default(0)}).strict().parse(req.body);
+    const p=z.object({sessionId:id,vendorId:id,grossCents:z.number().int().min(0).max(100000000),transactions:z.number().int().min(0).max(100000),note:z.string().trim().max(500),version:version.default(0),tenders:tendersSchema.nullable().optional()}).strict().parse(req.body);
+    if (p.tenders && tenderTotal(p.tenders)!==p.grossCents) throw new HttpError(400,'分类收款合计必须等于总销售额。');
     if (req.user.role!=='admin' && (req.user.role!=='retailer'||req.user.id!==p.vendorId)) throw new HttpError(403,'当前账号无权进行此操作。');
     res.json(transaction(db,()=>{
       const s=db.prepare('SELECT * FROM market_sessions WHERE id=?').get(p.sessionId);
       if (!s || s.date>marketDay() || s.cancelled || !db.prepare("SELECT 1 FROM session_vendors WHERE session_id=? AND retailer_id=? AND status='checked_in'").get(p.sessionId,p.vendorId)) throw new HttpError(409,'仅已签到且已到营业日期的商户可以填报销售。');
       const old=db.prepare('SELECT * FROM vendor_sales_reports WHERE session_id=? AND retailer_id=?').get(p.sessionId,p.vendorId);
       if ((old?.version??0)!==p.version) throw new HttpError(409,'销售记录已变化，请刷新。');
-      db.prepare(`INSERT INTO vendor_sales_reports (session_id,retailer_id,gross_cents,transactions,note,version,recorded_by) VALUES (?,?,?,?,?,?,?)
-        ON CONFLICT(session_id,retailer_id) DO UPDATE SET gross_cents=excluded.gross_cents,transactions=excluded.transactions,note=excluded.note,version=excluded.version,recorded_by=excluded.recorded_by,updated_at=CURRENT_TIMESTAMP`)
-        .run(p.sessionId,p.vendorId,p.grossCents,p.transactions,p.note,p.version+1,req.user.id);
+      const tenders = p.tenders === undefined && old?.gross_cents === p.grossCents ? old.tenders_json : p.tenders ? JSON.stringify(p.tenders) : null;
+      db.prepare(`INSERT INTO vendor_sales_reports (session_id,retailer_id,gross_cents,transactions,note,version,recorded_by,tenders_json) VALUES (?,?,?,?,?,?,?,?)
+        ON CONFLICT(session_id,retailer_id) DO UPDATE SET gross_cents=excluded.gross_cents,transactions=excluded.transactions,note=excluded.note,version=excluded.version,recorded_by=excluded.recorded_by,tenders_json=excluded.tenders_json,updated_at=CURRENT_TIMESTAMP`)
+        .run(p.sessionId,p.vendorId,p.grossCents,p.transactions,p.note,p.version+1,req.user.id,tenders);
       audit(db,req.user.id,'session',p.sessionId,'sales_reported',p);return {ok:true};
     }));
   };
@@ -244,7 +249,7 @@ export function createWorkflowsRouter(db) {
   router.post('/vendor/sales-reports',authenticated,sales);
   router.get('/admin/sales-reports',(req,res)=>res.json(db.prepare(`SELECT r.*,u.business_name AS vendor_name,m.name AS market_name,s.date FROM vendor_sales_reports r
     JOIN vendor_directory u ON u.id=r.retailer_id JOIN market_sessions s ON s.id=r.session_id JOIN markets m ON m.id=s.market_id
-    WHERE (?=0 OR m.id=?) ORDER BY s.date DESC,r.retailer_id LIMIT 500`).all(Number(req.query.marketId)||0,Number(req.query.marketId)||0)));
+    WHERE (?=0 OR m.id=?) ORDER BY s.date DESC,r.retailer_id LIMIT 500`).all(Number(req.query.marketId)||0,Number(req.query.marketId)||0).map(withTenders)));
   const invoices=(vendorId=null)=>db.prepare(`SELECT i.*,u.business_name AS vendor_name,m.name AS market_name,
     COALESCE((SELECT SUM(amount_cents) FROM invoice_payments WHERE invoice_id=i.id),0) AS paid_cents FROM vendor_invoices i
     JOIN vendor_directory u ON u.id=i.retailer_id JOIN markets m ON m.id=i.market_id WHERE (?=0 OR i.retailer_id=?) ORDER BY i.id DESC LIMIT 500`).all(vendorId??0,vendorId??0);

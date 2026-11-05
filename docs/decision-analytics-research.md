@@ -247,3 +247,14 @@ P1 的典型验收例：同人同场两单算两订单、一买家、一次购�
 - [S7] NOAA NCEI，[Climate Data Online](https://www.ncei.noaa.gov/cdo-web/)。已核对数据种类、质量控制与站点检索说明；未下载本地时序或拟合天气效应。
 - [S8] USDA Agricultural Marketing Service，[Practitioner’s Guide to Conducting an Economic Impact](https://www.ams.usda.gov/reports/practitioner%E2%80%99s-guide-conducting-economic-impact)，2016-07-29。已阅读说明页，未声称完成 IMPLAN 评估。
 - [S9] USDA，[Farmers Markets Accepting SNAP Benefits](https://www.fna.usda.gov/snap/farmers-markets-accepting-benefits)（从 `fns.usda.gov` 官方原链接重定向）。已核对接受情况查询用途；不作为本市场已授权或已结算的证据。
+
+
+### 2026-11-05：付款与补助分类
+
+按用户提供的报表列，商户整场销售填报新增 Cash、Credit、Check、SNAP、Good Food Bucks、Market Bucks、QR Code（WIC & FMNP）和 Match 八类。分类属于商户申报销售的拆分，不与平台订单收款、运营费用再相加。保留平台凭据中原有“银行卡”的口径，不把历史未区分的银行卡记录冒称为 Credit。
+
+- 金额以整数美分存储，启用分类时要求完整八项、非负整数，合计必须等于总销售额。每一美元只归入一个类别；Match 仅表示已经用于购买、且未计入其他类别的配比补助，未消费额度不属于销售。QR Code 仅汇总 WIC / FMNP，不代表普通二维码付款。
+- 旧报告保留总额，分类存 NULL，不能填造零。统计单列已分类与未分类销售额、已分类报告数；占比仅以已分类销售为分母。显式全零报告与缺报有区别。
+- 商户查看和修改自己的报告，管理员可代录。沿用签到、已到营业日期、未取消场次与版本校验；切换商户或场次后重新加载当前报告。
+- 新增迁移保留旧数据；历史客户端不传分类时，总额不变可保留已知分类，总额变化则清除失效分类。
+- 分类录入不代表计划受理资质、银行结算、在线扣款或运营方资助收入；本轮不接天气数据与模型。

@@ -1,4 +1,5 @@
 import { marketDay } from "./db.mjs";
+import { emptyTenders, tenderChannels } from './tenders.mjs';
 
 // Sales, operator fees and self-reported totals have different owners and coverage.
 export function businessAnalytics(db, period, marketId = null) {
@@ -15,11 +16,19 @@ export function businessAnalytics(db, period, marketId = null) {
     COUNT(DISTINCT s.id) AS sessions
     FROM session_vendors v JOIN market_sessions s ON s.id=v.session_id
     WHERE s.cancelled=0 AND s.date BETWEEN ? AND ? AND (?=0 OR s.market_id=?) AND s.date<=?`).get(...params, marketDay());
-  const reports = db.prepare(`SELECT COUNT(*) AS reports,COALESCE(SUM(r.gross_cents),0) AS grossCents,
-    COALESCE(SUM(r.transactions),0) AS transactions
+  const reportRows = db.prepare(`SELECT r.gross_cents,r.transactions,r.tenders_json
     FROM vendor_sales_reports r JOIN market_sessions s ON s.id=r.session_id
     JOIN session_vendors v ON v.session_id=r.session_id AND v.retailer_id=r.retailer_id
-    WHERE v.status='checked_in' AND s.cancelled=0 AND s.date BETWEEN ? AND ? AND (?=0 OR s.market_id=?) AND s.date<=?`).get(...params, marketDay());
+    WHERE v.status='checked_in' AND s.cancelled=0 AND s.date BETWEEN ? AND ? AND (?=0 OR s.market_id=?) AND s.date<=?`).all(...params, marketDay());
+  const reports = { reports: reportRows.length, grossCents: 0, transactions: 0 };
+  const tenderMix = { reports: 0, classifiedCents: 0, unclassifiedCents: 0, channels: emptyTenders() };
+  for (const r of reportRows) {
+    reports.grossCents += r.gross_cents; reports.transactions += r.transactions;
+    if (!r.tenders_json) { tenderMix.unclassifiedCents += r.gross_cents; continue; }
+    const values = JSON.parse(r.tenders_json);
+    tenderMix.reports++; tenderMix.classifiedCents += r.gross_cents;
+    for (const c of tenderChannels) tenderMix.channels[c.key] += values[c.key];
+  }
   const invoices = db.prepare(`SELECT amount_cents AS amountCents,due_on AS dueOn,
     COALESCE((SELECT SUM(p.amount_cents) FROM invoice_payments p WHERE p.invoice_id=i.id),0) AS paidCents
     FROM vendor_invoices i WHERE status='issued' AND due_on BETWEEN ? AND ? AND (?=0 OR market_id=?)`).all(...params);
@@ -37,5 +46,5 @@ export function businessAnalytics(db, period, marketId = null) {
     const date = day.format(new Date(p.recordedAt.replace(' ', 'T') + 'Z'));
     if (date >= period.from && date <= period.to) fees.periodReceiptsCents += p.cents;
   }
-  return { receipts, attendance, reports, fees };
+  return { receipts, attendance, reports, fees, tenderMix };
 }

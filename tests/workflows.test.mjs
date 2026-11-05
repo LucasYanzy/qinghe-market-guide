@@ -6,6 +6,8 @@ import { getOrders, placeOrder, priceCart, updateOrderStatus } from '../server/s
 import { recordPickup, pickupOptions } from '../server/operations.mjs';
 import { notifyUser, deliverOutbox } from '../server/notifications.mjs';
 import { shiftDate } from '../server/analytics.mjs';
+import { tenderChannels, emptyTenders } from '../server/tenders.mjs';
+import { migrateWorkflows } from '../server/workflow-schema.mjs';
 
 const cart = { items:[{productId:1,quantity:1}], pickupSlot:'22:00–23:00', note:'' };
 async function fixture(t) {
@@ -175,6 +177,41 @@ test('sales reports and offline invoices enforce attendance, ownership, version 
   const second=(await request('/admin/invoices',admin,'POST',{marketId:1,vendorId:2,description:'Incorrect fee',amountCents:100,dueOn:date})).data;
   assert.equal((await request(`/admin/invoices/${second.id}/void`,admin,'POST',{reason:'Entry error',version:0})).status,200);
   assert.equal((await request(`/admin/invoices/${second.id}/payments`,admin,'POST',{amountCents:100,reference:'Invalid receipt',version:1})).status,409);
+});
+
+test('eight payment categories validate totals, preserve ownership and versions, and never fabricate legacy breakdowns',async t=>{
+  const {request,admin,retailer,session}=await fixture(t);
+  await request(`/admin/sessions/${session}/vendors`,admin,'PUT',{vendorId:2,status:'checked_in',version:0});
+  const tenders=Object.fromEntries(tenderChannels.map((c,i)=>[c.key,(i+1)*100]));
+  const sale={sessionId:session,vendorId:2,grossCents:3600,transactions:8,note:'Redeemed amounts only',version:0,tenders};
+  assert.equal((await request('/vendor/sales-reports',retailer,'POST',{...sale,vendorId:999})).status,403);
+  for (const patch of [{grossCents:3700},{tenders:{...tenders,checkCents:-1}},{tenders:{cashCents:3600}},{tenders:{...tenders,qrCents:0.5}},{tenders:{...tenders,unknownCents:0}}])
+    assert.equal((await request('/vendor/sales-reports',retailer,'POST',{...sale,...patch})).status,400);
+  assert.equal((await request('/vendor/sales-reports',retailer,'POST',sale)).status,200);
+  assert.deepEqual((await request('/vendor/sessions',retailer)).data[0].tenders,tenders);
+  assert.deepEqual((await request('/admin/sales-reports',admin)).data[0].tenders,tenders);
+  assert.equal((await request('/vendor/sales-reports',retailer,'POST',sale)).status,409);
+  const {tenders:ignored,...legacy}=sale;
+  assert.equal((await request('/vendor/sales-reports',retailer,'POST',{...legacy,version:1})).status,200);
+  assert.deepEqual((await request('/vendor/sessions',retailer)).data[0].tenders,tenders);
+  assert.equal((await request('/vendor/sales-reports',retailer,'POST',{...legacy,grossCents:4000,version:2})).status,200);
+  assert.equal((await request('/vendor/sessions',retailer)).data[0].tenders,null);
+  assert.equal((await request('/vendor/sales-reports',retailer,'POST',{...legacy,grossCents:0,tenders:emptyTenders(),version:3})).status,200);
+  assert.deepEqual((await request('/vendor/sessions',retailer)).data[0].tenders,emptyTenders());
+  assert.equal((await request('/vendor/sales-reports',retailer,'POST',{...legacy,grossCents:0,tenders:null,version:4})).status,200);
+  assert.equal((await request('/vendor/sessions',retailer)).data[0].tenders,null);
+});
+
+test('payment-category migration retains historical totals as unclassified and is repeatable',()=>{
+  const db=openDatabase(':memory:');
+  try {
+    const id=db.prepare("INSERT INTO market_sessions(market_id,date,starts_at,ends_at,cutoff,slot_minutes,capacity) VALUES (1,?,'09:00','13:00','08:00',30,10)").run(marketDay()).lastInsertRowid;
+    db.exec('ALTER TABLE vendor_sales_reports DROP COLUMN tenders_json');
+    db.prepare("INSERT INTO vendor_sales_reports(session_id,retailer_id,gross_cents,transactions,note,recorded_by) VALUES (?,2,1500,3,'Legacy',2)").run(id);
+    migrateWorkflows(db);migrateWorkflows(db);
+    const row=db.prepare('SELECT * FROM vendor_sales_reports').get();
+    assert.equal(row.gross_cents,1500);assert.equal(row.transactions,3);assert.equal(row.tenders_json,null);
+  } finally {db.close();}
 });
 
 test('notifications are private and deduplicated; outbox reports real provider success and failure without sending mail',async t=>{

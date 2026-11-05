@@ -12,6 +12,7 @@ import { quantityUnit } from "./translations/translate";
 import ProductDemand from "./ProductDemand";
 import MarketComparison from "./MarketComparison";
 import BusinessAnalytics from "./BusinessAnalytics";
+import { tenderChannels } from '../server/tenders.mjs';
 import "./school-dashboard.css";
 import "./analytics-experience.css";
 
@@ -50,6 +51,10 @@ export default function SchoolDashboard({ data, navigate, selectMarket }: {
         ["商户申报交易笔数", a.business.reports.reports ? a.business.reports.transactions : null],
         ["商户进货、运输与人工成本", null], ["场地、保险与运营人力成本", null], ["资助、捐赠与公益补贴", null],
       ] as [string, number | null][]).map(([label, value]) => [t(label), value]),
+        ...tenderChannels.map(c => [`${t('商户申报收款分类')} · ${c.label}`, a.business.tenderMix.reports ? a.business.tenderMix.channels[c.key] / 100 : null]),
+        [t('已分类填报'), a.business.tenderMix.reports],
+        [t('已分类销售额'), a.business.tenderMix.reports ? a.business.tenderMix.classifiedCents / 100 : null],
+        [t('未分类销售额'), a.business.reports.reports ? a.business.tenderMix.unclassifiedCents / 100 : null],
         [t("统计说明"), t("经营 CSV 的金额单位为 USD；商户申报、平台订单与运营费用不可相加。缺失值留空。")]],
       summary: [[t("指标"), t("本期"), t("上期")], ...([
         ["预购订单", current.orders, prev?.orders], ["已完成交易额（USD）", current.revenueCents / 100, prev ? prev.revenueCents / 100 : null],

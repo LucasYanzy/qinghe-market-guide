@@ -1,0 +1,16 @@
+.sales-classification { min-width: 0; border: 1px solid #dce7e2; border-radius: 10px; padding: 16px; background: #f8fbfa; }
+.sales-classification .sales-classify-toggle { display: flex; align-items: center; gap: 10px; font-size: 14px; color: #17483e; }
+.sales-classify-toggle input { width: 18px; height: 18px; flex: 0 0 auto; accent-color: #0f766e; }
+.sales-classification p { font-size: 12px; line-height: 1.8; color: #61716b; margin: 10px 0; }
+.sales-tender-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; border: 0; padding: 12px 0 0; margin: 0; min-width: 0; }
+.sales-tender-fields legend { font-size: 12px; color: #36594d; padding: 0; }
+.sales-tender-fields label { min-width: 0; font-size: 12px; }
+.sales-tender-fields input { width: 100%; min-width: 0; box-sizing: border-box; }
+.sales-tender-balance { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; background: #fff2df; color: #895b19; padding: 12px; border-radius: 6px; font-size: 12px; }
+.sales-tender-balance.balanced { background: #e8f4ee; color: #1a6755; }
+.sales-tender-details { margin-top: 14px; font-size: 12px; }
+.sales-tender-details summary { cursor: pointer; color: #0f766e; padding: 7px 0; }
+.sales-tender-details dl { display: grid; gap: 9px; }
+.sales-tender-details dl > div { display: flex; justify-content: space-between; gap: 12px; }
+.sales-tender-details dd { margin: 0; font-variant-numeric: tabular-nums; }
+@media (max-width: 380px) { .sales-tender-fields { grid-template-columns: minmax(0,1fr); } .sales-classification { padding: 12px; } }
