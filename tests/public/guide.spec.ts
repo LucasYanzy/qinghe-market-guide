@@ -63,6 +63,7 @@ test("visitors use the real order and inventory workflow without an account or e
 test("vendor edits persist and school statistics reflect sample orders", async ({ page }) => {
   await page.goto("./");
   await role(page, "商户");
+  expect((await demoApi(page, "/retailer/analytics?range=30")).status).toBe(200);
   await page.getByRole("navigation", { name: "主导航", exact: true }).getByRole("link", { name: "商品与库存", exact: true }).click();
   const row = page.getByRole("row").filter({ hasText: "藤熟番茄" });
   await row.getByRole("button", { name: /编辑/ }).click();
@@ -198,6 +199,11 @@ test("school operations, idempotent booking, validation rollback and pickup work
   expect((await demoApi(page, `/admin/operations/orders/${first.data.id}/pickup`, "POST", receipt)).status).toBe(409);
   const operations = await demoApi(page, `/admin/operations?date=${date}&marketId=${marketId}`);
   expect(operations.data.orders[0].receipt.cash_cents).toBe(900);
+  const analytics = (await demoApi(page, "/admin/overview?range=7")).data.analytics;
+  const demand = analytics.products.find((p: { productId: number }) => p.productId === product.data.id);
+  expect(demand.buyers).toBe(1);
+  expect(demand.repeatBuyers).toBe(0);
+  expect(demand.quantity).toBe(2);
   await page.reload();
   expect((await demoApi(page, `/admin/operations?date=${date}&marketId=${marketId}`)).data.orders[0].status).toBe("completed");
 });

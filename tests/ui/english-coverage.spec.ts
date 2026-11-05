@@ -179,7 +179,7 @@ test('English reports and chart tooltips translate seeded labels and preserve re
   await english(page, '/admin?market=1');
   const chart = page.locator('.analytics-chart');
   for (const metric of ['Preorders & completions', 'Completed value', 'SNAP intentions']) {
-    await page.getByRole('button', { name: metric, exact: true }).click();
+    await page.getByRole('group', { name: 'Trend metric', exact: true }).getByRole('button', { name: metric, exact: true }).click();
     await chart.locator('.recharts-surface').hover();
     await expect(chart.locator('.recharts-tooltip-wrapper')).toBeVisible();
     await expectEnglish(page);
@@ -194,7 +194,7 @@ test('English reports and chart tooltips translate seeded labels and preserve re
     expect(csv).not.toMatch(/\p{Script=Han}/u);
     expect(download.suggestedFilename()).toContain(`qinghe-${kind}-1-`);
     if (kind === 'products') {
-      expect(csv).toContain('"Farm-fresh Broccoli","Rutgers Gardens Community Market","Green Acre Farm","1","2","heads","5.6"');
+      expect(csv).toContain('"Farm-fresh Broccoli","Rutgers Gardens Community Market","Green Acre Farm","1","1","2","heads","5.6","0"');
     }
   }
   await page.getByRole('tab', { name: /Products & inventory/, exact: false }).click();

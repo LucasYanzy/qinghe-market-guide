@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { ArrowDownRight, ArrowRight, ArrowUpRight, BarChart3, CheckCircle2, CircleHelp, Clock3, CreditCard, Download, Layers3, Package, ShoppingBag, Store, Users, Wallet } from "lucide-react";
-import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { money, shortDate } from "./api";
 import { useLanguage } from "./i18n";
 import type { Page } from "./navigation";
@@ -9,6 +9,8 @@ import { aggregateTimeline, changePercent, csvText, type DashboardView } from ".
 import { marketColors } from "./CommunityAtlas";
 import { SnapImpact } from "./SnapProgram";
 import { quantityUnit } from "./translations/translate";
+import ProductDemand from "./ProductDemand";
+import MarketComparison from "./MarketComparison";
 import "./school-dashboard.css";
 
 const viewNames = { overview: "数据总览", network: "市场与商户", products: "商品与库存", snap: "SNAP 与服务" };
@@ -44,7 +46,7 @@ export default function SchoolDashboard({ data, navigate, selectMarket }: {
       daily: [[t("自提日期"), t("预购订单"), t("已完成订单"), t("已取消"), t("已完成交易额（USD）"), t("SNAP 意向订单")], ...data.timeline.map((d) => [d.date, d.orders, d.completed, d.cancelled, d.revenueCents / 100, d.snapOrders])],
       markets: [[t("市场"), t("预购订单"), t("已完成订单"), t("已取消"), t("参与顾客"), t("已完成交易额（USD）")], ...data.markets.map((m) => [t(m.name), m.orders, m.completed, m.cancelled, m.participants, m.revenueCents / 100])],
       vendors: [[t("商户"), t("预购订单"), t("已完成订单"), t("参与顾客"), t("已完成交易额（USD）")], ...vendors.map((v) => [t(v.name), v.orders, v.completed, v.participants, v.revenueCents / 100])],
-      products: [[t("商品"), t("市场"), t("商户"), t("完成订单数"), t("售出数量"), t("单位"), t("已完成交易额（USD）")], ...a.products.map((p) => [t(p.name), t(p.marketName), t(p.vendorName), p.orders, p.quantity, quantityUnit(language, p.unit, p.quantity), p.revenueCents / 100])],
+      products: [[t("商品"), t("市场"), t("商户"), t("购买人数"), t("完成订单数"), t("完成交付数量"), t("单位"), t("已完成交易额（USD）"), t("跨场次复购买家")], ...a.products.map((p) => [t(p.name), t(p.marketName), t(p.vendorName), p.buyers, p.orders, p.quantity, quantityUnit(language, p.unit, p.quantity), p.revenueCents / 100, p.repeatBuyers])],
       slots: [[t("自提时段"), t("有效预购"), t("已完成订单"), t("已完成交易额（USD）")], ...a.slots.map((p) => [p.slot, p.orders, p.completed, p.revenueCents / 100])],
       snap: [[t("付款意向"), t("有效预购"), t("意向商品金额（USD）"), t("合资格食品预估（USD）"), t("其他方式预估（USD）")], ...a.payments.map((p) => [t(p.method === "snap_ebt" ? "现场 SNAP/EBT 付款意向" : "到场选择其他付款方式"), p.orders, p.totalCents / 100, p.method === "snap_ebt" ? p.eligibleCents / 100 : null, p.method === "snap_ebt" ? p.otherCents / 100 : null])],
     };
@@ -58,7 +60,7 @@ export default function SchoolDashboard({ data, navigate, selectMarket }: {
     window.setTimeout(() => URL.revokeObjectURL(url), 1000); setExported(true);
   };
   return <div className="analytics-dashboard">
-    <section className="analytics-intro"><div><span className="eyebrow">CAMPUS OPERATIONS · ANALYTICS</span><h2>{t("每一份预购，都有迹可循。")}</h2><p>{t("从交易到服务，看清市场运行的每一个环节。")}</p></div><div className="analytics-export"><label className="sr-only" htmlFor="analytics-export-kind">{t("选择导出报表")}</label><select id="analytics-export-kind" value={exportKind} onChange={(e) => { setExportKind(e.target.value as ExportKind); setExported(false); }}>{Object.entries(reportNames).map(([value, name]) => <option key={value} value={value}>{t(name)}</option>)}</select><button className="button primary" onClick={exportReport}><Download size={15} />{t("导出 CSV")}</button>{exported && <span role="status" className="analytics-export-status">{t("报表已生成")}</span>}</div></section>
+    <section className="analytics-intro"><div><span className="eyebrow">CAMPUS OPERATIONS · ANALYTICS</span><h2>{t("看清需求，再安排下一场。")}</h2><p>{t("商品受欢迎程度、市场表现与自提安排，一起比较。")}</p></div><div className="analytics-export"><label className="sr-only" htmlFor="analytics-export-kind">{t("选择导出报表")}</label><select id="analytics-export-kind" value={exportKind} onChange={(e) => { setExportKind(e.target.value as ExportKind); setExported(false); }}>{Object.entries(reportNames).map(([value, name]) => <option key={value} value={value}>{t(name)}</option>)}</select><button className="button primary" onClick={exportReport}><Download size={15} />{t("导出 CSV")}</button>{exported && <span role="status" className="analytics-export-status">{t("报表已生成")}</span>}</div></section>
     {data.sampleData && <div className="analytics-sample"><Layers3 size={17} /><div><strong>{t("合成演示样本")}</strong><span>{t("当前交易、顾客与付款意向为生成样例，用于评审统计功能，不代表真实运营或 SNAP 核销。")}</span></div></div>}
     <div className="analytics-metrics">
       <Stat label={t("已完成交易额")} value={money(current.revenueCents)} icon={<Wallet size={18} />} note={t("仅计已完成自提订单")} delta={changePercent(current.revenueCents, prev?.revenueCents)} comparable={!!prev} baselineZero={prev?.revenueCents === 0} prominent />
@@ -75,6 +77,7 @@ export default function SchoolDashboard({ data, navigate, selectMarket }: {
     <div className="analytics-tab-content" id={`analytics-${view}`} role="tabpanel" aria-labelledby={`analytics-tab-${view}`}>
       {view === "overview" && <>
         <div className="analytics-primary-grid"><Trend data={data} /><Fulfillment data={data} /></div>
+        <div className="analytics-decision-grid"><ProductDemand products={a.products} compact onExpand={() => setView("products")} /><MarketComparison data={data} selectMarket={selectMarket} /></div>
         <div className="analytics-secondary-grid"><Demand data={data} /><Customers data={data} /></div>
         <Operations data={data} />
       </>}
@@ -100,16 +103,19 @@ function Trend({ data }: { data: SchoolOverview }) {
   const { t } = useLanguage();
   const [metric, setMetric] = useState("orders"), [interval, setInterval] = useState<"day" | "week" | "month">("day");
   const chart = aggregateTimeline(data.timeline, interval);
+  const mainLabel = metric === "revenue" ? "完成交易额" : metric === "snap" ? "SNAP 意向订单" : "预购订单";
+  const total = metric === "revenue" ? money(data.summary.revenueCents) : metric === "snap" ? data.summary.snapIntentOrders : data.summary.orders;
   return <section className="panel analytics-trend"><div className="analytics-panel-head"><div><span className="eyebrow">PERFORMANCE OVER TIME</span><h3>{t("预购与履约趋势")}</h3></div><select aria-label={t("趋势汇总粒度")} value={interval} onChange={(e) => setInterval(e.target.value as typeof interval)}><option value="day">{t("按日")}</option><option value="week">{t("按周")}</option><option value="month">{t("按月")}</option></select></div>
     <div className="analytics-segments" role="group" aria-label={t("趋势指标")}><button aria-pressed={metric === "orders"} onClick={() => setMetric("orders")}>{t("预购与完成")}</button><button aria-pressed={metric === "revenue"} onClick={() => setMetric("revenue")}>{t("完成交易额")}</button><button aria-pressed={metric === "snap"} onClick={() => setMetric("snap")}>{t("SNAP 意向")}</button></div>
-    {data.summary.orders ? <div className="analytics-chart" aria-label={t("按自提日期的经营趋势图")}><ResponsiveContainer width="100%" height="100%"><ComposedChart data={chart} margin={{ top: 16, right: 10, left: metric === "revenue" ? 0 : -20, bottom: 0 }}>
-      <defs><linearGradient id="analytics-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#9bb686" stopOpacity={0.45} /><stop offset="100%" stopColor="#eaf1e1" stopOpacity={0.15} /></linearGradient></defs>
-      <CartesianGrid vertical={false} stroke="#e9ede4" /><XAxis dataKey="date" tickFormatter={shortDate} minTickGap={25} tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-      <YAxis allowDecimals={false} tickFormatter={metric === "revenue" ? (v) => `$${Number(v) / 100}` : undefined} tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-      <Tooltip labelFormatter={(v) => String(v)} formatter={(v) => metric === "revenue" ? money(Number(v)) : v} contentStyle={{ fontSize: 12, borderRadius: 10, borderColor: "#e0e8d7" }} />
-      <Area isAnimationActive={false} type="linear" dataKey={metric === "revenue" ? "revenueCents" : metric === "snap" ? "snapOrders" : "orders"} name={t(metric === "revenue" ? "完成交易额" : metric === "snap" ? "SNAP 意向订单" : "预购订单")} stroke="#819c69" strokeWidth={2} fill="url(#analytics-area)" />
-      {metric === "orders" && <Line isAnimationActive={false} type="linear" dataKey="completed" name={t("已完成订单")} stroke="#31563d" strokeWidth={2.5} dot={false} />}
-    </ComposedChart></ResponsiveContainer></div> : <EmptyData text="所选周期暂无订单，真实记录会在这里形成趋势。" />}
+    <div className="decision-trend-summary"><strong>{total}</strong><span>{t(mainLabel)} · {t("本期")}</span></div>
+    <div className="decision-chart-legend"><span><i className={metric === "orders" ? "legend-orders" : "legend-completed"} />{t(mainLabel)}</span>{metric === "orders" && <span><i className="legend-line" />{t("已完成订单")}</span>}<small>{t("自提日期 · 美国东部时间")}</small></div>
+    {data.summary.orders ? <><div className="analytics-chart" aria-label={t("按自提日期的经营趋势图")}><ResponsiveContainer width="100%" height="100%"><ComposedChart accessibilityLayer data={chart} margin={{ top: 12, right: 10, left: 0, bottom: 6 }}>
+      <CartesianGrid vertical={false} stroke="#dfe6e2" strokeDasharray="3 4" /><XAxis dataKey="date" tickFormatter={shortDate} minTickGap={32} tick={{ fontSize: 11, fill: "#52685d" }} tickLine={false} axisLine={false} />
+      <YAxis width={metric === "revenue" ? 64 : 38} domain={[0, "auto"]} allowDecimals={false} tickFormatter={metric === "revenue" ? (v) => `$${Number(v) / 100}` : undefined} tick={{ fontSize: 11, fill: "#52685d" }} tickLine={false} axisLine={false} />
+      <Tooltip labelFormatter={(v) => String(v)} formatter={(v) => metric === "revenue" ? money(Number(v)) : v} contentStyle={{ fontSize: 12, borderRadius: 10, borderColor: "#d3dfd6", color: "#234633" }} />
+      {metric === "orders" ? <Bar isAnimationActive={false} dataKey="orders" name={t("预购订单")} fill="#a1b9cb" radius={[3,3,0,0]} maxBarSize={32} /> : <Area isAnimationActive={false} type="linear" dataKey={metric === "revenue" ? "revenueCents" : "snapOrders"} name={t(mainLabel)} stroke="#28694b" strokeWidth={2.5} fill="#e0eee3" dot={chart.length === 1 ? { r: 5, fill: "#28694b" } : false} />}
+      {metric === "orders" && <Line isAnimationActive={false} type="linear" dataKey="completed" name={t("已完成订单")} stroke="#235e41" strokeWidth={2.5} dot={chart.length < 10 ? { r: 3, fill: "#235e41" } : false} />}
+    </ComposedChart></ResponsiveContainer></div><details className="decision-data-table"><summary>{t("查看趋势数据明细")}</summary><div className="school-table-wrap"><table className="school-table"><caption className="sr-only">{t("趋势数据明细")}</caption><thead><tr>{["自提日期", "预购订单", "已完成订单", "完成交易额", "SNAP 意向订单"].map((label) => <th key={label}>{t(label)}</th>)}</tr></thead><tbody>{chart.map((row) => <tr key={row.date}><td>{row.date}</td><td>{row.orders}</td><td>{row.completed}</td><td>{money(row.revenueCents)}</td><td>{row.snapOrders}</td></tr>)}</tbody></table></div></details></> : <EmptyData text="所选周期暂无订单，真实记录会在这里形成趋势。" />}
     <p className="school-footnote">{t("按自提日期及当前订单状态；周从周一开始，首尾可能为不足一周或一月的汇总。")}</p>
   </section>;
 }
@@ -124,10 +130,18 @@ function Fulfillment({ data }: { data: SchoolOverview }) {
 }
 function Demand({ data }: { data: SchoolOverview }) {
   const { t } = useLanguage(), a = data.analytics;
-  const slots = [...new Set(["10:00–12:00", "12:00–14:00", "14:00–16:00", ...a.slots.map((s) => s.slot)])];
+  const [selected, setSelected] = useState<{ weekday: number; slot: string } | null>(null);
+  const slots = [...new Set(a.slots.map((s) => s.slot))].sort();
   const max = Math.max(1, ...a.heatmap.map((c) => c.orders));
   const days = [[1, "周一"], [2, "周二"], [3, "周三"], [4, "周四"], [5, "周五"], [6, "周六"], [0, "周日"]] as const;
-  return <section className="panel"><div className="analytics-panel-head"><div><span className="eyebrow">PICKUP DEMAND</span><h3>{t("哪天、哪个时段更忙")}</h3></div><Clock3 size={18} /></div><div className="school-table-wrap"><table className="analytics-heatmap" aria-label={t("每周自提时段预购分布")}><thead><tr><th>{t("自提时段")}</th>{days.map(([key, label]) => <th key={key} scope="col">{t(label)}</th>)}</tr></thead><tbody>{slots.map((slot) => <tr key={slot}><th scope="row">{slot}</th>{days.map(([weekday, label]) => { const n = a.heatmap.find((c) => c.slot === slot && c.weekday === weekday)?.orders ?? 0; return <td key={weekday}><span title={`${t(label)} ${slot}: ${n}`} style={{ background: n ? `rgba(79,115,64,${0.14 + 0.74 * n / max})` : "#f0f3e9", color: n / max > 0.6 ? "#fff" : "#657a55" }}>{n || "·"}</span></td>; })}</tr>)}</tbody></table></div><p className="school-footnote">{t("累计有效预购数，排除取消；演示时段不表示官网营业时间或实际容量。")}</p></section>;
+  const peak = [...a.heatmap].sort((x, y) => y.orders - x.orders || x.weekday - y.weekday || x.slot.localeCompare(y.slot))[0];
+  const active = selected ? a.heatmap.find((c) => c.weekday === selected.weekday && c.slot === selected.slot) : peak;
+  const activeDay = days.find(([key]) => key === (selected?.weekday ?? active?.weekday));
+  return <section className="panel"><div className="analytics-panel-head"><div><span className="eyebrow">PICKUP DEMAND</span><h3>{t("哪天、哪个时段更忙")}</h3></div><Clock3 size={18} /></div>{slots.length ? <>
+    <div className="decision-demand-readout" role="status"><span>{t(selected ? "选中时段" : "预购最集中的时段")}</span><strong>{activeDay ? t(activeDay[1]) : "—"} {selected?.slot ?? active?.slot}</strong><b>{t("{count} 笔有效预购", { count: active?.orders ?? 0 })}</b></div>
+    <div className="school-table-wrap"><table className="analytics-heatmap" aria-label={t("每周自提时段预购分布")}><thead><tr><th>{t("自提时段")}</th>{days.map(([key, label]) => <th key={key} scope="col">{t(label)}</th>)}</tr></thead><tbody>{slots.map((slot) => <tr key={slot}><th scope="row">{slot}</th>{days.map(([weekday, label]) => { const n = a.heatmap.find((c) => c.slot === slot && c.weekday === weekday)?.orders ?? 0; const level = n ? Math.ceil(n / max * 4) : 0; return <td key={weekday}><button className={`heat-level-${level}`} aria-label={`${t(label)} ${slot}: ${n}`} aria-pressed={selected?.weekday === weekday && selected.slot === slot} onClick={() => setSelected({ weekday, slot })}>{n}</button></td>; })}</tr>)}</tbody></table></div>
+    <div className="decision-heat-legend"><span>0</span>{[0,1,2,3,4].map((level) => <i key={level} className={`heat-level-${level}`} />)}<span>{max} {t("有效预购")}</span></div></> : <EmptyData text="所选周期暂无有效预购" />}
+    <p className="school-footnote">{t("累计有效预购数，排除取消；演示时段不表示官网营业时间或实际容量。")}</p><p className="school-footnote">{t("0 表示无有效预购记录，不表示市场开门却无人购买。")}</p></section>;
 }
 function Customers({ data }: { data: SchoolOverview }) {
   const { t } = useLanguage(), a = data.analytics, c = a.customers;
@@ -145,13 +159,13 @@ function Operations({ data }: { data: SchoolOverview }) {
 const reportTodayLocal = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
 
 function Network({ data, selectMarket, navigate }: { data: SchoolOverview; selectMarket: (id: number | null) => void; navigate: (page: Page) => void }) {
-  const { t } = useLanguage(); const [sort, setSort] = useState<"revenueCents" | "orders" | "participants">("revenueCents");
-  const markets = [...data.markets].sort((a, b) => b[sort] - a[sort] || a.id - b.id);
+  const { t } = useLanguage();
+  const markets = [...data.markets].sort((a, b) => b.revenueCents - a.revenueCents || a.id - b.id);
   const total = data.markets.reduce((n, m) => n + m.revenueCents, 0);
   const vendors = data.vendors.filter((v) => !data.marketId || v.marketIds.includes(data.marketId) || v.orders > 0 || v.products > 0);
   return <>
-    <section className="panel"><div className="analytics-panel-head"><div><span className="eyebrow">MARKET BENCHMARK</span><h3>{t("跨市场经营对比")}</h3></div><select aria-label={t("市场对比排序")} value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}><option value="revenueCents">{t("按完成交易额")}</option><option value="orders">{t("按预购订单")}</option><option value="participants">{t("按参与顾客")}</option></select></div>
-      <div className="analytics-market-bars">{markets.map((m) => <button key={m.id} aria-pressed={data.marketId === m.id} onClick={() => selectMarket(data.marketId === m.id ? null : m.id)}><span>{t(m.name)}</span><div><i style={{ width: `${m[sort] / Math.max(1, ...markets.map((item) => item[sort])) * 100}%`, background: marketColors[data.markets.findIndex((x) => x.id === m.id) % marketColors.length] }} /></div><strong>{sort === "revenueCents" ? money(m[sort]) : m[sort]}</strong><ArrowRight size={14} /></button>)}</div>
+    <MarketComparison data={data} selectMarket={selectMarket} />
+    <section className="panel"><h3 className="decision-table-heading">{t("市场数据明细")}</h3>
       <div className="school-table-wrap"><table className="school-table"><thead><tr>{["市场", "预购订单", "已完成订单", "订单完成率", "订单取消率", "参与顾客", "平均完成订单金额", "交易额占比"].map((x) => <th key={x}>{t(x)}</th>)}</tr></thead><tbody>{markets.map((m) => <tr key={m.id}><td><button className="text-button" onClick={() => selectMarket(m.id)}>{t(m.name)}</button></td><td>{m.orders}</td><td>{m.completed}</td><td>{rate(m.orders ? m.completed / m.orders * 100 : null)}</td><td>{rate(m.orders ? m.cancelled / m.orders * 100 : null)}</td><td>{m.participants}</td><td>{m.completed ? money(Math.round(m.revenueCents / m.completed)) : "—"}</td><td>{rate(total ? m.revenueCents / total * 100 : null)}</td></tr>)}</tbody></table></div>
       <p className="school-footnote">{t("对比保留全部市场，使用同一日期范围；点击市场可切换全局统计范围。参与人数跨市场不能直接相加。")}</p>
     </section>
@@ -160,16 +174,11 @@ function Network({ data, selectMarket, navigate }: { data: SchoolOverview; selec
 }
 function Products({ data }: { data: SchoolOverview }) {
   const { t, language } = useLanguage(); const a = data.analytics;
-  const [sort, setSort] = useState<"revenueCents" | "orders">("revenueCents");
-  const products = [...a.products].sort((p, q) => q[sort] - p[sort]);
   return <>
-    <div className="analytics-stock-cards">{[["今日上架商品", a.inventory.listed], ["今日可预购商品数", a.inventory.available], ["低库存商品", a.inventory.lowStock], ["已售罄商品", a.inventory.soldOut]].map(([label, n]) => <article key={label}><Package size={18} /><strong>{n}</strong><span>{t(String(label))}</span></article>)}</div>
-    <section className="panel"><div className="analytics-panel-head"><div><span className="eyebrow">PRODUCT PERFORMANCE</span><h3>{t("商品成交排行")}</h3></div><select aria-label={t("商品排行排序")} value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}><option value="revenueCents">{t("按完成交易额")}</option><option value="orders">{t("按完成订单数")}</option></select></div>
-      {products.length ? <div className="school-table-wrap"><table className="school-table"><thead><tr>{["商品 / 商户", "成交市场", "完成订单数", "售出数量", "已完成交易额"].map((x) => <th key={x}>{t(x)}</th>)}</tr></thead><tbody>{products.slice(0, 50).map((p, i) => <tr key={`${p.productId}:${p.marketId}:${p.name}:${p.unit}`}><td><strong><span className="analytics-rank">{String(i + 1).padStart(2, "0")}</span>{t(p.name)}</strong><small>{t(p.vendorName)}</small></td><td>{t(p.marketName)}</td><td>{p.orders}</td><td>{p.quantity} {quantityUnit(language, p.unit, p.quantity)}</td><td><strong>{money(p.revenueCents)}</strong></td></tr>)}</tbody></table></div> : <EmptyData />}
-      <p className="school-footnote">{t("展示按所选指标排序的前 50 项，CSV 可导出全部。不同成交市场、名称和单位分别展示；历史金额使用成交快照。")}</p>
-    </section>
-    <div className="analytics-secondary-grid"><section className="panel"><div className="analytics-panel-head"><div><span className="eyebrow">LIVE INVENTORY</span><h3>{t("补货与售罄提醒")}</h3></div><span className="school-badge">{t("当前快照")}</span></div>
-      {a.inventory.alerts.length ? <div className="analytics-stock-list">{a.inventory.alerts.map((p) => <div key={p.id}><span><strong>{t(p.name)}</strong><small>{t(p.marketName)} · {t(p.vendorName)}</small></span><span className={`school-badge ${p.stock === 0 ? "muted" : ""}`}>{p.stock === 0 ? t("已售罄") : `${p.stock} ${quantityUnit(language, p.unit, p.stock)}`}</span></div>)}</div> : <EmptyData text="当前没有低库存或售罄提醒" />}<p className="school-footnote">{t("今日启用且开放预购市场的上架商品，库存 1–5 为低库存，0 为售罄；最多显示 20 项。")}</p></section>
+    <div className="analytics-stock-cards">{[["今日上架商品", a.inventory.listed], ["今日可预购商品数", a.inventory.available], ["低库存商品", a.inventory.lowStock], ["可预购库存为零", a.inventory.soldOut]].map(([label, n]) => <article key={label}><Package size={18} /><strong>{n}</strong><span>{t(String(label))}</span></article>)}</div>
+    <ProductDemand products={a.products} />
+    <div className="analytics-secondary-grid"><section className="panel"><div className="analytics-panel-head"><div><span className="eyebrow">LIVE INVENTORY</span><h3>{t("预购库存提醒")}</h3></div><span className="school-badge">{t("当前快照")}</span></div>
+      {a.inventory.alerts.length ? <div className="analytics-stock-list">{a.inventory.alerts.map((p) => <div key={p.id}><span><strong>{t(p.name)}</strong><small>{t(p.marketName)} · {t(p.vendorName)}</small></span><span className={`school-badge ${p.stock === 0 ? "muted" : ""}`}>{p.stock === 0 ? t("可预购库存为零") : `${p.stock} ${quantityUnit(language, p.unit, p.stock)}`}</span></div>)}</div> : <EmptyData text="当前没有低库存或售罄提醒" />}<p className="school-footnote">{t("今日上架商品的可预购库存；0 不代表实物售罄，1–5 为固定提醒阈值。最多显示 20 项。")}</p></section>
       <section className="panel"><div className="analytics-panel-head"><div><span className="eyebrow">CATALOG MIX</span><h3>{t("当前商品结构")}</h3></div><Package size={18} /></div><div className="analytics-category-list">{a.inventory.categories.map((c, i) => <div key={c.name}><span><i style={{ background: marketColors[i % marketColors.length] }} />{t(c.name)}</span><strong>{c.products}</strong><small>{rate(a.inventory.listed ? c.products / a.inventory.listed * 100 : null)}</small></div>)}</div>{!a.inventory.listed && <EmptyData text="当前没有今日上架商品" />}<div className="analytics-alert-line"><CreditCard size={15} /><span>{t("食品资格待核实商品")}</span><strong>{a.inventory.snapUnknown}</strong></div><p className="school-footnote">{t("反映今日商品结构与食品资格标记，不作为历史销量或 SNAP 接受证明。")}</p></section></div>
   </>;
 }

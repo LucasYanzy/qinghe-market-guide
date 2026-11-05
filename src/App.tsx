@@ -70,6 +70,7 @@ import { usePointerFeedback } from "./pointerFeedback";
 import { QuantityButton } from "./QuantityButton";
 import { PaymentPreference } from "./PaymentPreference";
 import { PreorderReview } from "./PreorderReview";
+const VendorAnalytics = lazy(() => import("./VendorAnalytics"));
 import type {
   Config,
   Dashboard,
@@ -2039,7 +2040,7 @@ function RetailDashboard({
         <Stat
           label={t("今日已完成金额")}
           value={money(data.revenueCents)}
-          note={t("仅统计已自提并收款的订单")}
+          note={t("仅计已完成自提订单")}
           icon={<Wallet />}
         />
         <Stat
@@ -2055,6 +2056,7 @@ function RetailDashboard({
           icon={<Package />}
         />
       </div>
+      <VendorAnalytics revision={revision} />
       <div className="dashboard-columns">
         <section className="panel">
           <div className="panel-heading">
