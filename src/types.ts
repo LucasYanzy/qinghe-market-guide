@@ -57,6 +57,7 @@ export interface SnapVendorPolicy { market_id: number; snap_status: SnapStatus; 
 export interface CheckoutQuote {
   marketId: number; marketName: string; totalCents: number; eligibleCents: number; otherCents: number; unknownCents: number;
   snapAvailable: boolean; snapModel: Market["snap_model"]; marketVerifiedOn: string; vendorVerifiedOn: string; instructions: string;
+  marketConfirmed?: boolean; vendorConfirmed?: boolean;
   items: { productId: number; name: string; quantity: number; lineCents: number; snapEligibility: Product["snap_eligibility"] }[];
 }
 export interface ReportSummary {

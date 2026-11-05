@@ -61,7 +61,7 @@ import { VisitorHeader, VisitorFooter, visitorNav as clientNav } from "./Visitor
 const SchoolAdmin = lazy(() => import("./SchoolAdmin"));
 const Prices = lazy(() => import("./Prices"));
 const SchoolScreen = lazy(() => import("./SchoolScreen"));
-import { SnapCheckout, SnapFoodLabel, SnapOrderPlan } from "./SnapProgram";
+import { SnapCheckout, SnapFoodLabel, SnapOrderPlan, type SnapCheckoutStatus } from "./SnapProgram";
 import { PickupForm } from "./PickupForm";
 import { canRestoreShoppingDraft, readShoppingDraft, saveShoppingDraft, shoppingToday, type Cart, type CheckoutDraft } from "./shoppingDraft";
 import { MotionGrid, ScrollActions, usePageMotion } from "./motion";
@@ -1383,7 +1383,10 @@ function CartModal({
   const { note } = draft;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<Message>("");
-  const [snapReady, setSnapReady] = useState(false);
+  const itemsKey = JSON.stringify(Object.entries(cart).map(([id, quantity]) => ({ productId: Number(id), quantity })));
+  const [snapStatus, setSnapStatus] = useState<SnapCheckoutStatus>({ itemsKey: '', ready: false, message: '正在核对现场付款条件…' });
+  const snapReady = snapStatus.itemsKey === itemsKey && snapStatus.ready;
+  const snapDetails = useRef<HTMLDivElement>(null);
   const submitting = useRef(false);
   type RemovedItem = { id: number; quantity: number; name: string; date: string };
   const [review, setReview] = useState<string | null>(null);
@@ -1455,6 +1458,10 @@ function CartModal({
   const invalid = entries.some(
     (item) => !item.product || item.quantity > maxQuantity(item.product),
   ) || entries.some(item => item.product && (item.product.market_id !== firstProduct?.market_id || item.product.retailer_id !== firstProduct?.retailer_id));
+  const checkoutBlocker: Message = invalid ? '商品或库存已变化，请按上方提示调整购物袋后提交。'
+    : !slot ? optionsError ? '自提时段加载失败，已选商品和备注仍保留。' : optionsReady ? '当前暂无可用自提时段，请稍后再来。' : '正在加载自提时段…'
+    : draft.paymentMethod === 'snap_ebt' && !snapReady ? snapStatus.itemsKey === itemsKey ? snapStatus.message : '正在核对现场付款条件…'
+    : user && user.role !== 'client' ? '当前账号为管理身份，请切换顾客账号后预购。' : '';
   const reviewKey = JSON.stringify({ cart, products: entries.map((entry) => entry.product), date: pickupDate, slot, payment: draft.paymentMethod, note, userId: user?.id });
   useEffect(() => {
     if (review && review !== reviewKey) {
@@ -1630,8 +1637,11 @@ function CartModal({
                 </div>
               ))}
             </div>
-            <PaymentPreference value={draft.paymentMethod ?? "pay_at_pickup"} disabled={busy}
+            <PaymentPreference value={draft.paymentMethod ?? "pay_at_pickup"} disabled={busy} verified={snapReady}
               onChange={(paymentMethod) => onDraftChange({ ...draft, paymentMethod })} />
+            <div ref={snapDetails} tabIndex={-1} className="cart-payment-check"><SnapCheckout itemsKey={itemsKey}
+              method={draft.paymentMethod ?? "pay_at_pickup"} onStatus={setSnapStatus}
+              onUseStandard={() => onDraftChange({ ...draft, paymentMethod: 'pay_at_pickup' })} /></div>
             <div className="pickup-box">
               <div>
                 <Store size={17} />
@@ -1665,8 +1675,6 @@ function CartModal({
                 />
               </label>
             </div>
-            <SnapCheckout itemsKey={JSON.stringify(Object.entries(cart).map(([id, quantity]) => ({ productId: Number(id), quantity })))}
-              method={draft.paymentMethod ?? "pay_at_pickup"} onReady={setSnapReady} />
             <div className="cart-total">
               <span>{t("预计合计 ")}<small>USD</small>
               </span>
@@ -1686,8 +1694,11 @@ function CartModal({
             {!slot && optionsReady && !optionsError && (
               <p className="form-error" role="alert">{t("当前暂无可用自提时段，请稍后再来。")}</p>
             )}
+            <div className="cart-submit-area">
+            {checkoutBlocker && <p id="cart-checkout-blocker" className="cart-checkout-blocker" role="status">{t(checkoutBlocker)}{draft.paymentMethod === 'snap_ebt' && !snapReady && <button type="button" className="text-button" onClick={() => { snapDetails.current?.scrollIntoView({ block: 'start' }); snapDetails.current?.focus({ preventScroll: true }); }}>{t('查看付款核对')}</button>}</p>}
             <button
               ref={checkoutButton}
+              aria-describedby={checkoutBlocker ? 'cart-checkout-blocker' : undefined}
               className="button primary full-width cart-submit"
               disabled={busy || invalid || !slot || (draft.paymentMethod === "snap_ebt" && !snapReady) || (!!user && user.role !== "client")}
             >
@@ -1703,6 +1714,7 @@ function CartModal({
                   : "登录后预购")}
               <ArrowRight size={16} />
             </button>
+            </div>
           </fieldset>
         </form>
       </>}

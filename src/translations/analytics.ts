@@ -1,4 +1,10 @@
 export const analyticsEnglish: Record<string, string> = {
+  "食品资格不等于商户接受 SNAP；下单前还需核对市场与商户受理状态。": "Food eligibility does not confirm SNAP acceptance. Market and vendor acceptance must also be verified before ordering.",
+  "市场的 SNAP 受理条件尚未核实，暂不能提交 SNAP 预购。": "This market's SNAP acceptance has not been verified, so SNAP preorders are currently unavailable.",
+  "此商户的 SNAP 参与状态尚未核实，暂不能提交 SNAP 预购。": "This vendor's SNAP participation has not been verified, so SNAP preorders are currently unavailable.",
+  "改用常规到场付款": "Use standard payment at pickup",
+  "查看付款核对": "Review payment checks",
+  "当前账号为管理身份，请切换顾客账号后预购。": "You are signed in as a manager. Switch to a customer account to preorder.",
   "信用卡": "Credit card",
   "支票": "Check",
   "配比补助": "Matching benefits",

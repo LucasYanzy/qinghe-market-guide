@@ -160,12 +160,13 @@
 .business-model-intro { color: #64748b; line-height: 1.8; font-size: 12px; }
 .business-readiness ul { list-style: none; padding: 0; margin: 22px 0 0; display: grid; gap: 16px; }
 .business-readiness li { display: flex; justify-content: space-between; align-items: center; gap: 16px; font-size: 12px; line-height: 1.7; color: #475569; }
-.business-readiness b { font-size: 10px; font-weight: 500; padding: 5px 8px; border-radius: 5px; text-align: right; flex-shrink: 0; }
+.business-readiness b { font-size: 10px; font-weight: 500; padding: 5px 8px; border-radius: 5px; text-align: right; flex-shrink: 1; max-width: 55%; overflow-wrap: anywhere; }
 .business-readiness .ready { color: #0f766e; background: #ecf8f3; }
 .business-readiness .missing { color: #936722; background: #fbf5e8; }
 @media (min-width: 1350px) { .analytics-primary-grid { grid-template-columns: minmax(0,2fr) minmax(260px,1fr); } .analytics-decision-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media (max-width: 1100px) { .analytics-primary-grid, .analytics-secondary-grid, .analytics-decision-grid { grid-template-columns: minmax(0,1fr); } .analytics-intro { flex-wrap: wrap; } }
 @media (max-width: 760px) { .business-grid { grid-template-columns: minmax(0,1fr); } .business-context { flex-wrap: wrap; } .business-context h3 { font-size: 20px; } }
+@media (max-width: 1000px) { .business-grid { grid-template-columns: minmax(0,1fr); } }
 @media (max-width: 600px) {
   .analytics-workspace .analytics-dashboard .panel { padding: 18px; }
   .analytics-intro h2 { font-size: 25px; } .analytics-intro p { font-size: 11px; }

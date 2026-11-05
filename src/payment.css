@@ -35,3 +35,12 @@
   .payment-choice-icon, .payment-hold.is-holding circle { animation: none; }
   .payment-hold.is-holding circle { stroke-dashoffset: 0; }
 }
+.payment-preference.is-snap.needs-verification { background: #faf5e9; border-color: #d8be87; }
+.payment-preference.needs-verification .payment-choice-icon { background: #f5ecd5; color: #946c2e; }
+.cart-submit-area { position: sticky; bottom: env(safe-area-inset-bottom, 0px); z-index: 3; background: #fffefa; padding-top: 10px; box-shadow: 0 -8px 12px #fffefaed; }
+.cart-submit-area .cart-submit { position: static; box-shadow: none; }
+.cart-checkout-blocker { color: #8c602c; font-size: 12px; line-height: 1.7; padding: 8px 10px; margin: 0 0 8px; background: #faf2e3; border: 1px solid #eadfc8; border-radius: 7px; overflow-wrap: anywhere; }
+.cart-checkout-blocker .text-button { font-size: inherit; margin-left: 8px; text-decoration: underline; }
+.snap-standard-action { justify-content: center; white-space: normal; }
+.cart-payment-check { scroll-margin-top: 16px; border-radius: 10px; }
+.cart-payment-check:focus-visible { outline: 2px solid #819c68; outline-offset: 3px; }
