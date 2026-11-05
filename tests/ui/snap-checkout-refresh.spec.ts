@@ -103,7 +103,8 @@ test('SNAP 预估失败不显示为可用，重新核对恢复后可提交且保
     await expect(submit).toBeEnabled();
     await expect(bag.locator('.payment-current strong')).toHaveText('SNAP/EBT');
     await submit.click();
-    await page.screenshot({ path: test.info().outputPath('snap-ready.png') });
+    await expect(page.locator('.toast')).toHaveCount(0);
+    await page.screenshot({ path: test.info().outputPath('snap-ready.png'), animations: 'disabled' });
     await bag.getByRole('button', { name: '确认并提交预购', exact: true }).click();
     await expect(page).toHaveURL('/orders');
   } finally { await admin.dispose(); }
