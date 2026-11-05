@@ -7,6 +7,7 @@ import guide from "../references/rutgers-market-guide.json";
 import { MarketDayPlanner, useMarketNow } from "./MarketVisit";
 import { directionsUrl, formatMarketDate, upcomingEvents, type TravelMode } from "./marketSchedule";
 import { SnapPurchaseGuide } from "./SnapProgram";
+import { MotionTabs } from "./motion";
 
 export function OfficialSource() {
   const { t } = useLanguage();
@@ -58,9 +59,9 @@ export default function MarketGuide({ liveSessions = true }: { liveSessions?: bo
     </div>
     <div className="market-directory-heading" id="market-locations"><h2>{t("所有市场，地址与到场指引")}</h2><p>{t("3 个地点已公布 2026 年日程；Busch 的具体日期仍待公布。")}</p></div>
     <div className="guide-toolbar">
-      <div className="category-tabs" role="group" aria-label={t("市场区域")}>
+      <MotionTabs activeKey={area} label={t("市场区域")}>
         {["全部地点", "Rutgers 校园", "New Brunswick 社区"].map((value) => <button key={value} className={value === area ? "selected" : ""} aria-pressed={value === area} onClick={() => setArea(value)}>{t(value)}</button>)}
-      </div>
+      </MotionTabs>
       <label className="search-field"><Search size={17} /><input aria-label={t("搜索市场地址")} placeholder={t("搜索市场或地址…")} value={search} onChange={(event) => setSearch(event.target.value)} />
         {search && <button aria-label={t("清除市场搜索")} onClick={() => setSearch("")}><X size={15} /></button>}
       </label>
