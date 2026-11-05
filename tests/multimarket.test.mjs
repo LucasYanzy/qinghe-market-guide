@@ -18,6 +18,12 @@ async function request(path, { role = "admin", method = "GET", body } = {}) {
   });
   return { status: response.status, data: await response.json(), cookie: response.headers.get("set-cookie")?.split(";")[0] };
 }
+async function fulfill(order) {
+  assert.equal((await request(`/orders/${order.id}/status`, { role: "retailer", method: "PATCH", body: { status: "confirmed" } })).status, 200);
+  assert.equal((await request(`/orders/${order.id}/pickup`, { role: "retailer", method: "POST", body: {
+    pickupCode: order.pickup_code, cashCents: order.total_cents, cardCents: 0, snapCents: 0,
+  } })).status, 200);
+}
 before(async () => {
   db = openDatabase(":memory:"); server = createApp(db).listen(0, "127.0.0.1");
   await new Promise((resolve) => server.once("listening", resolve)); base = `http://127.0.0.1:${server.address().port}`;
@@ -48,7 +54,7 @@ test("listing transfers protect outstanding orders and retain the order's origin
   const moved = await request("/retailer/products/9", { role: "retailer", method: "PUT", body: { ...product, market_id: 1 } });
   assert.equal(moved.status, 409);
   assert.equal(db.prepare("SELECT market_id FROM products WHERE id=9").get().market_id, 2);
-  for (const status of ["confirmed", "completed"]) await request(`/orders/${order.data.id}/status`, { role: "retailer", method: "PATCH", body: { status } });
+  await fulfill(order.data);
   assert.equal((await request("/admin/overview?marketId=2")).data.summary.revenueCents, 800);
   assert.equal((await request("/admin/overview?marketId=1")).data.summary.revenueCents, 0);
   assert.equal((await request("/retailer/products/9", { role: "retailer", method: "PUT", body: { ...product, market_id: 1 } })).status, 200);
@@ -68,7 +74,7 @@ test("removing a vendor unlists only that market and keeps existing fulfillment"
   assert.equal(db.prepare("SELECT active FROM products WHERE id=1").get().active, 1);
   assert.equal((await request(`/retailer/products/${created.data.id}`, { role: "retailer", method: "PUT", body: { ...product, market_id: 2 } })).status, 403);
   assert.equal((await request("/orders", { role: "client", method: "POST", body: { items: [{ productId: created.data.id, quantity: 1 }], pickupSlot: "10:00–12:00" } })).status, 409);
-  for (const status of ["confirmed", "completed"]) assert.equal((await request(`/orders/${order.data.id}/status`, { role: "retailer", method: "PATCH", body: { status } })).status, 200);
+  await fulfill(order.data);
   assert.equal((await request("/admin/overview?marketId=2")).data.summary.revenueCents, 1200);
   await request("/admin/markets/2/vendors", { method: "PUT", body: { vendorIds: [2] } });
   assert.equal(db.prepare("SELECT active FROM products WHERE id=?").get(created.data.id).active, 0);

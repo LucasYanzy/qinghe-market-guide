@@ -186,9 +186,9 @@ test('English vendor pages, inventory search, product editor, and order actions 
   await expect(card.locator('.status-badge')).toHaveText('Awaiting pickup');
   await page.getByRole('button', { name: '切换为中文', exact: true }).click();
   await expect(card.locator('.status-badge')).toHaveText('待到场自提');
-  await expect(card.getByRole('button', { name: '确认已自提并收款', exact: true })).toBeVisible();
+  await expect(card.getByRole('textbox', { name: '6 位取货码', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Switch to English', exact: true }).click();
-  await expect(card.getByRole('button', { name: 'Confirm pickup & payment', exact: true })).toBeVisible();
+  await expect(card.getByRole('textbox', { name: '6-digit pickup code', exact: true })).toBeVisible();
   await expectEnglish(page);
 });
 

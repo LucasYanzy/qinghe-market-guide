@@ -141,8 +141,24 @@ test("preorders snapshot server prices, deduct stock and advance through merchan
         body: { status: "completed" },
       })
     ).status,
-    200,
+    409,
   );
+  const receipt = { pickupCode: placed.data.pickup_code, cashCents: placed.data.total_cents, cardCents: 0, snapCents: 0 };
+  const pickup = (body, cookie = retailer) => request(`/orders/${placed.data.id}/pickup`, { method: "POST", cookie, body });
+  assert.equal(placed.data.market_session_id, null);
+  assert.match(placed.data.pickup_code, /^\d{6}$/);
+  const sellerOrder = (await request("/orders", { cookie: retailer })).data.find(o => o.id === placed.data.id);
+  assert.equal('pickup_code' in sellerOrder, false);
+  assert.equal((await pickup(receipt, client)).status, 403);
+  assert.equal((await pickup({ ...receipt, pickupCode: '' })).status, 400);
+  const wrongCode = receipt.pickupCode === '000000' ? '111111' : '000000';
+  assert.equal((await pickup({ ...receipt, pickupCode: wrongCode })).status, 400);
+  assert.equal((await request("/orders", { cookie: client })).data.find(o => o.id === placed.data.id).status, 'confirmed');
+  assert.equal((await pickup(receipt)).status, 200);
+  assert.equal((await pickup(receipt)).status, 409);
+  const completed = (await request("/orders", { cookie: client })).data.find(o => o.id === placed.data.id);
+  assert.equal(completed.status, 'completed');
+  assert.equal(completed.receipt.cash_cents, placed.data.total_cents);
   const dashboard = await request("/retailer/dashboard", { cookie: retailer });
   assert.equal(dashboard.data.revenueCents, p.price_cents * 2);
 });

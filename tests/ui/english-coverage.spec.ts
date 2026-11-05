@@ -171,7 +171,10 @@ test('English reports and chart tooltips translate seeded labels and preserve re
   expect(response.status()).toBe(201);
   const order = await response.json();
   await login(page, 'retailer');
-  for (const status of ['confirmed', 'completed']) expect((await page.request.patch(`/api/orders/${order.id}/status`, { data: { status } })).ok()).toBe(true);
+  expect((await page.request.patch(`/api/orders/${order.id}/status`, { data: { status: 'confirmed' } })).ok()).toBe(true);
+  expect((await page.request.post(`/api/orders/${order.id}/pickup`, { data: {
+    pickupCode: order.pickup_code, cashCents: order.total_cents, cardCents: 0, snapCents: 0,
+  } })).ok()).toBe(true);
   await login(page, 'admin');
   await english(page, '/admin?market=1');
   const chart = page.locator('.analytics-chart');

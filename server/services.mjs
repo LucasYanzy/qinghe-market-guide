@@ -199,7 +199,7 @@ export function updateOrderStatus(db, user, id, status, { reason = '' } = {}) {
     };
     if (!allowed[order.status].includes(status))
       throw new HttpError(409, "订单状态已更新，请刷新后重试。");
-    if (status === 'completed' && (user.role === 'admin' || order.market_session_id || order.final_total_cents !== null || db.prepare("SELECT 1 FROM order_adjustments WHERE order_id=? AND status='proposed'").get(id)))
+    if (status === 'completed')
       throw new HttpError(409, "此订单需要核对取货码并登记现场收款后完成。");
     if (user.role === 'admin' && status === 'cancelled' && !reason.trim())
       throw new HttpError(400, "请填写取消原因，便于现场交接和后续追溯。");
