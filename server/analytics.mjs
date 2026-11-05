@@ -26,15 +26,17 @@ export function productPerformance(db, period, marketId = null, vendorId = null)
     FROM effective_order_items i JOIN orders o ON o.id=i.order_id JOIN markets m ON m.id=o.market_id
     JOIN vendor_directory u ON u.id=i.retailer_id WHERE ${filter}
     GROUP BY i.product_id,i.name,i.unit,o.market_id,i.retailer_id ORDER BY revenueCents DESC,i.product_id,i.name`).all(...params);
-  const repeat = db.prepare(`SELECT i.product_id AS productId,i.name,i.unit,o.market_id AS marketId,i.retailer_id AS vendorId,o.client_id
+  const repeat = db.prepare(`SELECT productId,name,unit,marketId,vendorId,COUNT(*) AS repeatBuyers FROM (
+    SELECT i.product_id AS productId,i.name,i.unit,o.market_id AS marketId,i.retailer_id AS vendorId,o.client_id
     FROM effective_order_items i JOIN orders o ON o.id=i.order_id WHERE ${filter}
     GROUP BY i.product_id,i.name,i.unit,o.market_id,i.retailer_id,o.client_id
     HAVING COUNT(DISTINCT COALESCE(CAST(o.market_session_id AS TEXT),
       (SELECT CAST(s.id AS TEXT) FROM market_sessions s WHERE s.market_id=o.market_id AND s.date=o.pickup_date),
-      'date:'||o.market_id||':'||o.pickup_date))>=2`).all(...params);
+      'date:'||o.market_id||':'||o.pickup_date))>=2
+    ) GROUP BY productId,name,unit,marketId,vendorId`).all(...params);
   const key = (p) => JSON.stringify([p.productId,p.name,p.unit,p.marketId,p.vendorId]);
   const repeats = new Map();
-  for (const row of repeat) repeats.set(key(row), (repeats.get(key(row)) ?? 0) + 1);
+  for (const row of repeat) repeats.set(key(row), row.repeatBuyers);
   return products.map((p) => ({ ...p, repeatBuyers: repeats.get(key(p)) ?? 0 }));
 }
 
