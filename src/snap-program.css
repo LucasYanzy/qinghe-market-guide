@@ -74,3 +74,6 @@
   .snap-checkout { padding: 15px; }
   .snap-order-plan { padding: 15px; }
 }
+
+.snap-checkout-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+.snap-checkout-actions .text-button { font-size: 12px; text-decoration: underline; text-underline-offset: 3px; min-height: 36px; }

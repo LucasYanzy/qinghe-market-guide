@@ -7,6 +7,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useId,
   useRef,
   useState,
   type FormEvent,
@@ -61,7 +62,7 @@ import { VisitorHeader, VisitorFooter, visitorNav as clientNav } from "./Visitor
 const SchoolAdmin = lazy(() => import("./SchoolAdmin"));
 const Prices = lazy(() => import("./Prices"));
 const SchoolScreen = lazy(() => import("./SchoolScreen"));
-import { SnapCheckout, SnapFoodLabel, SnapOrderPlan } from "./SnapProgram";
+import { SnapCheckout, SnapFoodLabel, SnapOrderPlan, type SnapCheckoutState } from "./SnapProgram";
 import { PickupForm } from "./PickupForm";
 import { canRestoreShoppingDraft, readShoppingDraft, saveShoppingDraft, shoppingToday, type Cart, type CheckoutDraft } from "./shoppingDraft";
 import { MotionGrid, ScrollActions, usePageMotion } from "./motion";
@@ -1383,7 +1384,8 @@ function CartModal({
   const { note } = draft;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<Message>("");
-  const [snapReady, setSnapReady] = useState(false);
+  const [snapState, setSnapState] = useState<SnapCheckoutState>({ key: "", ready: false, message: "正在核对现场付款条件…" });
+  const checkoutStatusId = useId();
   const submitting = useRef(false);
   type RemovedItem = { id: number; quantity: number; name: string; date: string };
   const [review, setReview] = useState<string | null>(null);
@@ -1455,6 +1457,13 @@ function CartModal({
   const invalid = entries.some(
     (item) => !item.product || item.quantity > maxQuantity(item.product),
   ) || entries.some(item => item.product && (item.product.market_id !== firstProduct?.market_id || item.product.retailer_id !== firstProduct?.retailer_id));
+  const itemsKey = JSON.stringify(Object.entries(cart).map(([id, quantity]) => ({ productId: Number(id), quantity })));
+  const quoteKey = JSON.stringify(entries.map(({ id, quantity, product }) => [id, quantity, product?.snap_eligibility, product?.price_cents, product?.market_id, product?.retailer_id, product?.available_date]));
+  const snapReady = snapState.key === quoteKey && snapState.ready;
+  const checkoutBlockReason = busy ? "" : invalid ? "商品或库存已变化，请按上方提示调整购物袋后提交。"
+    : !slot ? !optionsReady ? "正在加载自提时段…" : optionsError ? "自提时段加载失败" : "当前暂无可用自提时段，请稍后再来。"
+    : draft.paymentMethod === "snap_ebt" && !snapReady ? snapState.key === quoteKey ? snapState.message : "正在核对现场付款条件…"
+    : user && user.role !== "client" ? "请切换为顾客身份后预购。" : "";
   const reviewKey = JSON.stringify({ cart, products: entries.map((entry) => entry.product), date: pickupDate, slot, payment: draft.paymentMethod, note, userId: user?.id });
   useEffect(() => {
     if (review && review !== reviewKey) {
@@ -1632,6 +1641,9 @@ function CartModal({
             </div>
             <PaymentPreference value={draft.paymentMethod ?? "pay_at_pickup"} disabled={busy}
               onChange={(paymentMethod) => onDraftChange({ ...draft, paymentMethod })} />
+            <SnapCheckout itemsKey={itemsKey} quoteKey={quoteKey} active={!review && !busy}
+              method={draft.paymentMethod ?? "pay_at_pickup"} onState={setSnapState}
+              onRegularPayment={() => onDraftChange({ ...draft, paymentMethod: "pay_at_pickup" })} />
             <div className="pickup-box">
               <div>
                 <Store size={17} />
@@ -1665,8 +1677,6 @@ function CartModal({
                 />
               </label>
             </div>
-            <SnapCheckout itemsKey={JSON.stringify(Object.entries(cart).map(([id, quantity]) => ({ productId: Number(id), quantity })))}
-              method={draft.paymentMethod ?? "pay_at_pickup"} onReady={setSnapReady} />
             <div className="cart-total">
               <span>{t("预计合计 ")}<small>USD</small>
               </span>
@@ -1686,8 +1696,11 @@ function CartModal({
             {!slot && optionsReady && !optionsError && (
               <p className="form-error" role="alert">{t("当前暂无可用自提时段，请稍后再来。")}</p>
             )}
+            <div className="cart-checkout-footer">
+            {checkoutBlockReason && <p className="cart-checkout-status" id={checkoutStatusId} role="status">{t(checkoutBlockReason)}</p>}
             <button
               ref={checkoutButton}
+              aria-describedby={checkoutBlockReason ? checkoutStatusId : undefined}
               className="button primary full-width cart-submit"
               disabled={busy || invalid || !slot || (draft.paymentMethod === "snap_ebt" && !snapReady) || (!!user && user.role !== "client")}
             >
@@ -1703,6 +1716,7 @@ function CartModal({
                   : "登录后预购")}
               <ArrowRight size={16} />
             </button>
+            </div>
           </fieldset>
         </form>
       </>}

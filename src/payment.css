@@ -35,3 +35,7 @@
   .payment-choice-icon, .payment-hold.is-holding circle { animation: none; }
   .payment-hold.is-holding circle { stroke-dashoffset: 0; }
 }
+
+.cart-checkout-footer { position: sticky; bottom: env(safe-area-inset-bottom, 0px); z-index: 2; padding-top: 10px; background: #fffefa; box-shadow: 0 -10px 15px #ffffffed; }
+.cart-checkout-footer .cart-submit { position: static; box-shadow: none; }
+.cart-checkout-status { margin: 0 0 10px; font-size: 12px; line-height: 1.6; color: #685d3f; }

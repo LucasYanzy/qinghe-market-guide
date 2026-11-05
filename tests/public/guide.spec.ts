@@ -232,3 +232,34 @@ test("approved vendor applications preserve the same person's customer and vendo
   expect((await demoApi(page, "/auth/me")).data.user.id).toBe(customer.id);
   expect((await demoApi(page, "/auth/role", "POST", { role: "client" })).data.user.id).toBe(customer.id);
 });
+
+test('SNAP checkout explains vendor acceptance and rechecks it before placing the preorder', async ({ page }) => {
+  await page.goto('./');
+  await role(page, '商户');
+  const products = (await demoApi(page, '/retailer/products')).data;
+  const product = products.find((p: { id: number }) => p.id === 1);
+  expect((await demoApi(page, '/retailer/products/1', 'PUT', { ...product, active: true, organic: !!product.organic, snap_eligibility: 'eligible' })).status).toBe(200);
+  await role(page, '学校');
+  const today = (await demoApi(page, '/config')).data.today;
+  const policy = { snap_status: 'accepted', snap_verified_on: today, snap_note: 'Demo only: simulated acceptance' };
+  expect((await demoApi(page, '/admin/markets/1/snap', 'PUT', { ...policy, snap_model: 'vendor_terminal' })).status).toBe(200);
+  await role(page, '顾客');
+  await page.getByRole('button', { name: '将藤熟番茄加入购物袋', exact: true }).click();
+  await page.getByRole('button', { name: /^购物袋/ }).click();
+  const cart = bag(page);
+  await cart.getByRole('button', { name: '切换付款偏好', exact: true }).click();
+  await cart.getByRole('radio', { name: 'SNAP/EBT', exact: true }).check();
+  await expect(cart.locator('.cart-checkout-status')).toContainText('商户尚未确认接受 SNAP/EBT。');
+  await expect(cart.getByRole('button', { name: '确认预购', exact: true })).toBeDisabled();
+  // The demo retains one session; temporarily switch only through its supported control endpoint.
+  expect((await demoApi(page, '/demo/role', 'POST', { role: 'admin' })).status).toBe(200);
+  expect((await demoApi(page, '/admin/markets/1/vendors/2/snap', 'PUT', policy)).status).toBe(200);
+  expect((await demoApi(page, '/demo/role', 'POST', { role: 'client' })).status).toBe(200);
+  await cart.getByRole('button', { name: '重新核对', exact: true }).click();
+  await expect(cart.getByRole('button', { name: '确认预购', exact: true })).toBeEnabled();
+  await cart.getByRole('button', { name: '确认预购', exact: true }).click();
+  await cart.getByRole('button', { name: '确认并提交预购', exact: true }).click();
+  await expect(page.locator('.order-card')).toContainText('现场 SNAP/EBT 付款意向');
+  const [saved] = (await demoApi(page, '/orders')).data;
+  expect(saved.payment_method).toBe('snap_ebt');
+});
