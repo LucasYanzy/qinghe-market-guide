@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { RotateCcw, Sprout, X } from "lucide-react";
+import { BarChart3, RotateCcw, Sprout, X } from "lucide-react";
 import { api } from "../api";
 import { useLanguage } from "../i18n";
 import type { Role, User } from "../types";
@@ -7,6 +7,36 @@ import { clearDemo, storageAvailable } from "./state";
 import "./demo-controls.css";
 
 export const browserDemo = import.meta.env.VITE_BROWSER_DEMO === "true";
+type AnalyticsSample = { from: string; to: string; orders: number; sessions: number };
+
+export function DemoAnalyticsData({ onLoaded }: { onLoaded: () => void }) {
+  const { t } = useLanguage();
+  const [sample, setSample] = useState<AnalyticsSample | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (!browserDemo) return;
+    let current = true;
+    api<{ sample: AnalyticsSample | null }>("/demo/analytics").then(value => { if (current) setSample(value.sample); })
+      .catch(() => { if (current) setError("无法读取样本状态，请重试。"); }).finally(() => { if (current) setLoading(false); });
+    return () => { current = false; };
+  }, []);
+  if (!browserDemo) return null;
+  return <section className="demo-analytics-data" aria-label={t("数据演示")} aria-busy={busy || loading}>
+    <BarChart3 size={21} aria-hidden="true" /><div><strong>{t(sample ? "历史样本已载入" : "让报表先有一段可探索的历史")}</strong>
+      <p>{t(sample ? "图表包含合成历史样本和本标签页的操作；切换身份可继续同一份体验。" : "载入近 12 周的模拟交易、收款与销售填报，体验趋势、复购和付款占比。保留当前订单、库存与设置。")}</p>
+      {sample && <small>{sample.from} — {sample.to} · {t("{orders} 笔样本订单 · {sessions} 场样本", sample)}</small>}
+      {error && <p role="alert">{t(error)}</p>}
+    </div>
+    {!sample && <button className="button" disabled={busy || loading} onClick={async () => {
+      setBusy(true); setError("");
+      try { const value = await api<{ sample: AnalyticsSample }>("/demo/analytics", { method: "POST", body: "{}" }); setSample(value.sample); onLoaded(); }
+      catch { setError("无法载入演示样本，请确认演示商品可用后重试。"); }
+      finally { setBusy(false); }
+    }}>{t(busy ? "正在载入…" : "载入历史样本")}</button>}
+  </section>;
+}
 const roles: { id: Role; zh: string; en: string }[] = [
   { id: "client", zh: "顾客", en: "Customer" },
   { id: "retailer", zh: "商户", en: "Vendor" },
