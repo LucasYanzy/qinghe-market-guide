@@ -44,17 +44,19 @@ export function usePageMotion(page: string, ready: boolean) {
 }
 
 // Animate the existing nodes so filtering and sorting preserve keyboard focus.
-export function MotionGrid({ children, layoutKey }: { children: ReactNode; layoutKey: string }) {
+export function MotionGrid({ children, layoutKey, className = "" }: { children: ReactNode; layoutKey: string; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const previous = useRef(new Map<string, { x: number; y: number }>());
   const previousWidth = useRef(0);
+  const previousLayout = useRef(className);
   useLayoutEffect(() => {
     const root = ref.current;
     if (!root) return;
     const positions = new Map<string, { x: number; y: number }>();
     const animations: Animation[] = [];
     const width = root.clientWidth;
-    const sameWidth = previousWidth.current === width;
+    const sameWidth = previousWidth.current === width && previousLayout.current === className;
+    previousLayout.current = className;
     previousWidth.current = width;
     Array.from(root.children).forEach((child, index) => {
       const element = child as HTMLElement;
@@ -81,8 +83,8 @@ export function MotionGrid({ children, layoutKey }: { children: ReactNode; layou
       animations.forEach((animation) => animation.cancel());
       preference.removeEventListener("change", stop);
     };
-  }, [layoutKey]);
-  return <div ref={ref} className="product-grid">{children}</div>;
+  }, [layoutKey, className]);
+  return <div ref={ref} className={`product-grid ${className}`}>{children}</div>;
 }
 
 export function InteractiveHero({ children }: { children: ReactNode }) {
