@@ -9,7 +9,9 @@ const open = (page: Page) => page.getByRole("button", { name: /^购物袋/ }).cl
 
 async function choose(page: Page, quantity = 1) {
   await page.goto("/");
-  for (let i = 0; i < quantity; i++) await add(page).click();
+  // This case tests persistence; keyboard input avoids animated pointer targets.
+  for (let i = 0; i < quantity; i++) await add(page).press("Enter");
+  await expect(page.getByRole("button", { name: /^购物袋/ })).toContainText(String(quantity));
   await open(page);
   return bag(page);
 }

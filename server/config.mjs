@@ -28,16 +28,20 @@ export function readConfig(env = process.env) {
   if (publicUrl && (!/^https?:$/.test(publicUrl.protocol) || publicUrl.username || publicUrl.password || publicUrl.pathname !== "/" || publicUrl.search || publicUrl.hash))
     throw new Error("PUBLIC_ORIGIN must be an HTTP(S) origin without credentials or a path.");
   const secureCookie = settings.COOKIE_SECURE ?? production;
+  const demo = settings.DEMO_MODE ?? !production;
+  const loopback = ["127.0.0.1", "::1", "localhost"].includes(settings.HOST);
   if (publicUrl?.protocol === "https:" && !secureCookie)
     throw new Error("HTTPS deployments require COOKIE_SECURE=true.");
   if (production && settings.DATABASE_PATH === ":memory:")
     throw new Error("Production requires a persistent database, not :memory:.");
+  if (production && !demo && !loopback && (publicUrl?.protocol !== "https:" || !secureCookie))
+    throw new Error("Network-facing production requires an HTTPS PUBLIC_ORIGIN and COOKIE_SECURE=true. Bind HOST=127.0.0.1 for local HTTP testing.");
   return Object.freeze({
     production,
     host: settings.HOST,
     port: settings.PORT,
     databasePath: settings.DATABASE_PATH ?? "./data/market.sqlite",
-    demo: settings.DEMO_MODE ?? !production,
+    demo,
     secureCookie,
     trustProxy: settings.TRUST_PROXY,
     publicOrigin: publicUrl?.origin,
