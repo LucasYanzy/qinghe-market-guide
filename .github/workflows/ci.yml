@@ -4,6 +4,8 @@ on:
     branches: ["feat/public-release-architecture", "feat/farmers-market-platform", "main"]
   pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: "41 8 * * 1"
 permissions:
   contents: read
 concurrency:
@@ -14,19 +16,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - run: npm audit --omit=dev --audit-level=high
       - run: npm run check
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test
         env:
           CI: "true"
       - run: npx playwright test --config playwright.public.config.ts
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: failure()
         with:
           name: browser-test-results
@@ -39,12 +44,37 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - run: docker build --tag qinghe:test .
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - run: docker build --pull --tag qinghe:test .
+      - name: Scan runtime image with Grype
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        with:
+          image: qinghe:test
+          severity-cutoff: high
+          fail-build: true
+          only-fixed: false
+          output-format: table
+      - run: docker pull caddy:2.11.9-alpine
+      - name: Scan HTTPS proxy image with Grype
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        with:
+          image: caddy:2.11.9-alpine
+          severity-cutoff: high
+          fail-build: true
+          only-fixed: false
+          output-format: table
+      - name: Validate production stack and Caddy configuration
+        env:
+          MARKET_DOMAIN: market.example.com
+        run: |
+          docker compose -f compose.production.yaml config --quiet
+          docker compose -f compose.production.yaml run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
       - name: Verify container with durable storage
         run: |
           docker volume create qinghe-test
-          docker run --detach --name qinghe --publish 3001:3001 --mount source=qinghe-test,target=/data qinghe:test
+          docker run --detach --name qinghe --publish 127.0.0.1:3001:3001 --env PUBLIC_ORIGIN=https://market.example.com --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 512m --mount source=qinghe-test,target=/data qinghe:test
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:3001/api/health; then break; fi
             sleep 2

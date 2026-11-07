@@ -12,7 +12,7 @@ import { createApp } from "../server/app.mjs";
 test("production refuses volatile storage and defaults to private operational data", () => {
   assert.throws(() => readConfig({ NODE_ENV: "production" }), /DATABASE_PATH/);
   assert.throws(() => readConfig({ NODE_ENV: "production", DATABASE_PATH: ":memory:" }), /persistent/);
-  const config = readConfig({ NODE_ENV: "production", DATABASE_PATH: "/data/market.sqlite" });
+  const config = readConfig({ NODE_ENV: "production", DATABASE_PATH: "/data/market.sqlite", PUBLIC_ORIGIN: "https://market.example" });
   assert.equal(config.demo, false);
   assert.equal(config.secureCookie, true);
   assert.equal(config.trustProxy, 0);
@@ -79,4 +79,14 @@ test("SQLite online backup preserves WAL transactions and never overwrites a bac
     assert.throws(() => execFileSync(process.execPath, ["scripts/backup.mjs", destination], { env: { ...process.env, DATABASE_PATH: path }, stdio: "pipe" }));
     assert.deepEqual(readFileSync(destination), original);
   } finally { db.close(); rmSync(directory, { recursive: true, force: true }); }
+});
+
+
+test("network-facing operational deployments fail closed without HTTPS and a fixed origin", () => {
+  const base = { NODE_ENV: "production", DATABASE_PATH: "/data/market.sqlite" };
+  assert.throws(() => readConfig(base), /HTTPS PUBLIC_ORIGIN/);
+  assert.throws(() => readConfig({ ...base, PUBLIC_ORIGIN: "http://market.example" }), /HTTPS PUBLIC_ORIGIN/);
+  assert.throws(() => readConfig({ ...base, COOKIE_SECURE: "false" }), /HTTPS PUBLIC_ORIGIN/);
+  assert.equal(readConfig({ ...base, HOST: "127.0.0.1", COOKIE_SECURE: "false" }).secureCookie, false);
+  assert.equal(readConfig({ ...base, PUBLIC_ORIGIN: "https://market.example", TRUST_PROXY: "1" }).publicOrigin, "https://market.example");
 });

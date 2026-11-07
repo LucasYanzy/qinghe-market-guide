@@ -1,0 +1,54 @@
+# Standalone production stack: do not merge with the local demo compose.yaml.
+services:
+  market:
+    build: .
+    environment:
+      NODE_ENV: production
+      DATABASE_PATH: /data/market.sqlite
+      DEMO_MODE: "false"
+      COOKIE_SECURE: "true"
+      PUBLIC_ORIGIN: "https://${MARKET_DOMAIN:?Set MARKET_DOMAIN to your public hostname}"
+      TRUST_PROXY: "1"
+    volumes:
+      - production-data:/data
+    networks: [backend]
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 512m
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 15s
+  caddy:
+    image: caddy:2.11.9-alpine
+    environment:
+      MARKET_DOMAIN: "${MARKET_DOMAIN:?Set MARKET_DOMAIN to your public hostname}"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [edge, backend]
+    depends_on:
+      market:
+        condition: service_healthy
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 256m
+    restart: unless-stopped
+networks:
+  edge:
+  backend:
+    internal: true
+volumes:
+  production-data:
+  caddy-data:
+  caddy-config:
