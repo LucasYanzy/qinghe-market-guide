@@ -87,5 +87,5 @@ jobs:
             sleep 2
           done
           curl --fail http://127.0.0.1:3001/api/health
-      - run: docker logs qinghe
+      - run: if docker container inspect qinghe >/dev/null 2>&1; then docker logs qinghe; fi
         if: failure()
