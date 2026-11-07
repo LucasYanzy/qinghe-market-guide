@@ -56,21 +56,29 @@ jobs:
           fail-build: true
           only-fixed: false
           output-format: table
-      - run: docker pull caddy:2.11.9-alpine
+      - run: docker build --pull --file deploy/Proxy.Dockerfile --tag qinghe-proxy:local .
       - name: Scan HTTPS proxy image with Grype
         uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
         with:
-          image: caddy:2.11.9-alpine
+          image: qinghe-proxy:local
           severity-cutoff: high
           fail-build: true
           only-fixed: false
           output-format: table
-      - name: Validate production stack and Caddy configuration
+      - name: Verify production HTTPS routing and redirect
         env:
           MARKET_DOMAIN: market.example.com
+          # Never contact a public ACME endpoint for a CI example domain.
+          ACME_CA_SERVER: http://127.0.0.1:9/directory
         run: |
           docker compose -f compose.production.yaml config --quiet
-          docker compose -f compose.production.yaml run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+          docker compose -f compose.production.yaml up --build --wait --wait-timeout 120
+          curl --fail --insecure --resolve market.example.com:443:127.0.0.1 https://market.example.com/api/health
+          case "$(curl --silent --output /dev/null --write-out '%{http_code}' --resolve market.example.com:80:127.0.0.1 http://market.example.com/)" in
+            301|308) ;;
+            *) exit 1 ;;
+          esac
+          docker compose -f compose.production.yaml down
       - name: Verify container with durable storage
         run: |
           docker volume create qinghe-test

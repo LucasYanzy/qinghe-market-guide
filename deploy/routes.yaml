@@ -1,0 +1,20 @@
+http:
+  routers:
+    market:
+      rule: 'Host(`{{ env "MARKET_DOMAIN" }}`)'
+      entryPoints: [websecure]
+      service: market
+      middlewares: [body-limit, compression]
+      tls:
+        certResolver: letsencrypt
+  services:
+    market:
+      loadBalancer:
+        servers:
+          - url: http://market:3001
+  middlewares:
+    body-limit:
+      buffering:
+        maxRequestBodyBytes: 65536
+    compression:
+      compress: {}

@@ -90,13 +90,13 @@ To roll back code, redeploy the previous commit or image. Back up before schema 
 The project records in-person pickup and payment intentions. It does not process card payments or online EBT. Outbound email requires its own provider configuration and an explicit outbox command. Qinghe is an independent community project, not an official Rutgers service; official announcements remain the authority for temporary closures.
 
 
-## Hardened production deployment (Caddy)
+## Hardened production deployment (Traefik)
 
 Use the standalone `compose.production.yaml` for a single Linux host with Docker Compose. Do **not** combine it with `compose.yaml`: that file is a local HTTP demo with public sample accounts. Railway already supplies an HTTPS edge; use the hosting settings above there rather than running a second public proxy.
 
-The production stack uses [Caddy](https://github.com/caddyserver/caddy) 2.11.9 for automatic TLS certificate issuance, renewal and HTTP-to-HTTPS redirects. Only Caddy publishes host ports (80/443). The Node service has no published port and lives on an internal network; this is required for its single-hop `TRUST_PROXY=1` setting. Caddy ignores untrusted incoming forwarded headers by default. Do not add another proxy/CDN without reviewing that trust boundary. The Caddy admin API is disabled and access logging is not enabled, avoiding request URLs or account data in access logs.
+The production stack uses [Traefik](https://github.com/traefik/traefik) 3.7.17 for automatic TLS certificate issuance, renewal and HTTP-to-HTTPS redirects. Only Traefik publishes host ports (80/443). The Node service has no published port and lives on an internal network; this is required for its single-hop `TRUST_PROXY=1` setting. Traefik does not trust incoming forwarded headers by default. Do not add another proxy/CDN without reviewing that trust boundary. The Traefik dashboard/API is disabled and access logging is not enabled, avoiding request URLs or account data in access logs.
 
-Point a real hostname at the host, allow inbound TCP 80/443 and allow Caddy outbound access for ACME certificate renewal. Replace `market.example.com` below with that hostname. Use the same Compose project name for all commands so the database volume is shared:
+Point a real hostname at the host, allow inbound TCP 80/443 and allow Traefik outbound access for ACME certificate renewal. Replace `market.example.com` below with that hostname. Use the same Compose project name for all commands so the database volume is shared:
 
 ```sh
 export MARKET_DOMAIN=market.example.com
@@ -110,7 +110,7 @@ curl --fail "https://${MARKET_DOMAIN}/api/health"
 
 Production is hardcoded to `DEMO_MODE=false`, secure cookies and an exact HTTPS origin. Network-facing non-demo production now refuses startup without that origin and secure cookies. `HOST=127.0.0.1` is the explicit local HTTP testing exception. Both containers have read-only root filesystems, dropped capabilities, process/memory limits and privilege escalation disabled. Only database/certificate volumes (plus the application's bounded temporary filesystem) remain writable. No Docker socket is mounted. The application image uses Node 24 on Alpine with distribution updates applied; npm/yarn are removed from the runtime, so invoke maintenance scripts directly with `node scripts/backup.mjs` or `node scripts/setup-admin.mjs` inside the container. The internal application network also prevents external email delivery; explicitly design an egress path before enabling notifications.
 
-Caddy's image is patch-version pinned; rebuild/review security updates regularly. Back up the production volume with the documented SQLite backup process, copying backups to independent durable storage. Do not reuse the local demo volume or remove production volumes during routine updates. Keep the existing backup/restore and rollback procedure above.
+Traefik's image is built from a patch-version-pinned upstream image with Alpine updates applied; rebuild/review security updates regularly. Back up the production volume with the documented SQLite backup process, copying backups to independent durable storage. Do not reuse the local demo volume or remove production volumes during routine updates. Keep the existing backup/restore and rollback procedure above.
 
 ## Security checks and release policy
 
@@ -120,7 +120,7 @@ The implementation uses mature upstream tools:
 - [Anchore Grype](https://github.com/anchore/grype), through [scan-action](https://github.com/anchore/scan-action): CI scans the built runtime image, including OS and application packages; any HIGH/CRITICAL result fails the container job, including issues without a published fix. Database/download failures also fail the check. No blanket vulnerability exceptions are configured.
 - `npm audit --omit=dev --audit-level=high` checks production npm dependencies. Dependabot proposes weekly npm, Docker, Compose and GitHub Actions updates. Update PRs still need review and passing checks.
 
-All current workflow action references are fixed to verified full commit hashes, with read-only build/scanner token permissions and checkout credential persistence disabled. Only the Pages deployment job receives Pages and OIDC write permissions. Scanners run without deployment credentials. Container CI validates the production Compose/Caddy configuration and exercises the image with the same read-only and restricted runtime settings before/after restart.
+All current workflow action references are fixed to verified full commit hashes, with read-only build/scanner token permissions and checkout credential persistence disabled. Only the Pages deployment job receives Pages and OIDC write permissions. Scanners run without deployment credentials. Container CI validates the production Compose configuration and HTTPS routing and exercises the image with the same read-only and restricted runtime settings before/after restart.
 
 Before releasing, configure repository rules for the release branch to require `validate`, `container` and `secrets`, require pull requests, and disable bypass for normal publishing accounts. These remote settings are **not** activated by adding workflow files. Likewise, any hosting provider that deploys on push must wait for these checks or be switched to a controlled release process; a failed workflow alone does not stop an independent Railway auto-deploy. Review the Grype result and repair/update vulnerable packages before release. A clean scan is evidence for that tool and database at that time, not a guarantee of application security.
 
