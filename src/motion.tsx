@@ -43,121 +43,45 @@ export function usePageMotion(page: string, ready: boolean) {
   return ref;
 }
 
-// The highlight follows the selected control; wrapped rows fade in instead of
-// sweeping over unrelated labels. The buttons retain their native focus behavior.
-export function MotionTabs({ children, activeKey, label }: { children: ReactNode; activeKey: string; label: string }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const highlight = useRef<HTMLSpanElement>(null);
-  const animation = useRef<Animation | null>(null);
-  const previous = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
-  const position = useRef((animate: boolean) => {
-    const root = ref.current, indicator = highlight.current;
-    const selected = root?.querySelector<HTMLElement>('button[aria-pressed="true"]');
-    if (!root || !indicator || !selected) return;
-    const next = { x: selected.offsetLeft, y: selected.offsetTop, width: selected.offsetWidth, height: selected.offsetHeight };
-    const last = previous.current;
-    if (last && next.x === last.x && next.y === last.y && next.width === last.width && next.height === last.height) return;
-    const visual = indicator.getBoundingClientRect();
-    const bounds = root.getBoundingClientRect();
-    animation.current?.cancel();
-    Object.assign(indicator.style, { left: `${next.x}px`, top: `${next.y}px`, width: `${next.width}px`, height: `${next.height}px` });
-    root.dataset.motionReady = "true";
-    previous.current = next;
-    if (!animate || !last || !indicator.animate || reducedMotion()) return;
-    const sameRow = Math.abs(last.y - next.y) < 1;
-    animation.current = indicator.animate(sameRow ? [
-      { transform: `translate(${visual.left - bounds.left - next.x}px, ${visual.top - bounds.top - next.y}px) scale(${visual.width / next.width}, ${visual.height / next.height})` },
-      { transform: "translate(0, 0) scale(1)" },
-    ] : [{ opacity: .25 }, { opacity: 1 }], { duration: sameRow ? 280 : 160, easing });
-  });
-  useLayoutEffect(() => position.current(true), [activeKey, children]);
-  useEffect(() => {
-    const root = ref.current;
-    if (!root) return;
-    const align = () => position.current(false);
-    const stop = () => animation.current?.cancel();
-    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const observer = window.ResizeObserver ? new ResizeObserver(align) : undefined;
-    observer?.observe(root);
-    root.querySelectorAll("button").forEach((button) => observer?.observe(button));
-    window.addEventListener("resize", align, { passive: true });
-    preference.addEventListener("change", stop);
-    return () => {
-      stop();
-      observer?.disconnect();
-      window.removeEventListener("resize", align);
-      preference.removeEventListener("change", stop);
-    };
-  }, []);
-  return <div ref={ref} className="category-tabs motion-tabs" role="group" aria-label={label}>
-    <span ref={highlight} className="motion-tabs-indicator" aria-hidden="true" />{children}
-  </div>;
-}
-
-// Keep nodes and keyboard focus. Capture in-flight offsets before cancelling so
-// rapid sorting continues from the visible position instead of snapping back.
+// Animate the existing nodes so filtering and sorting preserve keyboard focus.
 export function MotionGrid({ children, layoutKey }: { children: ReactNode; layoutKey: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const previous = useRef(new Map<string, { x: number; y: number }>());
   const previousWidth = useRef(0);
-  const animations = useRef(new Map<HTMLElement, Animation>());
   useLayoutEffect(() => {
     const root = ref.current;
     if (!root) return;
     const positions = new Map<string, { x: number; y: number }>();
+    const animations: Animation[] = [];
     const width = root.clientWidth;
     const sameWidth = previousWidth.current === width;
     previousWidth.current = width;
-    const bounds = root.getBoundingClientRect();
-    const changes = Array.from(root.children).map((child) => {
+    Array.from(root.children).forEach((child, index) => {
       const element = child as HTMLElement;
       const id = element.dataset.productId!;
       const next = { x: element.offsetLeft, y: element.offsetTop };
       positions.set(id, next);
+      if (!element.animate || reducedMotion() || !previous.current.size || !sameWidth) return;
       const last = previous.current.get(id);
-      const style = animations.current.has(element) ? getComputedStyle(element) : null;
-      const [tx, ty] = style?.translate.split(" ").map((value) => parseFloat(value) || 0) ?? [0, 0];
-      const oldY = bounds.top + (last?.y ?? next.y) + (ty ?? 0);
-      const nextY = bounds.top + next.y;
-      const visible = nextY < innerHeight && nextY + element.offsetHeight > 0;
-      const nearby = !!last && oldY < innerHeight && oldY + element.offsetHeight > 0;
-      return { element, visible, nearby, dx: last ? last.x - next.x + tx : 0, dy: last ? last.y - next.y + (ty ?? 0) : 12, opacity: style ? Number(style.opacity) : 1 };
+      const dx = last ? last.x - next.x : 0;
+      const dy = last ? last.y - next.y : 12;
+      if (last && Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+      animations.push(element.animate(
+        [{ translate: `${dx}px ${dy}px`, opacity: last ? 1 : 0 }, { translate: "0 0", opacity: 1 }],
+        { duration: 360, delay: last ? 0 : Math.min(index * 35, 140), easing },
+      ));
     });
-    animations.current.forEach((animation) => animation.cancel());
-    animations.current.clear();
-    const canAnimate = previous.current.size && sameWidth && !reducedMotion();
     previous.current = positions;
-    if (!canAnimate) return;
-    let stagger = 0;
-    for (const { element, visible, nearby, dx, dy, opacity } of changes) {
-      if (!visible || !element.animate || (nearby && Math.abs(dx) < 1 && Math.abs(dy) < 1 && opacity === 1)) continue;
-      const travel = nearby && Math.hypot(dx, dy) < innerHeight * .65;
-      const animation = element.animate([
-        { translate: travel ? `${dx}px ${dy}px` : "0 12px", opacity: travel ? opacity : 0 },
-        { translate: "0 0", opacity: 1 },
-      ], { duration: travel ? 320 : 240, delay: travel ? 0 : Math.min(stagger++ * 24, 96), easing, fill: "backwards" });
-      animations.current.set(element, animation);
-      const finish = () => { if (animations.current.get(element) === animation) animations.current.delete(element); };
-      animation.finished.then(finish, finish);
-    }
-  }, [layoutKey]);
-  useEffect(() => {
-    const clear = () => {
-      animations.current.forEach((animation) => animation.cancel());
-      animations.current.clear();
-    };
     const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const visibility = () => { if (document.hidden) clear(); };
-    preference.addEventListener("change", clear);
-    window.addEventListener("resize", clear, { passive: true });
-    document.addEventListener("visibilitychange", visibility);
-    return () => {
-      clear();
-      preference.removeEventListener("change", clear);
-      window.removeEventListener("resize", clear);
-      document.removeEventListener("visibilitychange", visibility);
+    const stop = () => {
+      if (preference.matches) animations.forEach((animation) => animation.cancel());
     };
-  }, []);
+    preference.addEventListener("change", stop);
+    return () => {
+      animations.forEach((animation) => animation.cancel());
+      preference.removeEventListener("change", stop);
+    };
+  }, [layoutKey]);
   return <div ref={ref} className="product-grid">{children}</div>;
 }
 
