@@ -66,7 +66,7 @@ const SchoolScreen = lazy(() => import("./SchoolScreen"));
 import { SnapCheckout, SnapFoodLabel, SnapOrderPlan, type SnapCheckoutState } from "./SnapProgram";
 import { PickupForm } from "./PickupForm";
 import { canRestoreShoppingDraft, readShoppingDraft, saveShoppingDraft, shoppingToday, type Cart, type CheckoutDraft } from "./shoppingDraft";
-import { MotionGrid, ScrollActions, usePageMotion } from "./motion";
+import { MotionGrid, MotionTabs, ScrollActions, usePageMotion } from "./motion";
 import { useCartFeedback } from "./cartFeedback";
 import { usePointerFeedback } from "./pointerFeedback";
 import { QuantityButton } from "./QuantityButton";
@@ -778,11 +778,7 @@ function App() {
               <label className="shopping-date-picker">{t("选择购物市场")}<select value={shoppingMarket} onChange={e=>{if(cartCount&&!window.confirm(t('切换市场会清空购物袋，是否继续？')))return;setCart({});setCheckout({slot:'',note:''});setShoppingMarket(e.target.value);}}><option value="">{t('全部市场')}</option>{shoppingMarkets.map(m=><option key={m.id} value={m.id}>{t(m.name)}</option>)}</select></label>
               <SessionDirectory date={shoppingDate} marketId={shoppingMarket?Number(shoppingMarket):undefined} />
               <div className="product-toolbar">
-                <div
-                  className="category-tabs"
-                  role="group"
-                  aria-label={t("商品分类")}
-                >
+                <MotionTabs activeKey={category} label={t("商品分类")}>
                   {["全部商品", ...catalogOptions.categories].map((c) => (
                     <button
                       key={c}
@@ -793,7 +789,7 @@ function App() {
                       {c === "全部商品" && <Sprout size={16} />} {t(c)}
                     </button>
                   ))}
-                </div>
+                </MotionTabs>
                 <div className="filter-actions">
                   <label className="search-field">
                     <Search size={17} />
@@ -997,8 +993,8 @@ function App() {
       </div>
       {!manager && cartCount > 0 && <div className="shopping-bag-dock" hidden={cartOpen || authOpen || !!detailId}>
         <button className="basket-dock" onClick={() => setCartOpen(true)} aria-label={t("查看购物袋，已选 {count} 件", { count: cartCount })}>
-          <span className="cart-target" data-cart-target><ShoppingBag size={20} /></span><span><strong>{t("查看购物袋")}<span className="bag-dock-count">{cartCount}</span></strong><small>{t("核对商品与自提安排")}</small></span>
-          <b>{t(money(cartTotal))}</b><ChevronRight size={18} />
+          <span className="cart-target" data-cart-target><ShoppingBag size={20} /></span><span className="bag-dock-copy"><strong>{t("查看购物袋")}<span className="bag-dock-count"><span className="value-update" key={cartCount}>{cartCount}</span></span></strong><small>{t("核对商品与自提安排")}</small></span>
+          <b><span className="value-update" key={cartTotal}>{t(money(cartTotal))}</span></b><ChevronRight size={18} />
         </button>
       </div>}
       {!manager && (
@@ -1141,6 +1137,7 @@ function ProductCard({
         aria-label={t("查看{0}", {0: t(p.name)})}
       >
         <Produce kind={p.art} />
+        {quantity > 0 && <span className="product-picked" aria-hidden="true"><Check size={14} /></span>}
         {p.organic === 1 && (
           <span className="organic-badge">
             <Leaf size={11} />{t("有机种植")}</span>
@@ -1168,19 +1165,21 @@ function ProductCard({
               {p.stock > 0 ? t("剩余 {count} {unit}", { count: p.stock, unit: quantityUnit(language, p.unit, p.stock) }) : t("等待下一次采收")}
             </span>
           </div>
-          <div className={quantity ? "product-quantity is-selected" : "product-add"}>
-            {quantity > 0 && <>
-              <QuantityButton className="add-button remove-button" onStep={() => { if (quantity === 1) addRef.current?.focus(); onRemove(); }} title={t("按住可连续减少")} aria-label={t("减少{0}", { 0: t(p.name) })}><Minus size={15} /></QuantityButton>
-              <span className="product-quantity-value" aria-live="polite" aria-atomic="true"><span className="quantity-pop" key={quantity}>{quantity}</span></span>
-            </>}
-            <QuantityButton
-              ref={addRef}
-              className={`add-button ${quantity ? "has-quantity" : ""}`}
-              disabled={!p.stock || quantity >= maxQuantity(p)}
-              title={t(!p.stock ? "今日已售罄" : quantity >= maxQuantity(p) ? "已达到可购数量" : "按住可连续增加")}
-              aria-label={t("将{0}加入购物袋", {0: t(p.name)})}
-              onStep={onAdd}
-            ><Plus size={quantity ? 15 : 20} /></QuantityButton>
+          <div className="product-controls">
+            <div className={quantity ? "product-quantity is-selected" : "product-add"}>
+              {quantity > 0 && <>
+                <QuantityButton className="add-button remove-button" onStep={() => { if (quantity === 1) addRef.current?.focus(); onRemove(); }} title={t("按住可连续减少")} aria-label={t("减少{0}", { 0: t(p.name) })}><Minus size={15} /></QuantityButton>
+                <span className="product-quantity-value" aria-live="polite" aria-atomic="true"><span className="quantity-pop" key={quantity}>{quantity}</span></span>
+              </>}
+              <QuantityButton
+                ref={addRef}
+                className={`add-button ${quantity ? "has-quantity" : ""}`}
+                disabled={!p.stock || quantity >= maxQuantity(p)}
+                title={t(!p.stock ? "今日已售罄" : quantity >= maxQuantity(p) ? "已达到可购数量" : "按住可连续增加")}
+                aria-label={t("将{0}加入购物袋", {0: t(p.name)})}
+                onStep={onAdd}
+              ><Plus size={quantity ? 15 : 20} /></QuantityButton>
+            </div>
           </div>
         </div>
         {!!quantity && p.stock > 0 && quantity >= maxQuantity(p) && <p className="quantity-limit" role="status">

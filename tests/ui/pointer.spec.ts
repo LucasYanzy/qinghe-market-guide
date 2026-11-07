@@ -45,7 +45,7 @@ test("鼠标悬停时商品卡位置稳定，小按钮目标更容易点中", as
   const add = card.getByRole("button", { name: tomato, exact: true });
   expect((await add.boundingBox())!.width).toBeGreaterThanOrEqual(38);
   await add.click();
-  await expect(add).toHaveCSS("width", "34px");
+  await expect(add).toHaveCSS("width", "38px");
 });
 
 test("弹窗遮罩只接受完整左键轻点，右键和拖出弹窗不会误关", async ({ page }) => {
