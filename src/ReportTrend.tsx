@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { shortDate } from './api';
 import { useLanguage } from './i18n';
+import TrendNavigator from './TrendNavigator';
 
 export interface ReportPoint {
   date: string;
@@ -18,7 +19,8 @@ export default function ReportTrend({ points, name, format, compare, empty = '�
   const [selected, setSelected] = useState('');
   const [page, setPage] = useState(0);
   const chart = points.slice(-120);
-  const active = chart.find(row => row.date === selected) ?? chart.at(-1);
+  const latestIndex = chart.reduce((last, row, index) => row.value !== null ? index : last, -1);
+  const active = chart.find(row => row.date === selected) ?? chart[latestIndex >= 0 ? latestIndex : chart.length - 1];
   const pages = Math.max(1, Math.ceil(points.length / 12)), safePage = Math.min(page, pages - 1);
   const display = (value: number | null) => value === null ? t(empty) : format(value);
   return <div className="report-trend">
@@ -38,7 +40,7 @@ export default function ReportTrend({ points, name, format, compare, empty = '�
           </ComposedChart></ResponsiveContainer>
         </div>
         <div className="report-chart-legend"><span>{t('本期')}</span>{compare && <span>{t('上期按周期第几天对齐')}</span>}</div>
-        <label className="report-trend-scrubber"><span>{t('选择趋势日期')}</span><input type="range" min={0} max={chart.length - 1} value={Math.max(0, chart.findIndex(row => row === active))} aria-valuetext={active ? `${active.date}: ${display(active.value)}` : ''} onChange={event => setSelected(chart[Number(event.target.value)].date)}/></label>
+        <TrendNavigator dates={chart.map(row => row.date)} index={Math.max(0, chart.findIndex(row => row === active))} latestIndex={latestIndex} valueText={active ? `${active.date}: ${display(active.value)}` : ''} onChange={index => setSelected(chart[index].date)}/>
         {points.length > 120 && <p className="report-chart-limit">{t('图表显示最近 120 个周期；完整记录可在下方分页查看。')}</p>}
       </> : <p className="decision-loading">{t('当前周期没有可展示的记录。')}</p>}
     </div>
