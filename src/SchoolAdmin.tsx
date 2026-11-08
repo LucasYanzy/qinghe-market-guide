@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowRight, CheckCircle2, CircleHelp, Globe2, LoaderCircle, MapPin, RefreshCw, RotateCcw, School, ShoppingBag, Users, Wallet } from "lucide-react";
 import { matchesSearch } from "./translations/translate";
 import { api, money } from "./api";
@@ -49,21 +49,45 @@ export default function SchoolAdmin({ page, demo, navigate, refresh, notify }: {
   const [error, setError] = useState<Message>("");
   const [loading, setLoading] = useState(true);
   const [revision, setRevision] = useState(0);
+  const [automatic, setAutomatic] = useState(true);
+  const [hidden, setHidden] = useState(() => document.hidden);
+  const inFlight = useRef(false), lastAttempt = useRef(0);
   const reload = () => setRevision((r) => r + 1);
   useEffect(() => {
     let current = true;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 15000);
+    inFlight.current = true; lastAttempt.current = Date.now();
     setLoading(true);
     setError("");
-    api<SchoolOverview>(`/admin/overview?range=${range}${marketId ? `&marketId=${marketId}` : ""}${range === "custom" ? `&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}` : ""}`)
+    api<SchoolOverview>(`/admin/overview?range=${range}${marketId ? `&marketId=${marketId}` : ""}${range === "custom" ? `&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}` : ""}`, { signal: controller.signal })
       .then((d) => { if (current) setData(d); })
       .catch((e: Error) => { if (current) setError(e); })
-      .finally(() => { if (current) setLoading(false); });
-    return () => { current = false; };
+      .finally(() => { clearTimeout(timeout); if (current) { setLoading(false); inFlight.current = false; } });
+    return () => { current = false; clearTimeout(timeout); controller.abort(); inFlight.current = false; };
   }, [range, from, to, revision, marketId]);
+  useEffect(() => {
+    if (page !== "school") return;
+    setHidden(document.hidden);
+    let timer: number | undefined;
+    const update = () => {
+      if (automatic && !document.hidden && !inFlight.current && Date.now() - lastAttempt.current > 1000)
+        setRevision(value => value + 1);
+    };
+    const visibility = () => {
+      setHidden(document.hidden); window.clearInterval(timer);
+      if (!document.hidden && automatic) { update(); timer = window.setInterval(update, 30000); }
+    };
+    if (!document.hidden && automatic) timer = window.setInterval(update, 30000);
+    document.addEventListener("visibilitychange", visibility); window.addEventListener("focus", update);
+    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", visibility); window.removeEventListener("focus", update); };
+  }, [automatic, page]);
+  const matching = data && data.marketId === marketId && data.range === range && (range !== "custom" || (data.from === from && data.to === to));
   const saved = (message = "市场设置已保存") => { reload(); refresh(); notify(message); };
   const manage = (id: number) => { setMarketId(id); navigate("school-markets"); };
   return <div className={`school-workspace ${page === "school" ? "analytics-workspace" : ""}`}>
     {page === "school" && <DemoAnalyticsData onLoaded={() => { reload(); refresh(); }} />}
+    {page === "school" && <div className="analytics-live-toolbar"><span className={error ? "is-stale" : ""}><i/>{t(error ? "更新失败，正在显示上次汇总" : loading ? "正在更新汇总…" : !automatic ? "自动更新已暂停" : hidden ? "页面隐藏，刷新已暂停" : "每 30 秒自动汇总，操作后重新计算")}</span><button type="button" aria-pressed={automatic} onClick={() => { setAutomatic(value => !value); if (!automatic) reload(); }}>{t(automatic ? "暂停自动更新" : "恢复自动更新")}</button></div>}
     <div className="school-toolbar">
       <span className="school-access"><School size={16} />{t("学校管理方")}<span> / </span>{t("跨市场管理")}</span>
       <div>
@@ -87,8 +111,9 @@ export default function SchoolAdmin({ page, demo, navigate, refresh, notify }: {
       if ((Date.parse(dateDraft.to) - Date.parse(dateDraft.from)) / 86400000 >= 366) return setDateError("自定义统计最多支持 366 天。");
       setDateError(""); setFilters((f) => ({ ...f, ...dateDraft }));
     }}><label>{t("开始日期")}<input type="date" required min="1970-01-01" max={reportToday()} value={dateDraft.from} onChange={(e) => setDateDraft((d) => ({ ...d, from: e.target.value }))} /></label><label>{t("结束日期")}<input type="date" required min="1970-01-01" max={reportToday()} value={dateDraft.to} onChange={(e) => setDateDraft((d) => ({ ...d, to: e.target.value }))} /></label><button className="button primary">{t("应用日期范围")}</button>{dateError && <p className="form-error" role="alert">{t(dateError)}</p>}</form>}
-    {error ? <div className="error-panel" role="alert">{t(error)} <button className="text-button" onClick={reload}>{t("重新加载")}</button></div>
-      : !data || data.marketId !== marketId || data.range !== range || (range === "custom" && (data.from !== from || data.to !== to)) ? <div className="loading-panel" role="status"><LoaderCircle className="spin" />{t("正在汇总全盘数据…")}</div>
+    {error && matching && <div className="analytics-refresh-error" role="alert">{t(error)} <button className="text-button" onClick={reload}>{t("重新加载")}</button></div>}
+    {error && !matching ? <div className="error-panel" role="alert">{t(error)} <button className="text-button" onClick={reload}>{t("重新加载")}</button></div>
+      : !data || !matching ? <div className="loading-panel" role="status"><LoaderCircle className="spin" />{t("正在汇总全盘数据…")}</div>
       : <>
         {data.sampleData && page !== "school" && <div className="analytics-sample"><CircleHelp size={17} /><div><strong>{t("合成演示样本")}</strong><span>{t("当前交易、顾客与付款意向为生成样例，用于评审统计功能，不代表真实运营或 SNAP 核销。")}</span></div></div>}
         {page !== "school-markets" && page !== "school-operations" && <p className="school-period">{t(demo ? "演示数据库" : "运营数据库")} · {data.from ?? t("全部时间")} — {data.to} · {t(page === "school" ? "订单按自提日期、运营收支按发生日期统计，美国东部时间" : "按自提日期统计，美国东部时间")}</p>}

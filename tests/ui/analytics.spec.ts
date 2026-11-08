@@ -42,6 +42,102 @@ async function fixture(page: Page) {
   return { market, today };
 }
 
+test('看板自动更新可暂停，隐藏页面停止请求，失败保留选择并能重试', async ({ page }) => {
+  const { market } = await fixture(page);
+  await page.clock.install();
+  await page.goto(`/admin?market=${market.id}`);
+  await expect(page.locator('.analytics-stat-primary > strong')).toHaveText('$7.00');
+  const chart = page.getByRole('group', { name: '订单状态占比图', exact: true });
+  await chart.getByRole('button', { name: '已取消', exact: true }).click();
+  let calls = 0;
+  page.on('request', request => { if (request.url().includes('/api/admin/overview?')) calls++; });
+  await page.clock.runFor(30100);
+  await expect.poll(() => calls).toBe(1);
+  await expect(page.getByRole('button', { name: '刷新管理数据', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: '暂停自动更新', exact: true }).click();
+  await page.clock.runFor(61000);
+  expect(calls).toBe(1);
+  await page.getByRole('button', { name: '恢复自动更新', exact: true }).click();
+  await expect.poll(() => calls).toBe(2);
+  await expect(page.getByRole('button', { name: '刷新管理数据', exact: true })).toBeEnabled();
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.clock.runFor(61000);
+  expect(calls).toBe(2);
+  await page.route('**/api/admin/overview?**', route => route.fulfill({ status: 503, json: { error: '网络请求失败，请稍后重试。' } }));
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+    document.dispatchEvent(new Event('visibilitychange'));
+    window.dispatchEvent(new Event('focus'));
+  });
+  await expect(page.locator('.analytics-refresh-error')).toBeVisible();
+  // A visibility event followed by focus must only start one request.
+  expect(calls).toBe(3);
+  await expect(page.locator('.analytics-stat-primary > strong')).toHaveText('$7.00');
+  await expect(chart.getByRole('button', { name: '已取消', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.unroute('**/api/admin/overview?**');
+  await page.locator('.analytics-refresh-error').getByRole('button', { name: '重新加载', exact: true }).click();
+  await expect(page.locator('.analytics-refresh-error')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '刷新管理数据', exact: true })).toBeEnabled();
+  await expect(chart.getByRole('button', { name: '已取消', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('link', { name: '市场设置', exact: true }).click();
+  const before = calls;
+  await page.clock.runFor(61000);
+  expect(calls).toBe(before);
+});
+
+test('切换周期后，迟到的旧汇总不能覆盖当前筛选', async ({ page }) => {
+  const { market } = await fixture(page);
+  await page.goto(`/admin?market=${market.id}`);
+  await expect(page.locator('.analytics-stat-primary > strong')).toHaveText('$7.00');
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  let held = false, delivered = false;
+  await page.route('**/api/admin/overview?**', async route => {
+    if (new URL(route.request().url()).searchParams.get('range') !== '7') return route.continue();
+    const response = await route.fetch(), data = await response.json();
+    data.analytics.current.revenueCents = 99900;
+    held = true;
+    await gate;
+    await route.fulfill({ json: data });
+    delivered = true;
+  });
+  await page.getByLabel('统计周期', { exact: true }).selectOption('7');
+  await expect.poll(() => held).toBe(true);
+  await page.getByLabel('统计周期', { exact: true }).selectOption('90');
+  await expect(page.locator('.analytics-stat-primary > strong')).toHaveText('$7.00');
+  release();
+  await expect.poll(() => delivered).toBe(true);
+  await expect(page.getByLabel('统计周期', { exact: true })).toHaveValue('90');
+  await expect(page.locator('.analytics-stat-primary > strong')).toHaveText('$7.00');
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+test('报表日期导航区分零值与缺失记录，并能返回最近有记录的日期', async ({ page }) => {
+  const { market } = await fixture(page);
+  let latest = '';
+  await page.route('**/api/admin/overview?**', async route => {
+    const response = await route.fetch(), data = await response.json();
+    delete data.timeline.at(-1).participants;
+    data.timeline.at(-2).participants = 0;
+    latest = data.timeline.at(-2).date;
+    await route.fulfill({ json: data });
+  });
+  await page.goto(`/admin?market=${market.id}&view=reports`);
+  const story = page.locator('.report-story').filter({ has: page.locator('.report-story-heading').getByText('实际参与顾客', { exact: true }) });
+  await expect(story.locator('.report-trend-selection > strong')).toHaveText('0');
+  await expect(story.locator('.report-trend-selection > span')).toHaveText(latest);
+  await story.getByRole('button', { name: '下一个数据点', exact: true }).click();
+  await expect(story.locator('.report-trend-selection > strong')).toHaveText('无记录');
+  await expect(story.getByRole('button', { name: '下一个数据点', exact: true })).toBeDisabled();
+  await story.getByRole('button', { name: '最近有记录', exact: true }).click();
+  await expect(story.locator('.report-trend-selection > strong')).toHaveText('0');
+  await story.getByRole('button', { name: '上一个数据点', exact: true }).click();
+  await expect(story.locator('.report-trend-selection > span')).not.toHaveText(latest);
+});
+
 test("学校看板显示交易、履约、回访与自提分布，趋势可切换指标和粒度", async ({ page }) => {
   const { market } = await fixture(page);
   await page.goto(`/admin?market=${market.id}`);

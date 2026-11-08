@@ -121,14 +121,7 @@
 .business-tenders { grid-column: 1 / -1; }
 .tender-coverage { display: flex; flex-wrap: wrap; gap: 12px 28px; margin: 20px 0; padding: 13px 16px; border-radius: 8px; background: #f5f8fa; color: #64748b; font-size: 11px; line-height: 1.8; }
 .tender-coverage b { display: inline-block; margin-left: 8px; color: #334155; font-variant-numeric: tabular-nums; }
-.tender-analysis-grid { display: grid; grid-template-columns: minmax(0,2fr) minmax(200px,1fr); gap: 24px; align-items: start; }
-.tender-inspector { background: #f7f9fc; border: 1px solid #e6edf2; padding: 22px; border-radius: 10px; min-width: 0; }
-.tender-inspector .eyebrow { font-size: 10px; color: #64748b; }
-.tender-inspector h4 { font-size: 17px; margin: 12px 0; line-height: 1.5; color: #334155; }
-.tender-inspector > strong { font-size: 30px; font-variant-numeric: tabular-nums; font-weight: 600; color: #0f766e; }
-.tender-inspector p { color: #64748b; font-size: 12px; line-height: 1.8; margin-top: 14px; }
-@media (max-width: 1000px) { .tender-analysis-grid { grid-template-columns: minmax(0,1fr); } }
-@media (max-width: 600px) { .business-tenders .decision-heading { flex-wrap: wrap; } .tender-coverage { padding: 12px; gap: 8px 18px; } .tender-inspector { padding: 16px; } }
+@media (max-width: 600px) { .business-tenders .decision-heading { flex-wrap: wrap; } .tender-coverage { padding: 12px; gap: 8px 18px; } }
 .business-panel .decision-heading h3 { font-size: 18px; }
 .decision-section-icon.blue { color: #25647f; background: #edf5fa; border-color: #dce9f1; }
 .decision-section-icon.amber { color: #9a670a; background: #fcf6e9; border-color: #efe4c8; }
@@ -168,3 +161,9 @@
   .business-readiness li { flex-wrap: wrap; gap: 6px; font-size: 11px; } .business-readiness b { flex-shrink: 1; }
 }
 @media (prefers-reduced-motion: reduce) { .decision-market-row { transition: none; } }
+.analytics-live-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 0 3px; color: #64748b; font-size: 10px; }
+.analytics-live-toolbar > span { display: inline-flex; align-items: center; gap: 6px; line-height: 1.7; }
+.analytics-live-toolbar i { width: 6px; height: 6px; border-radius: 50%; background: #409c84; flex-shrink: 0; }
+.analytics-live-toolbar .is-stale i { background: #bd873c; }
+.analytics-live-toolbar button { font-size: 10px; color: #0f766e; background: #fff; border: 1px solid #dce8e3; border-radius: 5px; padding: 6px 9px; }
+.analytics-refresh-error { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; background: #fff7e8; color: #996528; border: 1px solid #eedcba; border-radius: 8px; font-size: 11px; }

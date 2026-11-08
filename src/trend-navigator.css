@@ -1,0 +1,7 @@
+.trend-navigator { display: grid; grid-template-columns: 32px minmax(0,1fr) 32px; align-items: center; gap: 8px; margin: 12px 0; }
+.trend-navigator > button { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid #dce5e9; border-radius: 6px; color: #337268; background: #fff; }
+.trend-navigator input[type=range] { width: 100%; min-width: 0; margin: 0; accent-color: #0f766e; height: 24px; cursor: ew-resize; }
+.trend-navigator button:disabled { opacity: .4; cursor: default; }
+.trend-navigator button:focus-visible, .trend-navigator input:focus-visible { outline: 2px solid #0f766e; outline-offset: 3px; }
+.trend-navigator-range { display: flex; grid-column: 1 / -1; gap: 8px; align-items: center; justify-content: space-between; font-variant-numeric: tabular-nums; color: #7d8d98; font-size: 9px; }
+.trend-navigator-range button { display: inline-flex; gap: 4px; align-items: center; color: #0f766e; padding: 4px; border-radius: 4px; font-size: 10px; background: transparent; }
