@@ -13,6 +13,7 @@ import SchoolOperations from "./SchoolOperations";
 import SchoolWorkflows from './SchoolWorkflows';
 import { readReportFilters, reportToday, reportDate, type ReportRange } from "./schoolReports";
 import "./school-admin.css";
+import { DemoAnalyticsData } from "./browser-demo/Controls";
 
 export default function SchoolAdmin({ page, demo, navigate, refresh, notify }: {
   page: Page; demo: boolean; navigate: (page: Page) => void; refresh: () => void; notify: (message: string) => void;
@@ -62,6 +63,7 @@ export default function SchoolAdmin({ page, demo, navigate, refresh, notify }: {
   const saved = (message = "市场设置已保存") => { reload(); refresh(); notify(message); };
   const manage = (id: number) => { setMarketId(id); navigate("school-markets"); };
   return <div className={`school-workspace ${page === "school" ? "analytics-workspace" : ""}`}>
+    {page === "school" && <DemoAnalyticsData onLoaded={() => { reload(); refresh(); }} />}
     <div className="school-toolbar">
       <span className="school-access"><School size={16} />{t("学校管理方")}<span> / </span>{t("跨市场管理")}</span>
       <div>

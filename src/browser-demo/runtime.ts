@@ -58,6 +58,20 @@ export async function initializeDemo() {
         saveIdentity();
         return Response.json({ user: userFor(currentRole) });
       }
+      if (url.pathname === "/api/demo/analytics" && ["GET", "POST"].includes(request.method)) {
+        // Keep sample generation out of the shopping startup bundle.
+        // @ts-expect-error Browser-only JavaScript module shared with Node tests.
+        const { addDemoAnalytics, demoAnalyticsStatus } = await import("../../server/demo-analytics.mjs");
+        if (request.method === "GET") return Response.json({ sample: demoAnalyticsStatus(db) });
+        // Use the same Eastern date as the application rather than the device's
+        // UTC day. One transaction and marker make repeat clicks/reloads safe.
+        const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+        try {
+          const sample = addDemoAnalytics(db, today);
+          persistDemo();
+          return Response.json({ sample });
+        } catch { return Response.json({ error: "无法载入演示样本，请确认演示商品可用后重试。" }, { status: 409 }); }
+      }
       // No credentials or authentication are accepted by this browser-only target.
       if (url.pathname === "/api/auth/me") return Response.json({ user: userFor(currentRole) });
       if (url.pathname === "/api/auth/role" && request.method === "POST") {
