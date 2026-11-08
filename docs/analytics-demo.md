@@ -1,0 +1,11 @@
+# Interactive analytics demo
+
+The public browser demo starts with an editable catalogue and no generated transactions. University analytics and the vendor analytics page offer **Load historical sample**. Loading is optional and scoped to the current browser tab; it never calls a production seeding API.
+
+The loader adds 12 weeks of dated, synthetic completed/cancelled orders, item snapshots, completed-order receipts, attendance and whole-session sales reports for the original demo vendor. Samples include returning and first-time accounts, classified payment amounts and deliberately unclassified reports. Dates are relative to the Eastern business day when loaded and stay fixed thereafter. Reloads and repeated requests reuse the original sample instead of adding it again or moving history forward.
+
+Existing orders, product edits, stock, market configuration and SNAP acceptance remain intact. Historical samples do not reserve today's stock. User-created sessions are skipped; an error rolls back the entire generation. The sample banner, date window and exported report source distinguish the dataset from real operations. Switching roles shares the same dataset; another independently opened tab starts fresh. The existing Reset confirmation clears all data in the current tab.
+
+Payment shares use classified whole-session sales only; unknown amounts are shown as unknown and explicit zero amounts have no percentage when the denominator is zero. These sales reports include simulated platform receipts and separate walk-up sales, so they must not be added to platform revenue. Historical SNAP examples do not assert current acceptance or real benefit redemption. New interactive orders continue through confirmation, customer pickup-code verification and receipt recording, then update the same analytics.
+
+The payment mix, fulfillment and catalogue charts support segment clicks, native legend buttons and arrow/Home/End keys. Catalogue selection filters the existing bounded inventory alert list. Chart animations are disabled. The overview trend renders at most 120 periods and its complete detail table pages 12 rows at a time; CSV exports retain the full reporting range. Sample generation is loaded on demand and stored once, avoiding startup seeding and repeated database exports.
