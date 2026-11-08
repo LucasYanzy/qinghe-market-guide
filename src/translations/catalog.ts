@@ -1,9 +1,4 @@
 export const catalogEnglish: Record<string, string> = {
-  "商品显示方式": "Product view",
-  "卡片视图": "Grid view",
-  "列表视图": "List view",
-  "按{unit}计价": "Priced per {unit}",
-  "已选 {count}": "In bag: {count}",
   "全部商品": "All produce",
   "商品分类": "Product categories",
   "新鲜水果": "Fresh fruit",
