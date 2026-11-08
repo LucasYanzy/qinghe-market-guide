@@ -11,6 +11,10 @@ updates:
       interval: weekly
   - package-ecosystem: docker
     directory: /
+    # Node 25 is no longer supported; production stays on the Node 24 LTS line.
+    ignore:
+      - dependency-name: node
+        versions: ["25-alpine"]
     schedule:
       interval: weekly
   - package-ecosystem: docker-compose
