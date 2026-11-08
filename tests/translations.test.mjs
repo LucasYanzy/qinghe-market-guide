@@ -1,35 +1,70 @@
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import test from 'node:test';
-import ts from 'typescript';
+import { parse } from '@babel/parser';
 import { english } from '../src/translations/en.ts';
 import { matchesSearch, quantityUnit, translate } from '../src/translations/translate.ts';
 import { translatePreviewContent } from '../src/translations/preview.ts';
 
 const han = /\p{Script=Han}/u;
 
+// Keep source inspection independent of TypeScript's compiler CLI and API changes.
+function sourceTextNodes(text, file) {
+  const ast = parse(text, { sourceType: 'module', plugins: file.endsWith('.mjs') ? [] : ['typescript', ...(file.endsWith('.tsx') ? ['jsx'] : [])] });
+  const nodes = [];
+  const visit = (node) => {
+    if (!node || typeof node !== 'object' || typeof node.type !== 'string') return;
+    if (node.type === 'StringLiteral' || node.type === 'DirectiveLiteral') nodes.push({ kind: 'literal', text: node.value });
+    if (node.type === 'JSXText') nodes.push({ kind: 'jsx', text: node.value });
+    if (node.type === 'TemplateLiteral') {
+      const parts = node.quasis.map((part) => part.value.cooked ?? part.value.raw);
+      nodes.push({ kind: node.expressions.length ? 'template' : 'literal', text: parts.join('') });
+    }
+    for (const value of Object.values(node)) {
+      if (Array.isArray(value)) value.forEach(visit);
+      else visit(value);
+    }
+  };
+  visit(ast);
+  return nodes;
+}
+
+test('source inspection decodes strings and checks JSX and templates without the compiler API', () => {
+  const source = [
+    '// 注释不应进入翻译检查',
+    'const label: string = "\\u6309\\u94ae";',
+    'const view = <div title="标题">正文</div>;',
+    'const literal = `静态`; const message = `动态 ${label}`;',
+  ].join('\n');
+  assert.deepEqual(sourceTextNodes(source, 'fixture.tsx').filter((node) => han.test(node.text)), [
+    { kind: 'literal', text: '按钮' },
+    { kind: 'literal', text: '标题' },
+    { kind: 'jsx', text: '正文' },
+    { kind: 'literal', text: '静态' },
+    { kind: 'template', text: '动态 ' },
+  ]);
+  assert.deepEqual(sourceTextNodes('export const message = "服务消息";', 'fixture.mjs'), [{ kind: 'literal', text: '服务消息' }]);
+});
+
 test('every shipped Chinese UI, demo-product, reference, and API message has an English translation', () => {
   const missing = [];
   const files = readdirSync('src').filter((file) => /\.(tsx?|mjs)$/.test(file)).map((file) => `src/${file}`)
     .concat(readdirSync('server').filter((file) => file.endsWith('.mjs') && file !== 'index.mjs').map((file) => `server/${file}`));
   for (const file of files) {
-    const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true);
-    const visit = (node) => {
-      if ((ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) && han.test(node.text)) {
+    for (const node of sourceTextNodes(readFileSync(file, 'utf8'), file)) {
+      if (node.kind === 'literal' && han.test(node.text)) {
         // A demo customer's name is personal content, not a UI translation key.
         if (!(file === 'server/db.mjs' && node.text === '林同学') && !Object.hasOwn(english, node.text)) {
           missing.push(`${file}: ${node.text}`);
         }
       }
-      if (ts.isJsxText(node) && han.test(node.text) && !(file === 'src/i18n.tsx' && node.text.trim() === '中文')) {
+      if (node.kind === 'jsx' && han.test(node.text) && !(file === 'src/i18n.tsx' && node.text.trim() === '中文')) {
         missing.push(`${file}: untranslated JSX text: ${node.text.trim()}`);
       }
-      if (ts.isTemplateExpression(node) && [node.head.text, ...node.templateSpans.map((span) => span.literal.text)].some((text) => han.test(text))) {
+      if (node.kind === 'template' && han.test(node.text)) {
         missing.push(`${file}: use a parameterized translation instead of a Chinese template literal`);
       }
-      ts.forEachChild(node, visit);
-    };
-    visit(source);
+    }
   }
   const visitReference = (value) => {
     if (typeof value === 'string' && han.test(value) && !Object.hasOwn(english, value)) missing.push(value);
