@@ -48,7 +48,6 @@ import {
 } from "lucide-react";
 import { api, ApiError, money } from "./api";
 import { BasketArt, Produce } from "./Produce";
-import { CatalogViewSwitcher, ProductCard, useCatalogView } from "./Catalog";
 import catalogOptions from "../references/catalog-options.json" with { type: "json" };
 import MarketGuide, { HelpCenter } from "./MarketGuide";
 import { NextMarketHero } from "./MarketVisit";
@@ -299,7 +298,6 @@ function App() {
   const searchInput = useRef<HTMLInputElement>(null);
   const [category, setCategory] = useState("全部商品");
   const [sort, setSort] = useState("recommended");
-  const [catalogView, setCatalogView] = useCatalogView();
   const [inStock, setInStock] = useState(false);
   const filterOptions = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
@@ -793,7 +791,6 @@ function App() {
                       onClick={() => setCategory(c)}
                     >
                       {c === "全部商品" && <Sprout size={16} />} {t(c)}
-                      <span className="catalog-category-count" aria-hidden="true">{c === "全部商品" ? products.length : products.filter((product) => product.category === c).length}</span>
                     </button>
                   ))}
                 </div>
@@ -836,10 +833,7 @@ function App() {
                   <span aria-live="polite" aria-atomic="true"><span key={visible.length} className="result-count">{t("发现 {count} 款新鲜好物", { count: visible.length })}</span></span>
                   <span className="quantity-hint">{t("鼠标长按 + / − 可连续调整")}</span>
                 </div>
-                <div className="catalog-display-actions">
-                  <CatalogViewSwitcher view={catalogView} onChange={setCatalogView} />
-                  {visible.length > 0 && (category !== "全部商品" || search || sort !== "recommended" || inStock) && <button className="text-button" onClick={() => { setCategory("全部商品"); setSearch(""); setSort("recommended"); setInStock(false); }}>{t("清除筛选")}</button>}
-                </div>
+                {visible.length > 0 && (category !== "全部商品" || search || sort !== "recommended" || inStock) && <button className="text-button" onClick={() => { setCategory("全部商品"); setSearch(""); setSort("recommended"); setInStock(false); }}>{t("清除筛选")}</button>}
               </div>
               {(category !== "全部商品" || search || inStock || sort !== "recommended") && (
                 <div className="active-filters" role="group" aria-label={t("当前筛选条件")}>
@@ -851,7 +845,7 @@ function App() {
                 </div>
               )}
               {visible.length ? (
-                <MotionGrid className={catalogView === "list" ? "product-list" : ""} layoutKey={visible.map((product) => product.id).join(",")}>
+                <MotionGrid layoutKey={visible.map((product) => product.id).join(",")}>
                   {visible.map((product) => (
                     <ProductCard
                       key={product.id}
@@ -1124,6 +1118,78 @@ function App() {
   );
 }
 
+function ProductCard({
+  product: p,
+  quantity,
+  onAdd,
+  onRemove,
+  onView,
+}: {
+  product: Product;
+  quantity: number;
+  onAdd: (source: HTMLButtonElement, repeated: boolean) => void;
+  onRemove: () => void;
+  onView: () => void;
+}) {
+  const { t, language } = useLanguage();
+  const addRef = useRef<HTMLButtonElement>(null);
+  return (
+    <article className={`product-card ${quantity ? "product-selected" : ""}`} data-product-id={p.id}>
+      <button
+        className={`product-image art-bg-${p.art}`}
+        onClick={onView}
+        aria-label={t("查看{0}", {0: t(p.name)})}
+      >
+        <Produce kind={p.art} />
+        {p.organic === 1 && (
+          <span className="organic-badge">
+            <Leaf size={11} />{t("有机种植")}</span>
+        )}
+        {p.stock === 0 && <span className="sold-out">{t("今日售罄")}</span>}
+        <span className="view-product">{t("了解这份新鲜")}<ArrowUpRight size={14} />
+        </span>
+      </button>
+      <div className="product-copy">
+        <div className="farm-label">
+          <span className="tiny-dot" />
+          {t(p.farm)}
+        </div>
+        <button className="product-name" onClick={onView}>
+          {t(p.name)}
+        </button>
+        <div className="product-description">
+          {t(p.description).split(/[。.!?]/)[0]}
+        </div>
+        <div className="product-bottom">
+          <div>
+            <strong>{t(money(p.price_cents))}</strong>
+            <small> / {t(p.unit)}</small>
+            <span className={`stock-label ${p.stock < 10 ? "low" : ""}`}>
+              {p.stock > 0 ? t("剩余 {count} {unit}", { count: p.stock, unit: quantityUnit(language, p.unit, p.stock) }) : t("等待下一次采收")}
+            </span>
+          </div>
+          <div className={quantity ? "product-quantity is-selected" : "product-add"}>
+            {quantity > 0 && <>
+              <QuantityButton className="add-button remove-button" onStep={() => { if (quantity === 1) addRef.current?.focus(); onRemove(); }} title={t("按住可连续减少")} aria-label={t("减少{0}", { 0: t(p.name) })}><Minus size={15} /></QuantityButton>
+              <span className="product-quantity-value" aria-live="polite" aria-atomic="true"><span className="quantity-pop" key={quantity}>{quantity}</span></span>
+            </>}
+            <QuantityButton
+              ref={addRef}
+              className={`add-button ${quantity ? "has-quantity" : ""}`}
+              disabled={!p.stock || quantity >= maxQuantity(p)}
+              title={t(!p.stock ? "今日已售罄" : quantity >= maxQuantity(p) ? "已达到可购数量" : "按住可连续增加")}
+              aria-label={t("将{0}加入购物袋", {0: t(p.name)})}
+              onStep={onAdd}
+            ><Plus size={quantity ? 15 : 20} /></QuantityButton>
+          </div>
+        </div>
+        {!!quantity && p.stock > 0 && quantity >= maxQuantity(p) && <p className="quantity-limit" role="status">
+          {t("已达上限 {count} {unit}", { count: maxQuantity(p), unit: quantityUnit(language, p.unit, maxQuantity(p)) })}
+        </p>}
+      </div>
+    </article>
+  );
+}
 
 function AuthModal({
   demo,
