@@ -33,13 +33,13 @@ test('八类收款可填报、核对、排序与导出，Match 不重复加到�
   await expect(page.locator('.sales-tender-details')).toContainText('$8.00');
   await page.goto('/admin?view=business');
   const mix = page.getByRole('region', { name: '付款与补助结构', exact: true });
-  await expect(mix.locator('.tender-bar')).toHaveCount(8);
+  await expect(mix.locator('.distribution-option')).toHaveCount(8);
   await expect(mix.locator('.tender-coverage')).toContainText('已分类销售额 $36.00');
   await mix.getByRole('button', { name: 'Match', exact: true }).click();
   await expect(mix.locator('.tender-inspector')).toContainText('$8.00');
   await expect(mix.locator('.tender-inspector')).toContainText('22.2%');
   await mix.getByRole('button', { name: '按金额排序', exact: true }).click();
-  await expect(mix.locator('.tender-bar').first()).toHaveAttribute('aria-label', 'Match');
+  await expect(mix.locator('.distribution-option').first()).toHaveAttribute('aria-label', 'Match');
   await page.getByLabel('选择导出报表', { exact: true }).selectOption('business');
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: '导出 CSV', exact: true }).click();
@@ -77,4 +77,27 @@ test('商户可保存分类并重新编辑，未分类历史记录不会显示�
   await expect(page.getByLabel('Cash', { exact: true })).toHaveValue('5');
   await page.setViewportSize({ width: 320, height: 850 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test('环图区分尚未填报、显式零金额和零分母，键盘可查看零订单状态', async ({ page }) => {
+  const session = await sessionFixture(page);
+  await page.goto('/admin');
+  const status = page.getByRole('group', { name: '订单状态占比图', exact: true });
+  await expect(status.locator('.distribution-center strong')).toHaveText('0');
+  await expect(status.locator('.recharts-pie-sector')).toHaveCount(0);
+  await status.getByRole('button', { name: '已完成', exact: true }).press('Home');
+  await status.getByRole('button', { name: '待商户确认', exact: true }).press('ArrowRight');
+  await expect(status.getByRole('button', { name: '待到场自提', exact: true })).toBeFocused();
+  await expect(page.locator('.distribution-readout')).toContainText('取货码核验');
+  await page.getByRole('tab', { name: '经营与覆盖', exact: true }).click();
+  const mix = page.getByRole('region', { name: '付款与补助结构', exact: true });
+  await expect(mix.locator('.distribution-empty')).toContainText('金额未知');
+  await expect(mix.locator('.distribution-center strong')).toHaveText('—');
+  const tenders = Object.fromEntries(tenderChannels.map(c => [c.key, 0]));
+  expect((await page.request.post('/api/admin/sales-reports', { data: { sessionId: session.id, vendorId: 2, grossCents: 0, transactions: 0, note: 'Explicit zero', version: 0, tenders } })).ok()).toBe(true);
+  await page.getByRole('button', { name: '刷新管理数据', exact: true }).click();
+  await expect(mix.locator('.distribution-center strong')).toHaveText('$0.00');
+  await expect(mix.locator('.distribution-empty')).toContainText('当前分类合计为零');
+  await expect(mix.locator('.recharts-pie-sector')).toHaveCount(0);
+  await expect(mix.locator('.distribution-option').filter({ hasText: /NaN|Infinity|100\.0%/ })).toHaveCount(0);
 });

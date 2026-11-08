@@ -127,6 +127,26 @@ test("CSV 导出遵循当前市场和日期范围，使用成交快照且不含�
   await expect(page.locator(".analytics-export-status")).toContainText("报表已生成");
 });
 
+test('长周期趋势限制图形与表格渲染量，分页和键盘读数保留完整日期', async ({ page }) => {
+  const { today } = await fixture(page);
+  const from = new Date(Date.parse(`${today}T12:00:00Z`) - 365 * 86400000).toISOString().slice(0, 10);
+  await page.goto(`/admin?range=custom&from=${from}&to=${today}`);
+  const trend = page.locator('.analytics-trend');
+  await expect(trend).toContainText('图表显示最近 120 个周期');
+  await expect(trend.getByRole('slider', { name: '选择趋势日期', exact: true })).toHaveAttribute('max', '119');
+  await trend.getByRole('slider', { name: '选择趋势日期', exact: true }).press('End');
+  await expect(trend.getByRole('slider', { name: '选择趋势日期', exact: true })).toHaveAttribute('aria-valuetext', `${today}: 3`);
+  await trend.getByText('查看趋势数据明细', { exact: true }).click();
+  const rows = trend.getByRole('table', { name: '趋势数据明细', exact: true }).locator('tbody tr');
+  await expect(rows).toHaveCount(12);
+  await expect(rows.first()).toContainText(from);
+  await trend.getByRole('button', { name: '下一页', exact: true }).click();
+  const next = new Date(Date.parse(`${from}T12:00:00Z`) + 12 * 86400000).toISOString().slice(0, 10);
+  await expect(rows.first()).toContainText(next);
+  await page.getByLabel('趋势汇总粒度', { exact: true }).selectOption('month');
+  await expect(trend.locator('.decision-pagination')).toContainText('第 1 /');
+});
+
 for (const width of [320, 390, 768]) {
   test(`统计看板在 ${width}px 可切换全部分区且不横向溢出`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 }); await login(page);

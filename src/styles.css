@@ -500,104 +500,18 @@ main {
 }
 .basket-art {
   position: absolute;
+  pointer-events: none;
   right: 4%;
   top: 4%;
   width: 40%;
   height: 94%;
   min-width: 270px;
 }
-.sun-circle {
-  position: absolute;
-  width: 240px;
-  height: 240px;
-  border-radius: 50%;
-  background: #e5e9cf;
-  top: 2px;
-  right: -15px;
-}
-.art-orbit {
-  position: absolute;
-  border: 1px solid #d6dec1;
-  border-radius: 50%;
-  width: 300px;
-  height: 300px;
-  top: 5px;
-  right: -45px;
-}
-.orbit-two {
-  width: 350px;
-  height: 350px;
-  top: -17px;
-  right: -70px;
-}
-.basket-art .produce-art {
-  position: absolute;
-  width: 145px;
-  height: 145px;
-}
-.hero-carrot {
-  left: 10%;
-  top: 5%;
-  transform: rotate(-32deg);
-  z-index: 3;
-}
-.hero-broccoli {
-  left: 27%;
-  top: 2%;
-  transform: rotate(9deg);
-  z-index: 2;
-}
-.hero-lettuce {
-  left: 53%;
-  top: 5%;
-  transform: rotate(25deg);
-  z-index: 1;
-}
-.hero-tomato {
-  left: 44%;
-  top: 30%;
-  z-index: 4;
-  transform: rotate(9deg);
-}
-.basket-body {
-  position: absolute;
-  width: 218px;
-  height: 114px;
-  left: 19%;
-  top: 51%;
-  z-index: 5;
-  border-radius: 5px 5px 35px 35px;
-  background: repeating-linear-gradient(
-    0deg,
-    #b6986e 0px,
-    #b6986e 5px,
-    #c3a97e 5px,
-    #c3a97e 14px
-  );
-  box-shadow: 0 20px 25px -20px #5d653e66;
-  transform: rotate(-6deg);
-  display: flex;
-  justify-content: space-around;
-  padding: 0 12px;
-  overflow: hidden;
-}
-.basket-body span {
+.harvest-basket {
   display: block;
-  width: 11px;
-  background: #d5bd92aa;
+  width: 100%;
   height: 100%;
-}
-.basket-rim {
-  position: absolute;
-  width: 229px;
-  height: 16px;
-  left: 17.5%;
-  top: 50%;
-  background: #a78d61;
-  z-index: 6;
-  border-radius: 5px;
-  transform: rotate(-6deg);
-  border-top: 4px solid #d9c49c;
+  overflow: visible;
 }
 .hero-sticker {
   position: absolute;
@@ -625,20 +539,6 @@ main {
   font-weight: 500;
   letter-spacing: 0.5px;
   margin-top: 5px;
-}
-.art-spark {
-  position: absolute;
-  color: #9ba879;
-}
-.spark-one {
-  left: 10%;
-  top: 11%;
-  font-size: 29px;
-}
-.spark-two {
-  right: 4%;
-  bottom: 15%;
-  font-size: 23px;
 }
 .benefits {
   display: grid;
@@ -3135,12 +3035,12 @@ tbody tr:last-child td {
     font-size: 23px;
   }
   .retailer-welcome .basket-art {
-    right: -30px;
-    transform: scale(0.8);
-    opacity: 0.7;
+    min-width: 220px;
+    right: 0;
+    transform: none;
   }
   .retailer-welcome > div:first-child {
-    width: 70%;
+    width: 65%;
   }
   .retailer-welcome p {
     font-size: 9px;
@@ -3533,11 +3433,19 @@ tbody tr:last-child td {
     padding: 11px 13px;
   }
   .retailer-welcome > div:first-child {
-    width: 70%;
+    width: 100%;
   }
   .retailer-welcome .basket-art {
-    right: -25px;
-    transform: scale(0.8);
+    width: 38%;
+    min-width: 0;
+    height: 145px;
+    right: 10px;
+    top: auto;
+    bottom: 0;
+    transform: none;
+  }
+  .retailer-welcome .hero-sticker {
+    display: none;
   }
   .market-card {
     border-radius: 11px;
@@ -3866,7 +3774,7 @@ tbody tr:last-child td {
   }
   .retailer-welcome {
     padding: 24px 20px;
-    min-height: 280px;
+    min-height: 300px;
   }
   .retailer-welcome h2 {
     font-size: 22px;
@@ -3877,18 +3785,12 @@ tbody tr:last-child td {
   .retailer-welcome p {
     font-size: 8px;
   }
-  .retailer-welcome .basket-art {
-    right: -80px;
-    top: 20px;
-    transform: scale(0.68);
-    opacity: 0.7;
-  }
   .retailer-welcome .button {
     font-size: 9px;
     padding: 11px 14px;
   }
   .retailer-welcome > div:first-child {
-    width: 85%;
+    width: 100%;
   }
   .inventory-toolbar .search-field {
     width: 55%;
@@ -3918,6 +3820,11 @@ tbody tr:last-child td {
   }
   .modal-intro {
     font-size: 10px;
+  }
+}
+@media (max-width: 360px) {
+  .retailer-welcome {
+    min-height: 360px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
