@@ -30,3 +30,13 @@ body:has(.interactive-demo-toolbar) .sidebar { top: 63px; height: calc(100vh - 6
   .interactive-demo-toolbar { display: none; }
   body:has(.interactive-demo-toolbar) { padding-top: 0; }
 }
+
+.demo-analytics-data { display: flex; align-items: center; gap: 15px; padding: 18px 20px; border: 1px solid #cde2dc; background: #eef7f3; border-radius: 12px; color: #1c6659; }
+.demo-analytics-data > svg { flex-shrink: 0; }
+.demo-analytics-data > div { flex: 1; min-width: 0; }
+.demo-analytics-data strong { font-size: 13px; }
+.demo-analytics-data p { font-size: 11px; line-height: 1.8; color: #527169; margin: 5px 0 0; }
+.demo-analytics-data small { display: block; font-size: 10px; margin-top: 7px; font-variant-numeric: tabular-nums; }
+.demo-analytics-data .button { background: #fff; border-color: #aacfc3; color: #146452; white-space: nowrap; }
+.demo-analytics-data [role="alert"] { color: #9f4534; }
+@media (max-width: 600px) { .demo-analytics-data { flex-wrap: wrap; padding: 16px; gap: 12px; } .demo-analytics-data > div { flex-basis: calc(100% - 40px); } .demo-analytics-data .button { width: 100%; } }

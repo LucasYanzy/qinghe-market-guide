@@ -6,6 +6,7 @@ import "./styles.css";
 import "./website.css";
 import "./motion.css";
 import "./pointer.css";
+import "./catalog-presentation.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

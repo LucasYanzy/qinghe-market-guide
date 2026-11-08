@@ -1,0 +1,28 @@
+.distribution-chart { display: grid; grid-template-columns: 224px minmax(0,1fr); align-items: center; gap: 24px; min-width: 0; }
+.distribution-visual { width: 224px; height: 224px; position: relative; margin-inline: auto; }
+.distribution-visual .recharts-sector { cursor: pointer; }
+.distribution-center { position: absolute; inset: 50% auto auto 50%; transform: translate(-50%,-50%); display: grid; text-align: center; gap: 7px; width: 145px; pointer-events: none; }
+.distribution-center > span { color: #64748b; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.distribution-center > strong { font-size: 25px; letter-spacing: -.6px; color: #142e38; font-variant-numeric: tabular-nums; }
+.distribution-center > small { color: #0f766e; font-size: 12px; font-weight: 600; }
+.distribution-legend { min-width: 0; display: grid; gap: 4px; }
+.distribution-legend > p { color: #64748b; font-size: 10px; line-height: 1.7; margin: 0 0 7px; }
+.distribution-option { width: 100%; display: grid; grid-template-columns: 9px minmax(0,1fr) auto; gap: 10px; align-items: center; padding: 10px; border: 1px solid transparent; border-radius: 8px; min-height: 45px; text-align: left; color: #475569; background: transparent; }
+.distribution-option:hover { background: #f8fafc; }
+.distribution-option[aria-pressed="true"] { border-color: #b4d7cf; background: #eff8f5; color: #115e59; }
+.distribution-option:focus-visible { outline: 2px solid #0f766e; outline-offset: 2px; }
+.distribution-option > i { width: 9px; height: 9px; border-radius: 3px; }
+.distribution-option > span { font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.distribution-option > b { text-align: right; font-size: 13px; font-variant-numeric: tabular-nums; }
+.distribution-option small { display: block; color: #64748b; font-size: 10px; font-weight: 400; margin-top: 3px; }
+.distribution-empty { padding: 10px; border-radius: 7px; background: #f5f7fa; }
+.analytics-fulfillment .distribution-chart { grid-template-columns: minmax(0,1fr); gap: 0; }
+.analytics-fulfillment .distribution-legend > p { text-align: center; }
+.distribution-readout { padding: 14px 16px; border: 1px solid #dce9e6; background: #f3faf7; border-radius: 9px; color: #37544d; font-size: 12px; line-height: 1.8; margin-top: 15px; }
+.distribution-readout p { margin: 5px 0 0; color: #64748b; font-size: 11px; }
+.distribution-readout strong { color: #115e59; }
+.inventory-category-selection { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; color: #475569; font-size: 12px; }
+.business-tenders .distribution-chart { grid-template-columns: 224px minmax(0,1fr); }
+@media (max-width: 700px) {
+  .distribution-chart, .business-tenders .distribution-chart { grid-template-columns: minmax(0,1fr); gap: 8px; }
+}
