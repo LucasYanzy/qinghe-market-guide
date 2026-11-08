@@ -7,6 +7,7 @@ import "../styles.css";
 import "../website.css";
 import "../motion.css";
 import "../pointer.css";
+import "../catalog-presentation.css";
 
 const root = ReactDOM.createRoot(document.getElementById("root")!);
 function start() {
