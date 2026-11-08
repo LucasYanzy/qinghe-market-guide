@@ -45,13 +45,6 @@
 .analytics-fulfillment-number { display: grid; gap: 6px; margin: 28px 0 22px; }
 .analytics-fulfillment-number strong { font-size: 41px; color: #3e603f; font-weight: 400; letter-spacing: -1.5px; }
 .analytics-fulfillment-number span { color: #869578; font-size: 10px; }
-.analytics-status-track { display: flex; height: 9px; background: #eef2e7; border-radius: 5px; overflow: hidden; margin-bottom: 22px; }
-.analytics-status-rows { display: grid; gap: 15px; }
-.analytics-status-rows > div { display: flex; align-items: center; gap: 12px; font-size: 11px; color: #718564; }
-.analytics-status-rows span { margin-right: auto; display: flex; align-items: center; gap: 8px; }
-.analytics-status-rows i, .analytics-category-list i { display: inline-block; height: 7px; width: 7px; border-radius: 2px; flex-shrink: 0; }
-.analytics-status-rows strong { font-size: 13px; font-weight: 500; color: #4a6842; }
-.analytics-status-rows small { width: 30px; text-align: right; color: #9ba58f; font-size: 10px; }
 .analytics-alert-line { display: flex; gap: 8px; align-items: center; padding-top: 18px; border-top: 1px solid #e5ebdc; margin-top: 22px; font-size: 10px; color: #8c8f72; line-height: 1.7; }
 .analytics-alert-line strong { margin-left: auto; font-weight: 500; color: #a0835b; font-size: 14px; }
 .analytics-heatmap { width: 100%; font-size: 10px; border-collapse: separate; border-spacing: 6px 9px; min-width: 365px; }
@@ -84,11 +77,6 @@
 .analytics-stock-list strong { color: #5a754c; font-size: 12px; font-weight: 500; }
 .analytics-stock-list small { display: block; color: #8c9a7d; font-size: 10px; line-height: 1.7; margin-top: 7px; }
 .analytics-stock-list .school-badge { flex-shrink: 0; }
-.analytics-category-list { display: grid; gap: 22px; padding: 18px 0 25px; }
-.analytics-category-list > div { display: flex; align-items: center; gap: 16px; font-size: 12px; color: #7f8f6f; }
-.analytics-category-list span { display: flex; gap: 10px; align-items: center; margin-right: auto; }
-.analytics-category-list strong { font-size: 17px; color: #577449; font-weight: 400; }
-.analytics-category-list small { width: 45px; text-align: right; font-size: 11px; }
 .analytics-snap-numbers { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 20px; padding: 20px 0 30px; }
 .analytics-snap-numbers > div { display: grid; gap: 12px; }
 .analytics-snap-numbers strong { font-size: 28px; font-weight: 400; color: #527144; overflow-wrap: anywhere; }

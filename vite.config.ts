@@ -11,7 +11,11 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
-      output: { manualChunks: { charts: ["recharts"] } },
+      output: {
+        manualChunks(id) {
+          if (id.includes("/node_modules/recharts/")) return "charts";
+        },
+      },
     },
   },
 });
