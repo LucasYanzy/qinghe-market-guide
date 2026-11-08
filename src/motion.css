@@ -18,11 +18,13 @@
   translate: var(--art-x, 0px) var(--art-y, 0px);
   transition: translate 650ms var(--ease-out);
 }
-.basket-produce { animation: harvest-arrive 900ms var(--ease-out) both; }
-.basket-broccoli { animation-delay: 80ms; }
-.basket-lettuce { animation-delay: 140ms; }
-.basket-tomato { animation-delay: 200ms; }
+.basket-art .produce-art { animation: harvest-arrive 900ms var(--ease-out) both; }
+.basket-art .hero-broccoli { animation-delay: 80ms; }
+.basket-art .hero-lettuce { animation-delay: 140ms; }
+.basket-art .hero-tomato { animation-delay: 200ms; }
 .hero-sticker { animation: sticker-arrive 1s 200ms var(--ease-out) both; }
+.art-spark { animation: spark-bloom 1.8s 2 ease-in-out; }
+.spark-two { animation-delay: 300ms; }
 .benefit-icon, .step-icon { transition: transform 300ms var(--ease-out), border-radius 300ms; }
 @media (hover: hover) and (pointer: fine) {
   .benefits > div:hover .benefit-icon, .preorder-steps article:hover .step-icon {
@@ -144,6 +146,7 @@
 .back-to-top:hover { background: #edf2e4; }
 @keyframes harvest-arrive { from { opacity: 0; translate: 0 22px; } to { opacity: 1; translate: 0 0; } }
 @keyframes sticker-arrive { from { opacity: 0; scale: .8; } to { opacity: 1; scale: 1; } }
+@keyframes spark-bloom { 0%, 100% { scale: 1; opacity: .6; } 50% { scale: 1.18; opacity: 1; } }
 @keyframes quantity-pop { 0% { scale: .65; } 55% { scale: 1.18; } 100% { scale: 1; } }
 @keyframes value-update { from { opacity: .5; translate: 0 3px; } to { opacity: 1; translate: 0 0; } }
 @keyframes chip-in { from { opacity: 0; translate: 0 5px; } to { opacity: 1; translate: 0 0; } }
