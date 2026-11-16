@@ -68,6 +68,8 @@ import {
   type RawTable,
 } from "./data";
 import "./style.css";
+import { readBrowserRecords, saveBrowserRecords } from "./browserStorage";
+const browserHosted = import.meta.env.VITE_OPERATIONS_STORAGE === "browser";
 const colors = [
   "#214d40",
   "#94b29d",
@@ -130,22 +132,28 @@ function App() {
     setLoading(true);
     setError("");
     try {
-      const r = await fetch("/api/state");
-      if (!r.ok) throw new Error();
-      const data = await r.json();
+      let data: State;
+      if (browserHosted) data = readBrowserRecords(localStorage);
+      else {
+        const r = await fetch("/api/state");
+        if (!r.ok) throw new Error();
+        data = await r.json();
+      }
       datasetSchema.parse({
         sessions: data.sessions,
         inventory: data.inventory,
       });
       setActual(data);
       setConnected(true);
-    } catch {
+    } catch (e: any) {
       setConnected(false);
       setError(
-        t(
-          "Cannot reach the local records service. Start the app with npm run dev or npm start, then retry.",
-          "无法连接本地记录服务。启动完整应用后重试。",
-        ),
+        browserHosted
+          ? e.message
+          : t(
+              "Cannot reach the local records service. Start the app with npm run dev or npm start, then retry.",
+              "无法连接本地记录服务。启动完整应用后重试。",
+            ),
       );
     } finally {
       setLoading(false);
@@ -223,21 +231,37 @@ function App() {
         if (!connected)
           throw new Error(
             t(
-              "Connect to the local records service first.",
-              "请先连接本地记录服务。",
+              browserHosted
+                ? "Refresh browser records before saving."
+                : "Connect to the local records service first.",
+              browserHosted
+                ? "请刷新浏览器记录后再保存。"
+                : "请先连接本地记录服务。",
             ),
           );
-        const res = await fetch("/api/" + action, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...payload, revision: actual.revision }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Unable to save");
+        let data: State & { added?: number; skipped?: number };
+        if (browserHosted)
+          data = await saveBrowserRecords(action, payload, actual.revision);
+        else {
+          const res = await fetch("/api/" + action, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...payload, revision: actual.revision }),
+          });
+          data = await res.json();
+          if (!res.ok) throw new Error((data as any).error ?? "Unable to save");
+        }
         setActual(data);
         setNotice(
           data.added === undefined
-            ? t("Saved to the local database.", "已保存到本地数据库。")
+            ? t(
+                browserHosted
+                  ? "Saved in this browser. Export a backup to keep a portable copy."
+                  : "Saved to the local database.",
+                browserHosted
+                  ? "已保存在此浏览器，导出备份可保留可迁移的副本。"
+                  : "已保存到本地数据库。",
+              )
             : t(
                 `${data.added} added · ${data.skipped} duplicates skipped.`,
                 `${data.added} 条新增，跳过 ${data.skipped} 条重复记录。`,
@@ -255,6 +279,7 @@ function App() {
     }
   }
   function switchMode(next: "demo" | "actual") {
+    if (next === mode) return;
     if (next === "actual") {
       setLoading(true);
       setConnected(false);
@@ -435,12 +460,20 @@ function App() {
                     )
                   : connected
                     ? t(
-                        "Saved on this computer · no customer details",
-                        "保存在本机，不收集顾客个人信息",
+                        browserHosted
+                          ? "Saved in this browser · export to back up"
+                          : "Saved on this computer · no customer details",
+                        browserHosted
+                          ? "保存在此浏览器，请导出备份"
+                          : "保存在本机，不收集顾客个人信息",
                       )
                     : t(
-                        "Local service connection required",
-                        "需要连接本地服务",
+                        browserHosted
+                          ? "Browser records unavailable · refresh to retry"
+                          : "Local service connection required",
+                        browserHosted
+                          ? "浏览器记录不可用，请刷新重试"
+                          : "需要连接本地服务",
                       )}
               </span>
             </div>
@@ -2117,8 +2150,12 @@ function Exchange({
           </p>
           <p>
             {t(
-              "Actual records start empty. The local service saves them in SQLite; the example workspace stays in this browser. A shared team deployment needs authentication and hosting.",
-              "真实记录初始为空，本地服务将其存入 SQLite；演示数据仅保存在浏览器。团队共用需另行配置身份验证及托管。",
+              browserHosted
+                ? "Your records stay in this browser and are not uploaded to the public website. Export a JSON backup before clearing browser data or moving to another device. Records are not synchronized between people or devices."
+                : "Actual records start empty. The local service saves them in SQLite; the example workspace stays in this browser. A shared team deployment needs authentication and hosting.",
+              browserHosted
+                ? "记录仅保存在此浏览器，不会上传到公开网站。清理浏览器或换设备前请导出 JSON 备份；不同人员、设备之间不会自动同步。"
+                : "真实记录初始为空，本地服务将其存入 SQLite；演示数据仅保存在浏览器。团队共用需另行配置身份验证及托管。",
             )}
           </p>
         </section>

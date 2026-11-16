@@ -1,10 +1,20 @@
 name: Validate internal market operations
 on:
   pull_request:
-    paths: ["operations/**", ".github/workflows/operations.yml"]
+    paths:
+      [
+        "operations/**",
+        ".github/workflows/operations.yml",
+        ".github/workflows/pages.yml",
+      ]
   push:
     branches: ["main", "feat/internal-operations-dashboard"]
-    paths: ["operations/**", ".github/workflows/operations.yml"]
+    paths:
+      [
+        "operations/**",
+        ".github/workflows/operations.yml",
+        ".github/workflows/pages.yml",
+      ]
   workflow_dispatch:
 permissions:
   contents: read
@@ -29,6 +39,7 @@ jobs:
       - run: npm run check
       - run: npx playwright install --with-deps chromium
       - run: npm run test:ui
+      - run: npm run test:public
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: failure()
         with:
