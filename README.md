@@ -1,4 +1,17 @@
-# 青禾 · Rutgers 社区农夫市集
+# 青禾 · Rutgers 市集内部运营
+
+新版内部工具位于 **[operations/](operations/README.md)**：记录每场销售与支付构成、库存及损耗，导入/导出 Excel，比较点位贡献与交叉补贴情景。英文默认，可切换中文。真实记录保存在本机数据库；演示工作区独立保存。
+
+```sh
+cd operations
+npm ci
+npm run dev
+# http://127.0.0.1:5186
+```
+
+完整使用方式、数据口径和验证见 [内部工具说明](operations/README.md)。旧版线上源码和含未提交改动的本地源码快照已存入私有历史库，标签分别为 `archive/pre-internal-2026-11-16/production` 和 `archive/pre-internal-2026-11-16/working-copy`。
+
+## 原顾客 / 商户 / 学校完整平台
 
 独立的社区市集项目，包含公开市场导览与顾客、商户、学校三端完整应用。非 Rutgers 官方网站。
 
