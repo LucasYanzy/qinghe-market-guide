@@ -13,6 +13,9 @@ import {
   PieChart,
   Pie,
   Cell,
+  LineChart,
+  Line,
+  ReferenceLine,
 } from "recharts";
 import {
   Leaf,
@@ -58,16 +61,15 @@ import {
 import {
   today,
   exampleData,
-  readWorkbook,
-  sessionColumns,
-  inventoryColumns,
-  guessMapping,
-  prepareImport,
   download,
   exportWorkbook,
-  type RawTable,
+  exportDelimited,
+  delimited,
 } from "./data";
 import "./style.css";
+import { Exchange } from "./Exchange";
+import { Insights, InventoryVisuals } from "./Insights";
+import { Procurement } from "./Procurement";
 import { readBrowserRecords, saveBrowserRecords } from "./browserStorage";
 const browserHosted = import.meta.env.VITE_OPERATIONS_STORAGE === "browser";
 const colors = [
@@ -78,7 +80,13 @@ const colors = [
   "#a5a6c3",
   "#d4d7d0",
 ];
-type Page = "overview" | "sessions" | "inventory" | "exchange" | "planning";
+type Page =
+  | "overview"
+  | "sessions"
+  | "inventory"
+  | "exchange"
+  | "planning"
+  | "procurement";
 type State = Dataset & { revision: number };
 const money = (n: number | null | undefined) =>
   n == null
@@ -89,7 +97,7 @@ const money = (n: number | null | undefined) =>
         maximumFractionDigits: 2,
       }).format(n / 100);
 const amount = (n: number) => money(n * 100);
-const empty: State = { sessions: [], inventory: [], revision: 0 };
+const empty: State = { sessions: [], inventory: [], quotes: [], revision: 0 };
 function App() {
   const [zh, setZh] = useState(
     localStorage.getItem("operations-language") === "zh",
@@ -101,7 +109,12 @@ function App() {
     try {
       const saved = localStorage.getItem("operations-demo-v1");
       return {
-        ...(saved ? datasetSchema.parse(JSON.parse(saved)) : exampleData()),
+        ...(saved
+          ? datasetSchema.parse({
+              ...JSON.parse(saved),
+              quotes: JSON.parse(saved).quotes ?? exampleData().quotes,
+            })
+          : exampleData()),
         revision: 0,
       };
     } catch {
@@ -127,6 +140,20 @@ function App() {
     id: string;
   } | null>(null);
   const [navOpen, setNavOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [registerStatus, setRegisterStatus] = useState("");
+  const [registerSort, setRegisterSort] = useState("date_desc");
+  const [registerPage, setRegisterPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  useEffect(() => {
+    setSearch("");
+    setRegisterStatus("");
+    setRegisterSort("date_desc");
+    setRegisterPage(1);
+  }, [page, mode]);
+  useEffect(() => {
+    setRegisterPage(1);
+  }, [search, registerStatus, registerSort, pageSize, market, from, to]);
   const state = mode === "demo" ? demo : actual;
   async function refresh() {
     setLoading(true);
@@ -139,11 +166,14 @@ function App() {
         if (!r.ok) throw new Error();
         data = await r.json();
       }
-      datasetSchema.parse({
-        sessions: data.sessions,
-        inventory: data.inventory,
+      setActual({
+        ...datasetSchema.parse({
+          sessions: data.sessions,
+          inventory: data.inventory,
+          quotes: data.quotes,
+        }),
+        revision: data.revision,
       });
-      setActual(data);
       setConnected(true);
     } catch (e: any) {
       setConnected(false);
@@ -188,6 +218,7 @@ function App() {
         let next: Dataset = {
           sessions: [...demo.sessions],
           inventory: [...demo.inventory],
+          quotes: [...demo.quotes],
         };
         let added: number | undefined;
         if (action === "import") {
@@ -197,12 +228,13 @@ function App() {
         } else if (action.startsWith("delete/")) {
           const [, kind, id] = action.split("/");
           (next as any)[kind] = (next as any)[kind].filter(
-            (r: any) => r.id !== id,
+            (r: any) => r.id !== decodeURIComponent(id),
           );
         } else {
-          const kind = action.split("/")[1] as "sessions" | "inventory";
+          const kind = action.split("/")[1] as
+            "sessions" | "inventory" | "quotes";
           const row = payload.record;
-          const list = next[kind] as (Session | Inventory)[];
+          const list = next[kind] as any[];
           if (
             list.some((r) => r.id !== row.id && recordKey(r) === recordKey(row))
           )
@@ -308,6 +340,56 @@ function App() {
     [state, market, from, to],
   );
   const inventory = state.inventory.filter(selected);
+  const foundSessions = rows
+    .filter(
+      (s) =>
+        (!search ||
+          [s.date, s.market, s.session, s.source_ref, s.notes]
+            .join(" ")
+            .toLowerCase()
+            .includes(search.toLowerCase())) &&
+        (!registerStatus ||
+          (registerStatus === "incomplete"
+            ? totalCosts(s) === null
+            : s.status === registerStatus)),
+    )
+    .sort((a, b) =>
+      registerSort === "sales_desc"
+        ? sales(b) - sales(a)
+        : registerSort === "date_asc"
+          ? a.date.localeCompare(b.date)
+          : b.date.localeCompare(a.date),
+    );
+  const foundInventory = inventory
+    .filter(
+      (s) =>
+        (!search ||
+          [
+            s.date,
+            s.market,
+            s.session,
+            s.product,
+            s.unit,
+            s.source_ref,
+            s.notes,
+          ]
+            .join(" ")
+            .toLowerCase()
+            .includes(search.toLowerCase())) &&
+        (registerStatus !== "spoiled" || s.spoiled > 0),
+    )
+    .sort((a, b) =>
+      registerSort === "product"
+        ? a.product.localeCompare(b.product)
+        : registerSort === "date_asc"
+          ? a.date.localeCompare(b.date)
+          : b.date.localeCompare(a.date),
+    );
+  const registerCount =
+    page === "inventory" ? foundInventory.length : foundSessions.length;
+  const lastPage = Math.max(1, Math.ceil(registerCount / pageSize)),
+    safePage = Math.min(registerPage, lastPage),
+    offset = (safePage - 1) * pageSize;
   const stats = summary(rows);
   const chart = grouped(rows, period);
   const tenders = tenderKeys.map((k, i) => ({
@@ -325,6 +407,12 @@ function App() {
   }));
   const nav = [
     { id: "overview", icon: LayoutDashboard, en: "Overview", cn: "运营概览" },
+    {
+      id: "procurement",
+      icon: PackageOpen,
+      en: "Procurement",
+      cn: "采购与供应商",
+    },
     { id: "sessions", icon: NotebookPen, en: "Market log", cn: "场次记录" },
     { id: "inventory", icon: PackageOpen, en: "Inventory", cn: "库存与损耗" },
     {
@@ -514,7 +602,15 @@ function App() {
                             "Your spreadsheet, connected.",
                             "从熟悉的表格开始。",
                           )
-                        : t("Plan the next decision.", "为下一步决策做测算。")}
+                        : page === "procurement"
+                          ? t(
+                              "Buy with the full cost in view.",
+                              "看清完整成本，再决定采购。",
+                            )
+                          : t(
+                              "Plan the next decision.",
+                              "为下一步决策做测算。",
+                            )}
               </h1>
               <p>
                 {page === "overview"
@@ -537,10 +633,15 @@ function App() {
                             "Bring in existing records. Keep a complete, portable copy.",
                             "导入已有记录，也随时带走完整、可复用的副本。",
                           )
-                        : t(
-                            "Test assumptions before using them to make a commitment.",
-                            "把假设写明白，再观察它们如何影响结果。",
-                          )}
+                        : page === "procurement"
+                          ? t(
+                              "Compare like-for-like supplier offers and test demand, loss and whole-pack orders.",
+                              "统一规格比较报价，测算需求、损耗与整包采购。",
+                            )
+                          : t(
+                              "Test assumptions before using them to make a commitment.",
+                              "把假设写明白，再观察它们如何影响结果。",
+                            )}
               </p>
             </div>
             <div className="title-actions">
@@ -666,6 +767,111 @@ function App() {
                       {t("Clear", "清除")}
                     </button>
                   )}
+                </div>
+              )}
+              {["sessions", "inventory"].includes(page) && (
+                <div className="register-toolbar">
+                  <input
+                    aria-label="Search records"
+                    placeholder={t(
+                      "Search records, products or sources…",
+                      "搜索记录、商品或来源…",
+                    )}
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                  <select
+                    aria-label="Record status"
+                    value={registerStatus}
+                    onChange={(e) => setRegisterStatus(e.target.value)}
+                  >
+                    <option value="">{t("All records", "全部记录")}</option>
+                    {page === "sessions" ? (
+                      <>
+                        <option value="held">{t("Held", "已开市")}</option>
+                        <option value="cancelled">
+                          {t("Cancelled", "已取消")}
+                        </option>
+                        <option value="incomplete">
+                          {t("Incomplete costs", "成本未填全")}
+                        </option>
+                      </>
+                    ) : (
+                      <option value="spoiled">
+                        {t("With spoilage", "有损耗")}
+                      </option>
+                    )}
+                  </select>
+                  <select
+                    aria-label="Sort records"
+                    value={registerSort}
+                    onChange={(e) => setRegisterSort(e.target.value)}
+                  >
+                    <option value="date_desc">
+                      {t("Newest first", "日期从新到旧")}
+                    </option>
+                    <option value="date_asc">
+                      {t("Oldest first", "日期从旧到新")}
+                    </option>
+                    {page === "sessions" ? (
+                      <option value="sales_desc">
+                        {t("Highest sales", "销售从高到低")}
+                      </option>
+                    ) : (
+                      <option value="product">
+                        {t("Product name", "商品名称")}
+                      </option>
+                    )}
+                  </select>
+                  <button
+                    className="btn secondary"
+                    disabled={busy}
+                    onClick={() =>
+                      exportDelimited(
+                        {
+                          sessions: foundSessions,
+                          inventory: foundInventory,
+                          quotes: [],
+                        },
+                        page === "sessions" ? "sessions" : "inventory",
+                        mode === "demo",
+                        "csv",
+                        "filtered",
+                      )
+                    }
+                  >
+                    <Download size={15} />
+                    {t("Filtered CSV", "筛选 CSV")}
+                  </button>
+                  <button
+                    className="btn secondary"
+                    disabled={busy}
+                    onClick={async () => {
+                      setBusy(true);
+                      try {
+                        await exportWorkbook(
+                          {
+                            sessions: page === "sessions" ? foundSessions : [],
+                            inventory:
+                              page === "inventory" ? foundInventory : [],
+                            quotes: [],
+                          },
+                          mode === "demo",
+                          false,
+                          `${registerCount} filtered ${page} records; all matching rows, not just this page`,
+                        );
+                      } catch (e: any) {
+                        setError(e.message);
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}
+                  >
+                    {t("Filtered Excel", "筛选 Excel")}
+                  </button>
+                  <span>
+                    {registerCount} {t("matching records", "条匹配记录")}
+                  </span>
                 </div>
               )}
               {from && to && from > to ? (
@@ -1038,6 +1244,7 @@ function App() {
                       </section>
                     </>
                   )}
+                  {!!rows.length && <Insights rows={rows} t={t} />}
                 </>
               ) : page === "sessions" ? (
                 <section className="card records-card">
@@ -1052,7 +1259,7 @@ function App() {
                       </p>
                     </div>
                   </div>
-                  {rows.length ? (
+                  {foundSessions.length ? (
                     <div className="table-scroll">
                       <table>
                         <thead>
@@ -1072,8 +1279,8 @@ function App() {
                           </tr>
                         </thead>
                         <tbody>
-                          {[...rows]
-                            .sort((a, b) => b.date.localeCompare(a.date))
+                          {foundSessions
+                            .slice(offset, offset + pageSize)
                             .map((s) => (
                               <tr key={s.id}>
                                 <td>
@@ -1152,6 +1359,7 @@ function App() {
                       )}
                     </p>
                   </div>
+                  <InventoryVisuals rows={foundInventory} t={t} />
                   <section className="card records-card">
                     <div className="card-head">
                       <div>
@@ -1164,7 +1372,7 @@ function App() {
                         </p>
                       </div>
                     </div>
-                    {inventory.length ? (
+                    {foundInventory.length ? (
                       <div className="table-scroll">
                         <table>
                           <thead>
@@ -1186,58 +1394,60 @@ function App() {
                             </tr>
                           </thead>
                           <tbody>
-                            {inventory.map((s) => (
-                              <tr key={s.id}>
-                                <td>
-                                  <b>{s.date}</b>
-                                  <span>{s.market}</span>
-                                  <small>{s.session}</small>
-                                </td>
-                                <td>
-                                  <b>{s.product}</b>
-                                  <span>{s.unit}</span>
-                                </td>
-                                {(
-                                  [
-                                    "opening",
-                                    "received",
-                                    "sold",
-                                    "donated",
-                                    "spoiled",
-                                    "transferred",
-                                    "closing",
-                                  ] as const
-                                ).map((k) => (
-                                  <td key={k}>{s[k]}</td>
-                                ))}
-                                <td>
-                                  <div className="row-actions">
-                                    <button
-                                      aria-label={`Edit ${s.product}`}
-                                      onClick={() =>
-                                        setEditor({
-                                          kind: "inventory",
-                                          record: s,
-                                        })
-                                      }
-                                    >
-                                      <Pencil size={15} />
-                                    </button>
-                                    <button
-                                      aria-label={`Delete ${s.product}`}
-                                      onClick={() =>
-                                        setRemove({
-                                          kind: "inventory",
-                                          id: s.id,
-                                        })
-                                      }
-                                    >
-                                      <Trash2 size={15} />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
+                            {foundInventory
+                              .slice(offset, offset + pageSize)
+                              .map((s) => (
+                                <tr key={s.id}>
+                                  <td>
+                                    <b>{s.date}</b>
+                                    <span>{s.market}</span>
+                                    <small>{s.session}</small>
+                                  </td>
+                                  <td>
+                                    <b>{s.product}</b>
+                                    <span>{s.unit}</span>
+                                  </td>
+                                  {(
+                                    [
+                                      "opening",
+                                      "received",
+                                      "sold",
+                                      "donated",
+                                      "spoiled",
+                                      "transferred",
+                                      "closing",
+                                    ] as const
+                                  ).map((k) => (
+                                    <td key={k}>{s[k]}</td>
+                                  ))}
+                                  <td>
+                                    <div className="row-actions">
+                                      <button
+                                        aria-label={`Edit ${s.product}`}
+                                        onClick={() =>
+                                          setEditor({
+                                            kind: "inventory",
+                                            record: s,
+                                          })
+                                        }
+                                      >
+                                        <Pencil size={15} />
+                                      </button>
+                                      <button
+                                        aria-label={`Delete ${s.product}`}
+                                        onClick={() =>
+                                          setRemove({
+                                            kind: "inventory",
+                                            id: s.id,
+                                          })
+                                        }
+                                      >
+                                        <Trash2 size={15} />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
                           </tbody>
                         </table>
                       </div>
@@ -1264,10 +1474,57 @@ function App() {
                   mutate={mutate}
                   setError={setError}
                 />
+              ) : page === "procurement" ? (
+                <Procurement
+                  key={mode}
+                  state={state}
+                  mode={mode}
+                  t={t}
+                  busy={busy}
+                  connected={connected}
+                  mutate={mutate}
+                />
               ) : (
                 <Planning t={t} />
               )}
             </>
+          )}
+          {["sessions", "inventory"].includes(page) && (
+            <div className="pagination">
+              <span>
+                {registerCount ? offset + 1 : 0}–
+                {Math.min(offset + pageSize, registerCount)} / {registerCount}
+              </span>
+              <label>
+                {t("Rows per page", "每页行数")}{" "}
+                <select
+                  aria-label="Rows per page"
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                >
+                  {[25, 50, 100].map((n) => (
+                    <option key={n}>{n}</option>
+                  ))}
+                </select>
+              </label>
+              <button
+                className="btn secondary"
+                disabled={safePage === 1}
+                onClick={() => setRegisterPage(safePage - 1)}
+              >
+                {t("Previous", "上一页")}
+              </button>
+              <span>
+                {safePage} / {lastPage}
+              </span>
+              <button
+                className="btn secondary"
+                disabled={safePage === lastPage}
+                onClick={() => setRegisterPage(safePage + 1)}
+              >
+                {t("Next", "下一页")}
+              </button>
+            </div>
           )}
           <footer className="page-footer">
             <span>
@@ -1764,405 +2021,6 @@ function Editor({
     </Modal>
   );
 }
-function Exchange({
-  t,
-  state,
-  mode,
-  busy,
-  connected,
-  exportFile,
-  mutate,
-  setError,
-}: {
-  t: (a: string, b: string) => string;
-  state: State;
-  mode: string;
-  busy: boolean;
-  connected: boolean;
-  exportFile: (template?: boolean) => void;
-  mutate: (action: string, payload: any) => Promise<boolean>;
-  setError: (s: string) => void;
-}) {
-  const [tables, setTables] = useState<Record<string, RawTable>>({});
-  const [sheet, setSheet] = useState("");
-  const [file, setFile] = useState("");
-  const [kind, setKind] = useState<"sessions" | "inventory">("sessions");
-  const [mapping, setMapping] = useState<Record<string, string>>({});
-  const [zero, setZero] = useState(false);
-  const [preview, setPreview] = useState<Dataset | null>(null);
-  const [reading, setReading] = useState(false);
-  const [localError, setLocalError] = useState("");
-  const columns = kind === "sessions" ? sessionColumns : inventoryColumns;
-  const table = tables[sheet];
-  useEffect(() => {
-    if (table) setMapping(guessMapping(table.headers, columns));
-    setPreview(null);
-    setZero(false);
-  }, [sheet, kind, tables]);
-  async function load(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setReading(true);
-    setError("");
-    setLocalError("");
-    setPreview(null);
-    try {
-      if (f.name.endsWith(".json")) {
-        const v = JSON.parse(await f.text());
-        if (v.kind !== "qinghe-operations-backup-v1")
-          throw new Error("Not a Market Operations backup");
-        if (mode === "actual" && v.provenance === "synthetic")
-          throw new Error(
-            t(
-              "Example backups cannot be imported into actual records.",
-              "演示备份不能导入真实记录。",
-            ),
-          );
-        const data = datasetSchema.parse(v.data);
-        setPreview(data);
-        setTables({});
-        setFile(f.name);
-        return;
-      }
-      const result = await readWorkbook(f, mode !== "actual");
-      setTables(result);
-      setSheet(
-        Object.keys(result).find((k) => k === "Market days") ??
-          Object.keys(result)[0],
-      );
-      setFile(f.name);
-    } catch (e: any) {
-      setLocalError(e.message);
-    } finally {
-      setReading(false);
-      e.target.value = "";
-    }
-  }
-  function validate() {
-    try {
-      setLocalError("");
-      const data = prepareImport(table, mapping, kind, file, zero);
-      mergeRecords(state, data);
-      setPreview(data);
-    } catch (e: any) {
-      setPreview(null);
-      setLocalError(e.message);
-    }
-  }
-  return (
-    <div className="exchange-grid">
-      <section className="card import-card">
-        <div className="card-head">
-          <div>
-            <div className="step-label">
-              01 / {t("BRING RECORDS IN", "导入记录")}
-            </div>
-            <h2>{t("Import a spreadsheet", "导入表格")}</h2>
-            <p>
-              {t(
-                "Excel (.xlsx), CSV or a complete JSON backup.",
-                "支持 Excel（.xlsx）、CSV 或完整 JSON 备份。",
-              )}
-            </p>
-          </div>
-          <FileSpreadsheet size={27} />
-        </div>
-        <label className="upload-zone">
-          <Upload size={28} />
-          <b>
-            {reading
-              ? t("Reading file…", "读取中…")
-              : t("Choose your file", "选择文件")}
-          </b>
-          <span>
-            {t(
-              "Map columns → check preview → confirm import",
-              "映射列名 → 预览核对 → 确认导入",
-            )}
-          </span>
-          <input
-            aria-label="Import file"
-            type="file"
-            accept=".csv,.xlsx,.json"
-            onChange={load}
-            disabled={reading || busy}
-          />
-        </label>
-        <p className="form-help">
-          {t(
-            "Use the template for new records, or map columns from your current manager spreadsheet. All payment columns must be mapped or explicitly confirmed as zero.",
-            "新记录可用模板；已有经理表格可映射列名。支付列须全部映射，或明确确认缺失列为零。",
-          )}
-        </p>
-        {table && (
-          <>
-            <div className="form-grid">
-              <label className="field">
-                {t("Worksheet", "工作表")}
-                <select
-                  value={sheet}
-                  onChange={(e) => setSheet(e.target.value)}
-                >
-                  {Object.keys(tables).map((s) => (
-                    <option key={s}>{s}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="field">
-                {t("Record type", "记录类型")}
-                <select
-                  value={kind}
-                  onChange={(e) => setKind(e.target.value as any)}
-                >
-                  <option value="sessions">{t("Market days", "场次")}</option>
-                  <option value="inventory">{t("Inventory", "库存")}</option>
-                </select>
-              </label>
-            </div>
-            <div className="mapping-list">
-              {columns.map((c) => (
-                <label key={c}>
-                  <span>
-                    {c}
-                    <small>{c.endsWith("_usd") ? "USD" : ""}</small>
-                  </span>
-                  <ArrowRight size={13} />
-                  <select
-                    aria-label={"Map " + c}
-                    value={mapping[c] ?? ""}
-                    onChange={(e) => {
-                      setMapping({ ...mapping, [c]: e.target.value });
-                      setPreview(null);
-                    }}
-                  >
-                    <option value="">{t("Not mapped", "未映射")}</option>
-                    {table.headers.map((h) => (
-                      <option key={h}>{h}</option>
-                    ))}
-                  </select>
-                </label>
-              ))}
-            </div>
-            <p className="form-help">
-              {t(
-                "Unmapped ID = new ID; session = Main; format = mobile; status = held; source = filename. Unknown costs / transactions stay blank. Dates must use YYYY-MM-DD. Inventory quantities cannot be blank.",
-                "未映射 ID 自动生成；场次默认为 Main，类型为 mobile，状态为 held，来源为文件名。未知成本和交易笔数留空。日期须为 YYYY-MM-DD，库存数量不可留空。",
-              )}
-            </p>
-            {kind === "sessions" && (
-              <label className="check-label">
-                <input
-                  type="checkbox"
-                  checked={zero}
-                  onChange={(e) => {
-                    setZero(e.target.checked);
-                    setPreview(null);
-                  }}
-                />
-                {t(
-                  "I confirm that payment methods without mapped columns were not used (0).",
-                  "我确认未映射的支付方式没有使用（金额为 0）。",
-                )}
-              </label>
-            )}
-            <button
-              className="btn secondary"
-              disabled={busy}
-              onClick={validate}
-            >
-              {t("Validate & preview", "校验并预览")}
-              <ArrowRight size={16} />
-            </button>
-          </>
-        )}
-        {localError && (
-          <div className="alert error" role="alert">
-            {localError}
-          </div>
-        )}
-        {preview && (
-          <div className="preview-box">
-            <h3>
-              <CheckCircle2 size={18} />
-              {t("Ready to review", "待核对导入")}
-            </h3>
-            <p>
-              {file} · {preview.sessions.length} {t("sessions", "场次")} ·{" "}
-              {preview.inventory.length} {t("inventory rows", "库存记录")}
-            </p>
-            <div className="table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Market</th>
-                    <th>
-                      {preview.sessions.length
-                        ? "Sales (USD)"
-                        : "Product / unit"}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[...preview.sessions, ...preview.inventory]
-                    .slice(0, 8)
-                    .map((r, i) => (
-                      <tr key={i}>
-                        <td>{r.date}</td>
-                        <td>{r.market}</td>
-                        <td>
-                          {"tenders" in r
-                            ? money(sales(r))
-                            : r.product + " / " + r.unit}
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="form-help">
-              {t(
-                "First 8 rows shown. The entire batch is validated. Existing identical rows skip; conflicts reject the entire import.",
-                "显示前 8 行，整批已校验。完全相同的已有行跳过，冲突则整批拒绝。",
-              )}
-            </p>
-            <button
-              className="btn primary"
-              disabled={
-                busy ||
-                (mode === "actual" && !connected) ||
-                (!preview.sessions.length && !preview.inventory.length)
-              }
-              onClick={async () => {
-                if (await mutate("import", { data: preview })) setPreview(null);
-              }}
-            >
-              {t("Confirm import", "确认导入")}
-              <Check size={16} />
-            </button>
-          </div>
-        )}
-      </section>
-      <div className="export-stack">
-        <section className="card">
-          <div className="card-head">
-            <div>
-              <div className="step-label">
-                02 / {t("TAKE RECORDS WITH YOU", "导出与备份")}
-              </div>
-              <h2>{t("A copy you can keep.", "随时留存完整副本。")}</h2>
-              <p>
-                {t(
-                  "Exports include the entire selected workspace, regardless of dashboard filters.",
-                  "导出包含当前工作区全部记录，不受看板筛选影响。",
-                )}
-              </p>
-            </div>
-          </div>
-          <div className="export-buttons">
-            <button disabled={busy} onClick={() => exportFile()}>
-              <span className="file-icon">
-                <FileSpreadsheet size={22} />
-              </span>
-              <span>
-                <b>{t("Excel workbook", "Excel 工作簿")}</b>
-                <small>
-                  {t(
-                    "Read me + market days + inventory",
-                    "说明页 + 场次 + 库存",
-                  )}
-                </small>
-              </span>
-              <Download size={18} />
-            </button>
-            <button
-              disabled={busy}
-              onClick={() =>
-                download(
-                  new Blob(
-                    [
-                      JSON.stringify(
-                        {
-                          kind: "qinghe-operations-backup-v1",
-                          provenance:
-                            mode === "demo" ? "synthetic" : "recorded",
-                          exported_at: new Date().toISOString(),
-                          data: {
-                            sessions: state.sessions,
-                            inventory: state.inventory,
-                          },
-                        },
-                        null,
-                        2,
-                      ),
-                    ],
-                    { type: "application/json" },
-                  ),
-                  `market-operations-${mode}-${today()}.json`,
-                )
-              }
-            >
-              <span className="file-icon">
-                <Database size={22} />
-              </span>
-              <span>
-                <b>{t("Complete backup", "完整备份")}</b>
-                <small>
-                  {t(
-                    "JSON · import to restore missing records",
-                    "JSON · 导入可恢复缺失记录",
-                  )}
-                </small>
-              </span>
-              <Download size={18} />
-            </button>
-            <button disabled={busy} onClick={() => exportFile(true)}>
-              <span className="file-icon">
-                <NotebookPen size={22} />
-              </span>
-              <span>
-                <b>{t("Blank import template", "空白录入模板")}</b>
-                <small>
-                  {t(
-                    "Standard columns + a plain-language guide",
-                    "标准字段 + 通俗说明",
-                  )}
-                </small>
-              </span>
-              <Download size={18} />
-            </button>
-          </div>
-        </section>
-        <section className="guide-card">
-          <Info size={22} />
-          <h3>{t("What goes in this tool?", "这里记录什么？")}</h3>
-          <p>
-            {t(
-              "Record the sales made by the mobile market or other seller you are tracking. Vendor gross sales are not automatically the operator’s revenue.",
-              "记录流动市集或所跟踪销售主体的销售。独立商户的成交额不自动等于运营方收入。",
-            )}
-          </p>
-          <p>
-            {t(
-              "SNAP, Market Bucks and WIC are payment methods within sales. Grant receipts, restricted funds and bank cash need their own financial ledger.",
-              "SNAP、Market Bucks 和 WIC 是销售中的支付方式。资助到账、专项资金和银行现金需另行记账。",
-            )}
-          </p>
-          <p>
-            {t(
-              browserHosted
-                ? "Your records stay in this browser and are not uploaded to the public website. Export a JSON backup before clearing browser data or moving to another device. Records are not synchronized between people or devices."
-                : "Actual records start empty. The local service saves them in SQLite; the example workspace stays in this browser. A shared team deployment needs authentication and hosting.",
-              browserHosted
-                ? "记录仅保存在此浏览器，不会上传到公开网站。清理浏览器或换设备前请导出 JSON 备份；不同人员、设备之间不会自动同步。"
-                : "真实记录初始为空，本地服务将其存入 SQLite；演示数据仅保存在浏览器。团队共用需另行配置身份验证及托管。",
-            )}
-          </p>
-        </section>
-      </div>
-    </div>
-  );
-}
 function Planning({ t }: { t: (a: string, b: string) => string }) {
   const defaults = {
     price: 4.5,
@@ -2177,6 +2035,10 @@ function Planning({ t }: { t: (a: string, b: string) => string }) {
   };
   const [p, setP] = useState(defaults);
   const result = crossSubsidy(p);
+  const sensitivity = Array.from({ length: 11 }, (_, i) => ({
+    loss: i * 10,
+    ...crossSubsidy({ ...p, shrink: i * 10 }),
+  }));
   const fields: [keyof typeof p, string, string, string][] = [
     ["price", "Standard-stop selling price", "常规点位售价", "USD / unit"],
     ["cost", "Purchase cost", "采购价", "USD / unit"],
@@ -2320,6 +2182,86 @@ function Planning({ t }: { t: (a: string, b: string) => string }) {
           </section>
         </div>
       </div>
+      <section className="card subsidy-sensitivity">
+        <div className="card-head">
+          <div>
+            <h2>
+              {t(
+                "How loss changes the contribution",
+                "未售与损耗如何影响场次贡献",
+              )}
+            </h2>
+            <p>
+              {t(
+                "All other assumptions fixed; quantity purchased is charged in full.",
+                "保持其他假设不变，采购数量全额计入成本。",
+              )}
+            </p>
+          </div>
+          <button
+            className="btn secondary"
+            onClick={() =>
+              download(
+                new Blob(
+                  [
+                    delimited(
+                      ["metric", "value"],
+                      [
+                        ...Object.entries(p),
+                        ...Object.entries(result).map(([k, v]) => [
+                          "result_" + k,
+                          v,
+                        ]),
+                      ],
+                    ),
+                  ],
+                  { type: "text/csv;charset=utf-8" },
+                ),
+                `cross-subsidy-assumptions-${today()}.csv`,
+              )
+            }
+          >
+            <Download size={16} />
+            {t("Export calculation", "导出测算")}
+          </button>
+        </div>
+        <div
+          className="sensitivity-chart"
+          role="img"
+          aria-label="Loss and contribution sensitivity"
+        >
+          <ResponsiveContainer width="100%" height={270}>
+            <LineChart
+              data={sensitivity}
+              margin={{ top: 10, right: 30, left: 12, bottom: 20 }}
+            >
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="loss"
+                tickFormatter={(v) => v + "%"}
+                label={{
+                  value: t("Unsold / loss share", "未售 / 损耗占比"),
+                  position: "insideBottom",
+                  offset: -15,
+                }}
+              />
+              <YAxis tickFormatter={(v) => "$" + v} width={65} />
+              <Tooltip
+                labelFormatter={(v) => v + "%"}
+                formatter={(v: any) => amount(Number(v))}
+              />
+              <ReferenceLine y={0} stroke="#9f7770" />
+              <Line
+                dataKey="contribution"
+                name={t("Contribution", "场次贡献")}
+                stroke="#315c48"
+                strokeWidth={2.5}
+                isAnimationActive={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </section>
       <section className="card next-models">
         <div className="card-head">
           <div>
@@ -2338,17 +2280,17 @@ function Planning({ t }: { t: (a: string, b: string) => string }) {
           {[
             [
               "01",
-              "Procurement & loss",
-              "采购与损耗",
-              "How much should we buy, and when should surplus move to an on-site market? Start with 4–8 weeks of product-level sales and stock records.",
-              "采购多少、何时将余货转回固定市场？先积累 4–8 周逐商品销售与库存，做单周期订货和损耗比较。",
+              "Demand & order quantities",
+              "需求与订货量",
+              "Use 4–8 weeks of product-level sales, stockouts, spoilage and comparable quotes to estimate demand ranges. Backtest a simple historical baseline before adding weather or a single-period order model.",
+              "先积累 4–8 周逐商品销售、缺货、损耗及可比报价，估计需求区间；先回测历史基线，再加入天气变量或单周期订货模型。",
             ],
             [
               "02",
-              "Supplier delivered cost",
-              "供应商到岸成本",
-              "Compare like-for-like pack sizes, minimum order rules, delivery fees and packing labor. Confirm whether $500 means an order minimum or a fee.",
-              "统一包装单位，比较最低订单、运费与分装人工。先核实转录中的 $500 是起送额还是配送费。",
+              "Surplus transfer decisions",
+              "余货调拨决策",
+              "Record transfer time, remaining shelf life, receiving-stop demand and transport cost. Compare expected sale proceeds against donation, spoilage and transfer cost without counting the same goods as two purchases.",
+              "记录调拨时间、剩余保质期、接收点需求及运输成本；比较再售、捐赠与损耗的结果，避免同一批商品被重复算作两次采购。",
             ],
             [
               "03",

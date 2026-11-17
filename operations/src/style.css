@@ -15,6 +15,7 @@
   --line: #e7eae2;
   --orange: #d39b4f;
 }
+
 * {
   box-sizing: border-box;
 }
@@ -1852,4 +1853,321 @@ html[lang="zh-CN"] .metric > span {
   .empty-state p {
     font-size: 10px;
   }
+}
+
+/* Operations analysis and spreadsheet tools */
+.insights-card,
+.inventory-visuals,
+.quote-editor {
+  margin: 24px 0;
+}
+.insight-grid,
+.procurement-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+  gap: 28px;
+}
+.insight-grid {
+  padding: 8px 28px 24px;
+  align-items: center;
+}
+.procurement-grid {
+  margin: 24px 0;
+  align-items: start;
+}
+.procurement-grid > .card,
+.quote-editor {
+  padding: 0 24px 24px;
+}
+.procurement-grid .card-head,
+.quote-editor .card-head {
+  padding-left: 0;
+  padding-right: 0;
+}
+.procurement-grid .form-grid,
+.quote-editor .form-grid {
+  gap: 0 18px;
+}
+.quality-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0 20px;
+}
+.quality-head strong {
+  font-family: Georgia, serif;
+  font-size: 32px;
+  color: #214d40;
+}
+.quality-head span {
+  color: #6d786d;
+  font-size: 12px;
+}
+progress {
+  width: 100%;
+  accent-color: #315c48;
+  height: 12px;
+}
+.quality-list {
+  margin: 15px 0;
+  padding: 0;
+  list-style: none;
+}
+.quality-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid #e9ece6;
+  font-size: 12px;
+}
+.quality-list .legend-dot {
+  display: inline-block;
+  margin-right: 8px;
+}
+.insights-card > .form-help,
+.inventory-visuals > details {
+  padding: 0 28px 22px;
+}
+.inventory-visuals .card-head select {
+  max-width: 48%;
+}
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.register-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 0 0 18px;
+}
+.register-toolbar > input {
+  flex: 1;
+  min-width: 180px;
+}
+.register-toolbar input,
+.register-toolbar select,
+.pagination select,
+.card-head > select {
+  border: 1px solid #dce3d9;
+  border-radius: 7px;
+  padding: 10px 12px;
+  background: white;
+  color: #294b3c;
+  font: inherit;
+  font-size: 12px;
+}
+.register-toolbar > span,
+.pagination {
+  font-size: 12px;
+  color: #68766a;
+}
+.pagination {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+.batch-import {
+  margin: 24px 28px;
+  padding: 18px;
+  background: #eff4ec;
+  border-radius: 10px;
+}
+.batch-import h3,
+.delimited-export h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+.batch-import p {
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.column-mapping > summary {
+  padding: 14px 28px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.import-errors {
+  margin: 18px 28px;
+}
+.import-errors td {
+  white-space: normal;
+  min-width: 80px;
+  max-width: 300px;
+}
+.import-errors .table-scroll {
+  max-height: 330px;
+  margin-top: 16px;
+}
+.import-totals {
+  display: flex;
+  gap: 18px;
+  margin: 14px 0;
+  font-size: 13px;
+}
+.delimited-export {
+  padding: 22px 28px;
+  border-top: 1px solid #e8eddf;
+}
+.assumption-banner {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #edf1e7;
+  border-radius: 12px;
+  margin-bottom: 22px;
+  color: #294b3c;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.comparison-select {
+  margin: 0 28px 24px;
+  max-width: 560px;
+}
+.input-unit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.input-unit input {
+  min-width: 0;
+  width: 100%;
+}
+.input-unit small {
+  min-width: 60px;
+  color: #6f796c;
+}
+.radio-label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.file-button {
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
+}
+.file-button input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  cursor: pointer;
+}
+.procurement-metrics .metric strong {
+  font-size: 29px;
+}
+.delete-quote {
+  padding: 20px 28px;
+  margin: 20px 0;
+}
+.quote-editor fieldset {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+.quote-editor textarea {
+  width: 100%;
+  min-height: 75px;
+}
+.card > .form-help {
+  margin-left: 28px;
+  margin-right: 28px;
+}
+@media (max-width: 1100px) {
+  .procurement-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 700px) {
+  .insight-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 10px 16px 22px;
+  }
+  .inventory-visuals .card-head {
+    flex-wrap: wrap;
+  }
+  .inventory-visuals .card-head select {
+    max-width: 100%;
+    width: 100%;
+  }
+  .register-toolbar {
+    gap: 8px;
+  }
+  .register-toolbar input {
+    width: 100%;
+    flex-basis: 100%;
+  }
+  .register-toolbar .btn {
+    font-size: 11px;
+  }
+  .pagination {
+    justify-content: center;
+    gap: 8px;
+  }
+  .batch-import,
+  .import-errors {
+    margin: 18px;
+  }
+  .comparison-select {
+    margin: 0 18px 20px;
+  }
+  .procurement-grid > .card,
+  .quote-editor {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+  .procurement-grid .form-grid,
+  .quote-editor .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .procurement-metrics .metric strong {
+    font-size: 24px;
+  }
+  .button-row .btn {
+    font-size: 11px;
+    padding: 9px 12px;
+  }
+  .card-head:has(.button-row) {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .column-mapping > summary {
+    padding-left: 18px;
+  }
+  .export-buttons > button {
+    gap: 12px;
+  }
+}
+.procurement-grid > .card,
+.insight-grid > *,
+.procurement-grid > *,
+.exchange-grid > * {
+  min-width: 0;
+}
+
+.subsidy-sensitivity {
+  margin: 24px 0;
+}
+.sensitivity-chart {
+  padding: 0 16px 16px;
+}
+.subsidy-sensitivity .card-head {
+  flex-wrap: wrap;
+}
+
+.radio-label > span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }

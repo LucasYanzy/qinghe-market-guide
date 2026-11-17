@@ -40,6 +40,7 @@ test("browser records persist, reject stale writes and preserve unknown costs", 
   assert.deepEqual(readBrowserRecords(store), {
     sessions: [],
     inventory: [],
+    quotes: [],
     revision: 0,
   });
   writeBrowserRecords(store, "records/sessions", { record: record() }, 0);

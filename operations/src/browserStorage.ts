@@ -3,11 +3,12 @@ import {
   datasetSchema,
   sessionSchema,
   inventorySchema,
+  quoteSchema,
+  type RecordKind,
+  type MarketRecord,
   mergeRecords,
   recordKey,
   type Dataset,
-  type Session,
-  type Inventory,
 } from "../shared/domain.ts";
 
 export const recordsStorageKey = "qinghe-market-guide:operations:records:v1";
@@ -19,7 +20,8 @@ type RecordStorage = Pick<Storage, "getItem" | "setItem">;
 
 export function readBrowserRecords(storage: RecordStorage): BrowserState {
   const value = storage.getItem(recordsStorageKey);
-  if (value === null) return { sessions: [], inventory: [], revision: 0 };
+  if (value === null)
+    return { sessions: [], inventory: [], quotes: [], revision: 0 };
   try {
     return stateSchema.parse(JSON.parse(value));
   } catch {
@@ -41,6 +43,7 @@ export function writeBrowserRecords(
   let data: Dataset = {
     sessions: [...current.sessions],
     inventory: [...current.inventory],
+    quotes: [...current.quotes],
   };
   let stats: { added: number; skipped: number } | undefined;
   if (action === "import") {
@@ -48,23 +51,27 @@ export function writeBrowserRecords(
     data = merged.data;
     stats = { added: merged.added, skipped: merged.skipped };
   } else {
-    const save = /^records\/(sessions|inventory)$/.exec(action);
-    const remove = /^delete\/(sessions|inventory)\/(.+)$/.exec(action);
+    const save = /^records\/(sessions|inventory|quotes)$/.exec(action);
+    const remove = /^delete\/(sessions|inventory|quotes)\/(.+)$/.exec(action);
     if (save) {
-      const kind = save[1] as "sessions" | "inventory";
-      const row = (kind === "sessions" ? sessionSchema : inventorySchema).parse(
-        payload.record,
-      );
-      const list = data[kind] as (Session | Inventory)[];
+      const kind = save[1] as RecordKind;
+      const row = (
+        kind === "sessions"
+          ? sessionSchema
+          : kind === "inventory"
+            ? inventorySchema
+            : quoteSchema
+      ).parse(payload.record);
+      const list = data[kind] as MarketRecord[];
       if (list.some((r) => r.id !== row.id && recordKey(r) === recordKey(row)))
         throw new Error(
-          "A record already exists for this date, market and session",
+          "A record with the same identifying fields already exists",
         );
       const index = list.findIndex((r) => r.id === row.id);
       if (index < 0) list.push(row);
       else list[index] = row;
     } else if (remove) {
-      const kind = remove[1] as "sessions" | "inventory";
+      const kind = remove[1] as RecordKind;
       const id = decodeURIComponent(remove[2]);
       if (!data[kind].some((r) => r.id === id))
         throw new Error("Record no longer exists");

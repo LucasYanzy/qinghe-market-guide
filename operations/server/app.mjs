@@ -6,6 +6,7 @@ import {
   datasetSchema,
   sessionSchema,
   inventorySchema,
+  quoteSchema,
   recordKey,
   mergeRecords,
 } from "../shared/domain.ts";
@@ -18,7 +19,10 @@ export function createApp(databasePath) {
   );
   const read = () => {
     const row = db.prepare("SELECT * FROM state WHERE id=1").get();
-    return { ...JSON.parse(row.body), revision: row.revision };
+    return {
+      ...datasetSchema.parse(JSON.parse(row.body)),
+      revision: row.revision,
+    };
   };
   const app = express();
   app.disable("x-powered-by");
@@ -34,11 +38,9 @@ export function createApp(databasePath) {
         "http://localhost:5186",
       ]);
       if (origin && !allowed.has(origin))
-        return res
-          .status(403)
-          .json({
-            error: "This request must come from the market operations app",
-          });
+        return res.status(403).json({
+          error: "This request must come from the market operations app",
+        });
       if (!req.is("application/json"))
         return res.status(415).json({ error: "Send JSON data" });
     }
@@ -54,11 +56,9 @@ export function createApp(databasePath) {
         req.body.revision !== current.revision
       ) {
         db.exec("ROLLBACK");
-        return res
-          .status(409)
-          .json({
-            error: "Records changed in another tab. Refresh before saving.",
-          });
+        return res.status(409).json({
+          error: "Records changed in another tab. Refresh before saving.",
+        });
       }
       const { revision, ...data } = current;
       const result = fn(data);
@@ -81,23 +81,25 @@ export function createApp(databasePath) {
       });
     } catch (e) {
       db.exec("ROLLBACK");
-      res
-        .status(400)
-        .json({
-          error:
-            e.issues
-              ?.map((i) => `${i.path.join(".")}: ${i.message}`)
-              .join("; ") ?? e.message,
-        });
+      res.status(400).json({
+        error:
+          e.issues
+            ?.map((i) => `${i.path.join(".")}: ${i.message}`)
+            .join("; ") ?? e.message,
+      });
     }
   }
   app.post("/api/records/:kind", (req, res) => {
     const kind = req.params.kind;
-    if (!["sessions", "inventory"].includes(kind))
+    if (!["sessions", "inventory", "quotes"].includes(kind))
       return res.status(404).json({ error: "Unknown record type" });
     write(req, res, `save ${kind}`, (data) => {
       const record = (
-        kind === "sessions" ? sessionSchema : inventorySchema
+        kind === "sessions"
+          ? sessionSchema
+          : kind === "inventory"
+            ? inventorySchema
+            : quoteSchema
       ).parse(req.body.record);
       const existing = data[kind].findIndex((x) => x.id === record.id);
       if (
@@ -106,7 +108,7 @@ export function createApp(databasePath) {
         )
       )
         throw new Error(
-          "A record already exists for this date, market and session",
+          "A record with the same identifying fields already exists",
         );
       const rows = [...data[kind]];
       if (existing >= 0) rows[existing] = record;
@@ -126,7 +128,7 @@ export function createApp(databasePath) {
   );
   app.post("/api/delete/:kind/:id", (req, res) => {
     const kind = req.params.kind;
-    if (!["sessions", "inventory"].includes(kind))
+    if (!["sessions", "inventory", "quotes"].includes(kind))
       return res.status(404).json({ error: "Unknown record type" });
     write(req, res, `delete ${kind}`, (data) => {
       if (!data[kind].some((x) => x.id === req.params.id))
@@ -140,16 +142,14 @@ export function createApp(databasePath) {
     });
   });
   app.use((err, _req, res, _next) =>
-    res
-      .status(err.status ?? 500)
-      .json({
-        error:
-          err.type === "entity.too.large"
-            ? "File is too large (12 MB maximum)"
-            : err instanceof SyntaxError
-              ? "Invalid JSON"
-              : "Unable to process this request",
-      }),
+    res.status(err.status ?? 500).json({
+      error:
+        err.type === "entity.too.large"
+          ? "File is too large (12 MB maximum)"
+          : err instanceof SyntaxError
+            ? "Invalid JSON"
+            : "Unable to process this request",
+    }),
   );
   return { app, db };
 }

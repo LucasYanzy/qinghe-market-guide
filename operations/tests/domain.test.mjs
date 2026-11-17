@@ -36,7 +36,7 @@ test("currency uses exact cents and rejects silent rounding / negative amounts",
   assert.equal(centsFrom("19.99"), 1999);
   assert.equal(centsFrom("1,234.56"), 123456);
   assert.equal(centsFrom("", true), null);
-  for (const n of ["", "-1", "1.001", "Infinity", "not a number"])
+  for (const n of ["", "-1", "1.001", "1,20", "Infinity", "not a number"])
     assert.throws(() => centsFrom(n));
 });
 test("calendar dates and cancellation rules are validated", () => {
