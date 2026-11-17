@@ -103,14 +103,45 @@ export const inventorySchema = z
   );
 export type Session = z.infer<typeof sessionSchema>;
 export type Inventory = z.infer<typeof inventorySchema>;
-export type Dataset = { sessions: Session[]; inventory: Inventory[] };
+export const quoteSchema = z
+  .object({
+    id: text.min(1),
+    date: dateSchema,
+    supplier: text.min(1),
+    product: text.min(1),
+    unit: text.min(1),
+    spec: text.min(1),
+    pack_size: quantity.positive(),
+    pack_price: cents,
+    minimum_order: cents,
+    delivery: cents,
+    handling: cents,
+    yield_pct: z.number().finite().positive().max(100),
+    lead_days: z.number().int().min(0).max(365),
+    source_ref: text.min(1),
+    notes: z.string().max(2000),
+  })
+  .strict();
+export type Quote = z.infer<typeof quoteSchema>;
+export type RecordKind = "sessions" | "inventory" | "quotes";
+export type MarketRecord = Session | Inventory | Quote;
+export type Dataset = {
+  sessions: Session[];
+  inventory: Inventory[];
+  quotes: Quote[];
+};
 export const datasetSchema = z
   .object({
     sessions: z.array(sessionSchema).max(20000),
     inventory: z.array(inventorySchema).max(50000),
+    quotes: z.array(quoteSchema).max(10000).default([]),
   })
   .strict();
-export function recordKey(s: Session | Inventory) {
+export function recordKey(s: MarketRecord) {
+  if ("supplier" in s)
+    return [s.date, s.supplier, s.product, s.unit, s.spec, String(s.pack_size)]
+      .map((x) => x.trim().toLowerCase())
+      .join("\u001f");
   return [
     s.date,
     s.market.toLowerCase(),
@@ -136,7 +167,12 @@ export function centsFrom(value: unknown, optional = false): number | null {
     if (optional) return null;
     throw new Error("Enter a dollar amount, including 0 when confirmed");
   }
-  const s = String(value).trim().replace(/^\$/, "").replace(/,/g, "");
+  const raw = String(value).trim().replace(/^\$/, "");
+  if (raw.includes(",") && !/^\d{1,3}(,\d{3})+(\.\d{1,2})?$/.test(raw))
+    throw new Error(
+      "Use comma thousands groups and a dot decimal separator for USD",
+    );
+  const s = raw.replace(/,/g, "");
   if (!/^\d+(\.\d{1,2})?$/.test(s))
     throw new Error("Use nonnegative USD with at most two decimals");
   const [d, f = ""] = s.split(".");
@@ -149,26 +185,27 @@ export function mergeRecords(current: Dataset, incoming: Dataset) {
   const next: Dataset = {
     sessions: [...current.sessions],
     inventory: [...current.inventory],
+    quotes: [...(current.quotes ?? [])],
   };
   let added = 0,
     skipped = 0;
-  for (const kind of ["sessions", "inventory"] as const) {
+  for (const kind of ["sessions", "inventory", "quotes"] as const) {
     const keys = new Map(next[kind].map((r) => [recordKey(r), r]));
     const ids = new Set(next[kind].map((r) => r.id));
-    for (const row of incoming[kind]) {
+    for (const row of incoming[kind] ?? []) {
       const old = keys.get(recordKey(row));
       if (old) {
         const { id: _, ...a } = old;
         const { id: __, ...b } = row;
         if (JSON.stringify(a) !== JSON.stringify(b))
           throw new Error(
-            `Conflicting existing record: ${row.date} / ${row.market} / ${row.session}. Edit that record instead.`,
+            `Conflicting existing record: ${row.date} / ${"supplier" in row ? row.supplier + " / " + row.product : row.market + " / " + row.session}. Edit that record instead.`,
           );
         skipped++;
         continue;
       }
       if (ids.has(row.id)) throw new Error("Duplicate record ID");
-      (next[kind] as (Session | Inventory)[]).push(row);
+      (next[kind] as MarketRecord[]).push(row);
       keys.set(recordKey(row), row);
       ids.add(row.id);
       added++;
@@ -226,11 +263,17 @@ export function grouped(rows: Session[], period: "day" | "week" | "month") {
       wic: 0,
       other: 0,
     };
-    for (const k of tenderKeys) r[k] += s.tenders[k] / 100;
-    r.total += sales(s) / 100;
+    for (const k of tenderKeys) r[k] += s.tenders[k];
+    r.total += sales(s);
     result.set(date, r);
   }
-  return [...result.values()].sort((a, b) => a.date.localeCompare(b.date));
+  return [...result.values()]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((r) => ({
+      ...r,
+      total: r.total / 100,
+      ...Object.fromEntries(tenderKeys.map((k) => [k, r[k] / 100])),
+    })) as ({ date: string; total: number } & Record<Tender, number>)[];
 }
 export function crossSubsidy(p: {
   price: number;

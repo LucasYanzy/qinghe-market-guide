@@ -48,6 +48,7 @@ test("local records persist; stale tabs and import conflicts cannot overwrite da
     assert.deepEqual(await (await fetch(base + "/api/state")).json(), {
       sessions: [],
       inventory: [],
+      quotes: [],
       revision: 0,
     });
     assert.equal(
@@ -97,13 +98,56 @@ test("local records persist; stale tabs and import conflicts cannot overwrite da
       ).status,
       403,
     );
+    const quote = {
+      id: "quote-test",
+      date: "2026-11-17",
+      supplier: "API fixture",
+      product: "Apples",
+      unit: "lb",
+      spec: "Grade A",
+      pack_size: 20,
+      pack_price: 3000,
+      minimum_order: 10000,
+      delivery: 1000,
+      handling: 200,
+      yield_pct: 80,
+      lead_days: 3,
+      source_ref: "API test quote",
+      notes: "",
+    };
+    assert.equal(
+      (await post("/api/records/quotes", { revision: 2, record: quote }))
+        .status,
+      200,
+    );
+    assert.equal(
+      (
+        await post("/api/import", {
+          revision: 3,
+          data: {
+            sessions: [record("must-not-save", { market: "Z" })],
+            inventory: [],
+            quotes: [{ ...quote, id: "quote-conflict", delivery: 2000 }],
+          },
+        })
+      ).status,
+      400,
+    );
+    const afterConflict = await (await fetch(base + "/api/state")).json();
+    assert.equal(afterConflict.quotes[0].delivery, 1000);
+    assert.equal(afterConflict.sessions.length, 1);
+    assert.equal(afterConflict.revision, 3);
+    assert.equal(
+      (await post("/api/delete/quotes/quote-test", { revision: 3 })).status,
+      200,
+    );
     await new Promise((r) => server.close(r));
     server = null;
     db.close();
     db = null;
     built = createApp(file);
     db = built.db;
-    assert.equal(db.prepare("SELECT revision FROM state").get().revision, 2);
+    assert.equal(db.prepare("SELECT revision FROM state").get().revision, 4);
     assert.equal(
       JSON.parse(db.prepare("SELECT body FROM state").get().body).sessions[0]
         .id,
